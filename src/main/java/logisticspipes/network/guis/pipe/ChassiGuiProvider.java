@@ -32,52 +32,34 @@ public class ChassiGuiProvider extends BooleanModuleCoordinatesGuiProvider {
     @Override
     public DummyContainer getContainer(EntityPlayer player) {
         LogisticsTileGenericPipe pipe = getPipe(player.getEntityWorld());
-        if (pipe == null || !(pipe.pipe instanceof PipeLogisticsChassi)) {
+        if (pipe == null || !(pipe.pipe instanceof PipeLogisticsChassi chassisPipe)) {
             return null;
         }
-        final PipeLogisticsChassi _chassiPipe = (PipeLogisticsChassi) pipe.pipe;
-        IInventory _moduleInventory = _chassiPipe.getModuleInventory();
-        DummyContainer dummy = new DummyContainer(player.inventory, _moduleInventory);
-        if (_chassiPipe.getChassiSize() < 5) {
-            dummy.addNormalSlotsForPlayerInventory(18, 97);
-        } else {
-            dummy.addNormalSlotsForPlayerInventory(18, 174);
-        }
-        if (_chassiPipe.getChassiSize() > 0) {
-            dummy.addModuleSlot(0, _moduleInventory, 19, 9, _chassiPipe);
-        }
-        if (_chassiPipe.getChassiSize() > 1) {
-            dummy.addModuleSlot(1, _moduleInventory, 19, 29, _chassiPipe);
-        }
-        if (_chassiPipe.getChassiSize() > 2) {
-            dummy.addModuleSlot(2, _moduleInventory, 19, 49, _chassiPipe);
-        }
-        if (_chassiPipe.getChassiSize() > 3) {
-            dummy.addModuleSlot(3, _moduleInventory, 19, 69, _chassiPipe);
-        }
-        if (_chassiPipe.getChassiSize() > 4) {
-            dummy.addModuleSlot(4, _moduleInventory, 19, 89, _chassiPipe);
-            dummy.addModuleSlot(5, _moduleInventory, 19, 109, _chassiPipe);
-            dummy.addModuleSlot(6, _moduleInventory, 19, 129, _chassiPipe);
-            dummy.addModuleSlot(7, _moduleInventory, 19, 149, _chassiPipe);
+        IInventory moduleInventory = chassisPipe.getModuleInventory();
+        DummyContainer dummy = new DummyContainer(player.inventory, moduleInventory);
+        for (int moduleSlot = 0; moduleSlot < chassisPipe.getChassieSize(); moduleSlot++) {
+            dummy.addModuleSlot(moduleSlot, moduleInventory, 19, 9 + 20 * moduleSlot, chassisPipe);
         }
 
-        if (_chassiPipe.getUpgradeManager().hasUpgradeModuleUpgrade()) {
-            for (int i = 0; i < _chassiPipe.getChassiSize(); i++) {
+        dummy.addNormalSlotsForPlayerInventory(18, 20 * chassisPipe.getChassieSize() + 20);
+
+
+        if (chassisPipe.getUpgradeManager().hasUpgradeModuleUpgrade()) {
+            for (int i = 0; i < chassisPipe.getChassiSize(); i++) {
                 final int fI = i;
-                ModuleUpgradeManager upgradeManager = _chassiPipe.getModuleUpgradeManager(i);
+                ModuleUpgradeManager upgradeManager = chassisPipe.getModuleUpgradeManager(i);
                 dummy.addRestrictedSlot(
                         0,
                         upgradeManager.getInv(),
                         145,
                         9 + i * 20,
-                        itemStack -> ChassiGuiProvider.checkStack(itemStack, _chassiPipe, fI));
+                        itemStack -> ChassiGuiProvider.checkStack(itemStack, chassisPipe, fI));
                 dummy.addRestrictedSlot(
                         1,
                         upgradeManager.getInv(),
                         165,
                         9 + i * 20,
-                        itemStack -> ChassiGuiProvider.checkStack(itemStack, _chassiPipe, fI));
+                        itemStack -> ChassiGuiProvider.checkStack(itemStack, chassisPipe, fI));
             }
         }
         return dummy;

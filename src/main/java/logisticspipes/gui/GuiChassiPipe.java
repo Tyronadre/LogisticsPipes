@@ -4,11 +4,13 @@
  */
 package logisticspipes.gui;
 
+import logisticspipes.utils.Color;
 import net.minecraft.client.gui.GuiButton;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.inventory.IInventory;
 import net.minecraft.item.ItemStack;
 
+import net.minecraft.util.ResourceLocation;
 import org.lwjgl.opengl.GL11;
 
 import logisticspipes.items.ItemModule;
@@ -28,7 +30,7 @@ import logisticspipes.utils.string.StringUtils;
 
 public class GuiChassiPipe extends LogisticsBaseGuiScreen {
 
-    private final PipeLogisticsChassi _chassiPipe;
+    private final PipeLogisticsChassi chassisPipe;
     private final EntityPlayer _player;
     private final IInventory _moduleInventory;
     // private final GuiScreen _previousGui;
@@ -36,71 +38,51 @@ public class GuiChassiPipe extends LogisticsBaseGuiScreen {
     private int left;
     private int top;
 
-    private final boolean hasUpgradeModuleUpgarde;
+    private final boolean hasUpgradeModuleUpgrade;
 
-    public GuiChassiPipe(EntityPlayer player, PipeLogisticsChassi chassi, boolean hasUpgradeModuleUpgarde) { // ,
+    public GuiChassiPipe(EntityPlayer player, PipeLogisticsChassi chassi, boolean hasUpgradeModuleUpgrade) { // ,
         // GuiScreen
         // previousGui)
         // {
         super(null);
         _player = player;
-        _chassiPipe = chassi;
+        chassisPipe = chassi;
         _moduleInventory = chassi.getModuleInventory();
         // _previousGui = previousGui;
-        this.hasUpgradeModuleUpgarde = hasUpgradeModuleUpgarde;
+        this.hasUpgradeModuleUpgrade = hasUpgradeModuleUpgrade;
 
-        DummyContainer dummy = new DummyContainer(_player.inventory, _moduleInventory);
-        if (_chassiPipe.getChassiSize() < 5) {
-            dummy.addNormalSlotsForPlayerInventory(18, 97);
-        } else {
-            dummy.addNormalSlotsForPlayerInventory(18, 174);
-        }
-        if (_chassiPipe.getChassiSize() > 0) {
-            dummy.addModuleSlot(0, _moduleInventory, 19, 9, _chassiPipe);
-        }
-        if (_chassiPipe.getChassiSize() > 1) {
-            dummy.addModuleSlot(1, _moduleInventory, 19, 29, _chassiPipe);
-        }
-        if (_chassiPipe.getChassiSize() > 2) {
-            dummy.addModuleSlot(2, _moduleInventory, 19, 49, _chassiPipe);
-        }
-        if (_chassiPipe.getChassiSize() > 3) {
-            dummy.addModuleSlot(3, _moduleInventory, 19, 69, _chassiPipe);
-        }
-        if (_chassiPipe.getChassiSize() > 4) {
-            dummy.addModuleSlot(4, _moduleInventory, 19, 89, _chassiPipe);
-            dummy.addModuleSlot(5, _moduleInventory, 19, 109, _chassiPipe);
-            dummy.addModuleSlot(6, _moduleInventory, 19, 129, _chassiPipe);
-            dummy.addModuleSlot(7, _moduleInventory, 19, 149, _chassiPipe);
+        IInventory moduleInventory = chassisPipe.getModuleInventory();
+        DummyContainer dummy = new DummyContainer(player.inventory, moduleInventory);
+        for (int moduleSlot = 0; moduleSlot < chassisPipe.getChassieSize(); moduleSlot++) {
+            dummy.addModuleSlot(moduleSlot, moduleInventory, 19, 9 + 20 * moduleSlot, chassisPipe);
         }
 
-        if (hasUpgradeModuleUpgarde) {
-            for (int i = 0; i < _chassiPipe.getChassiSize(); i++) {
+        dummy.addNormalSlotsForPlayerInventory(18, 20 * chassisPipe.getChassieSize() + 17);
+
+
+        if (hasUpgradeModuleUpgrade) {
+            for (int i = 0; i < chassisPipe.getChassiSize(); i++) {
                 final int fI = i;
-                ModuleUpgradeManager upgradeManager = _chassiPipe.getModuleUpgradeManager(i);
+                ModuleUpgradeManager upgradeManager = chassisPipe.getModuleUpgradeManager(i);
                 dummy.addRestrictedSlot(
-                        0,
-                        upgradeManager.getInv(),
-                        145,
-                        9 + i * 20,
-                        itemStack -> ChassiGuiProvider.checkStack(itemStack, _chassiPipe, fI));
+                    0,
+                    upgradeManager.getInv(),
+                    145,
+                    9 + i * 20,
+                    itemStack -> ChassiGuiProvider.checkStack(itemStack, chassisPipe, fI));
                 dummy.addRestrictedSlot(
-                        1,
-                        upgradeManager.getInv(),
-                        165,
-                        9 + i * 20,
-                        itemStack -> ChassiGuiProvider.checkStack(itemStack, _chassiPipe, fI));
+                    1,
+                    upgradeManager.getInv(),
+                    165,
+                    9 + i * 20,
+                    itemStack -> ChassiGuiProvider.checkStack(itemStack, chassisPipe, fI));
             }
         }
 
         inventorySlots = dummy;
 
-        xSize = 194;
-        ySize = 186;
-
-        if (_chassiPipe.getChassiSize() > 4) {
-            ySize = 256;
-        }
+        xSize = 195;
+        ySize = chassi.getChassiSize() * 20 + 107;
     }
 
     @Override
@@ -111,63 +93,46 @@ public class GuiChassiPipe extends LogisticsBaseGuiScreen {
         top = height / 2 - ySize / 2;
 
         buttonList.clear();
-        for (int i = 0; i < _chassiPipe.getChassiSize(); i++) {
+        for (int i = 0; i < chassisPipe.getChassiSize(); i++) {
             buttonList.add(new SmallGuiButton(i, left + 5, top + 12 + 20 * i, 10, 10, "!"));
             if (_moduleInventory == null) {
                 continue;
             }
             ItemStack module = _moduleInventory.getStackInSlot(i);
-            if (module == null || _chassiPipe.getLogisticsModule().getSubModule(i) == null) {
-                ((SmallGuiButton) buttonList.get(i)).visible = false;
+            if (module == null || chassisPipe.getLogisticsModule().getSubModule(i) == null) {
+                buttonList.get(i).visible = false;
             } else {
-                ((SmallGuiButton) buttonList.get(i)).visible = _chassiPipe.getLogisticsModule().getSubModule(i)
-                        .hasGui();
+                buttonList.get(i).visible = chassisPipe.getLogisticsModule().getSubModule(i).hasGui();
             }
         }
     }
 
     @Override
     protected void actionPerformed(GuiButton guibutton) {
-
-        if (guibutton.id >= 0 && guibutton.id <= 7) {
-            LogisticsModule module = _chassiPipe.getLogisticsModule().getSubModule(guibutton.id);
-            if (module != null) {
-                final ModernPacket packet = PacketHandler.getPacket(ChassisGUI.class).setButtonID(guibutton.id)
-                        .setPosX(_chassiPipe.getX()).setPosY(_chassiPipe.getY()).setPosZ(_chassiPipe.getZ());
-                MainProxy.sendPacketToServer(packet);
-            }
+        LogisticsModule module = chassisPipe.getLogisticsModule().getSubModule(guibutton.id);
+        if (module != null) {
+            final ModernPacket packet = PacketHandler.getPacket(ChassisGUI.class)
+                .setButtonID(guibutton.id)
+                .setPosX(chassisPipe.getX())
+                .setPosY(chassisPipe.getY())
+                .setPosZ(chassisPipe.getZ());
+            MainProxy.sendPacketToServer(packet);
         }
     }
 
     @Override
     protected void drawGuiContainerForegroundLayer(int par1, int par2) {
         super.drawGuiContainerForegroundLayer(par1, par2);
-        for (int i = 0; i < _chassiPipe.getChassiSize(); i++) {
+        for (int i = 0; i < chassisPipe.getChassiSize(); i++) {
             ItemStack module = _moduleInventory.getStackInSlot(i);
-            if (module == null || _chassiPipe.getLogisticsModule().getSubModule(i) == null) {
-                ((SmallGuiButton) buttonList.get(i)).visible = false;
+            if (module == null || chassisPipe.getLogisticsModule().getSubModule(i) == null) {
+                buttonList.get(i).visible = false;
             } else {
-                ((SmallGuiButton) buttonList.get(i)).visible = _chassiPipe.getLogisticsModule().getSubModule(i)
-                        .hasGui();
+                buttonList.get(i).visible = chassisPipe.getLogisticsModule().getSubModule(i).hasGui();
             }
         }
-        if (_chassiPipe.getChassiSize() > 0) {
-            mc.fontRenderer.drawString(getModuleName(0), 40, 14, 0x404040);
-        }
-        if (_chassiPipe.getChassiSize() > 1) {
-            mc.fontRenderer.drawString(getModuleName(1), 40, 34, 0x404040);
-        }
-        if (_chassiPipe.getChassiSize() > 2) {
-            mc.fontRenderer.drawString(getModuleName(2), 40, 54, 0x404040);
-        }
-        if (_chassiPipe.getChassiSize() > 3) {
-            mc.fontRenderer.drawString(getModuleName(3), 40, 74, 0x404040);
-        }
-        if (_chassiPipe.getChassiSize() > 4) {
-            mc.fontRenderer.drawString(getModuleName(4), 40, 94, 0x404040);
-            mc.fontRenderer.drawString(getModuleName(5), 40, 114, 0x404040);
-            mc.fontRenderer.drawString(getModuleName(6), 40, 134, 0x404040);
-            mc.fontRenderer.drawString(getModuleName(7), 40, 154, 0x404040);
+        for (int moduleSlot = 0; moduleSlot < chassisPipe.getChassieSize(); moduleSlot++) {
+            mc.fontRenderer.drawString(getModuleName(moduleSlot), 40, 14 + moduleSlot * CHASSIS_SLOT_TEXTURE_HEIGHT, 0x404040);
         }
     }
 
@@ -182,20 +147,50 @@ public class GuiChassiPipe extends LogisticsBaseGuiScreen {
             return "";
         }
         String name = _moduleInventory.getStackInSlot(slot).getItem()
-                .getItemStackDisplayName(_moduleInventory.getStackInSlot(slot));
-        if (!hasUpgradeModuleUpgarde) {
+            .getItemStackDisplayName(_moduleInventory.getStackInSlot(slot));
+        if (!hasUpgradeModuleUpgrade) {
             return name;
         }
         return StringUtils.getWithMaxWidth(name, 100, fontRendererObj);
     }
 
+    private static final int CHASSIS_TOP_TEXTURE_HEIGHT = 8;
+    private static final ResourceLocation CHASSIS_TOP_TEXTURE = new ResourceLocation(
+        "logisticspipes",
+        "textures/gui/chassipipe_top.png");
+
+    private static final int CHASSIS_BOTTOM_TEXTURE_HEIGHT = 98;
+    private static final ResourceLocation CHASSIS_BOTTOM_TEXTURE = new ResourceLocation(
+        "logisticspipes",
+        "textures/gui/chassipipe_bottom.png");
+
+    private static final int CHASSIS_SLOT_TEXTURE_HEIGHT = 20;
+    private static final ResourceLocation CHASSIS_SLOT_TEXTURE = new ResourceLocation(
+        "logisticspipes",
+        "textures/gui/chassipipe_slot.png");
+
     @Override
     protected void drawGuiContainerBackgroundLayer(float f, int x, int y) {
         GL11.glColor4f(1.0F, 1.0F, 1.0F, 1.0F);
-        mc.renderEngine.bindTexture(_chassiPipe.getChassiGUITexture());
-        drawTexturedModalRect(guiLeft, guiTop, 0, 0, xSize, ySize);
-        if (hasUpgradeModuleUpgarde) {
-            for (int i = 0; i < _chassiPipe.getChassiSize(); i++) {
+
+        var currentYOffset = 0;
+
+        mc.renderEngine.bindTexture(CHASSIS_TOP_TEXTURE);
+        drawTexturedModalRect(guiLeft, guiTop, 0, 0, xSize, CHASSIS_TOP_TEXTURE_HEIGHT);
+        currentYOffset += CHASSIS_TOP_TEXTURE_HEIGHT;
+
+        mc.renderEngine.bindTexture(CHASSIS_SLOT_TEXTURE);
+        for (int i = 0; i < chassisPipe.getChassiSize(); i++) {
+            drawTexturedModalRect(guiLeft, guiTop + currentYOffset, 0, 0, xSize, CHASSIS_SLOT_TEXTURE_HEIGHT);
+            currentYOffset += CHASSIS_SLOT_TEXTURE_HEIGHT;
+        }
+
+        mc.renderEngine.bindTexture(CHASSIS_BOTTOM_TEXTURE);
+        drawTexturedModalRect(guiLeft, guiTop + currentYOffset, 0, 0, xSize, CHASSIS_BOTTOM_TEXTURE_HEIGHT);
+        currentYOffset += CHASSIS_BOTTOM_TEXTURE_HEIGHT;
+
+        if (hasUpgradeModuleUpgrade) {
+            for (int i = 0; i < chassisPipe.getChassiSize(); i++) {
                 GuiGraphics.drawSlotBackground(mc, guiLeft + 144, guiTop + 8 + i * 20);
                 GuiGraphics.drawSlotBackground(mc, guiLeft + 164, guiTop + 8 + i * 20);
             }

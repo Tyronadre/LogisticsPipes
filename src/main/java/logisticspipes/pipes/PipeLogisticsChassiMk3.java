@@ -19,12 +19,12 @@ public class PipeLogisticsChassiMk3 extends PipeLogisticsChassi {
 
     @Override
     public int getChassiSize() {
-        return 3;
+        return 4;
     }
 
     private static final ResourceLocation TEXTURE = new ResourceLocation(
             "logisticspipes",
-            "textures/gui/chassipipe_size3.png");
+            "textures/gui/chassipipe_size4.png");
 
     @Override
     public ResourceLocation getChassiGUITexture() {
