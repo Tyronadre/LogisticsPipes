@@ -4,13 +4,12 @@
  */
 package logisticspipes.gui;
 
-import logisticspipes.utils.Color;
 import net.minecraft.client.gui.GuiButton;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.inventory.IInventory;
 import net.minecraft.item.ItemStack;
-
 import net.minecraft.util.ResourceLocation;
+
 import org.lwjgl.opengl.GL11;
 
 import logisticspipes.items.ItemModule;
@@ -59,23 +58,22 @@ public class GuiChassiPipe extends LogisticsBaseGuiScreen {
 
         dummy.addNormalSlotsForPlayerInventory(18, 20 * chassisPipe.getChassieSize() + 17);
 
-
         if (hasUpgradeModuleUpgrade) {
             for (int i = 0; i < chassisPipe.getChassiSize(); i++) {
                 final int fI = i;
                 ModuleUpgradeManager upgradeManager = chassisPipe.getModuleUpgradeManager(i);
                 dummy.addRestrictedSlot(
-                    0,
-                    upgradeManager.getInv(),
-                    145,
-                    9 + i * 20,
-                    itemStack -> ChassiGuiProvider.checkStack(itemStack, chassisPipe, fI));
+                        0,
+                        upgradeManager.getInv(),
+                        145,
+                        9 + i * 20,
+                        itemStack -> ChassiGuiProvider.checkStack(itemStack, chassisPipe, fI));
                 dummy.addRestrictedSlot(
-                    1,
-                    upgradeManager.getInv(),
-                    165,
-                    9 + i * 20,
-                    itemStack -> ChassiGuiProvider.checkStack(itemStack, chassisPipe, fI));
+                        1,
+                        upgradeManager.getInv(),
+                        165,
+                        9 + i * 20,
+                        itemStack -> ChassiGuiProvider.checkStack(itemStack, chassisPipe, fI));
             }
         }
 
@@ -111,11 +109,8 @@ public class GuiChassiPipe extends LogisticsBaseGuiScreen {
     protected void actionPerformed(GuiButton guibutton) {
         LogisticsModule module = chassisPipe.getLogisticsModule().getSubModule(guibutton.id);
         if (module != null) {
-            final ModernPacket packet = PacketHandler.getPacket(ChassisGUI.class)
-                .setButtonID(guibutton.id)
-                .setPosX(chassisPipe.getX())
-                .setPosY(chassisPipe.getY())
-                .setPosZ(chassisPipe.getZ());
+            final ModernPacket packet = PacketHandler.getPacket(ChassisGUI.class).setButtonID(guibutton.id)
+                    .setPosX(chassisPipe.getX()).setPosY(chassisPipe.getY()).setPosZ(chassisPipe.getZ());
             MainProxy.sendPacketToServer(packet);
         }
     }
@@ -132,7 +127,8 @@ public class GuiChassiPipe extends LogisticsBaseGuiScreen {
             }
         }
         for (int moduleSlot = 0; moduleSlot < chassisPipe.getChassieSize(); moduleSlot++) {
-            mc.fontRenderer.drawString(getModuleName(moduleSlot), 40, 14 + moduleSlot * CHASSIS_SLOT_TEXTURE_HEIGHT, 0x404040);
+            mc.fontRenderer
+                    .drawString(getModuleName(moduleSlot), 40, 14 + moduleSlot * CHASSIS_SLOT_TEXTURE_HEIGHT, 0x404040);
         }
     }
 
@@ -147,7 +143,7 @@ public class GuiChassiPipe extends LogisticsBaseGuiScreen {
             return "";
         }
         String name = _moduleInventory.getStackInSlot(slot).getItem()
-            .getItemStackDisplayName(_moduleInventory.getStackInSlot(slot));
+                .getItemStackDisplayName(_moduleInventory.getStackInSlot(slot));
         if (!hasUpgradeModuleUpgrade) {
             return name;
         }
@@ -156,18 +152,18 @@ public class GuiChassiPipe extends LogisticsBaseGuiScreen {
 
     private static final int CHASSIS_TOP_TEXTURE_HEIGHT = 8;
     private static final ResourceLocation CHASSIS_TOP_TEXTURE = new ResourceLocation(
-        "logisticspipes",
-        "textures/gui/chassipipe_top.png");
+            "logisticspipes",
+            "textures/gui/chassipipe_top.png");
 
     private static final int CHASSIS_BOTTOM_TEXTURE_HEIGHT = 98;
     private static final ResourceLocation CHASSIS_BOTTOM_TEXTURE = new ResourceLocation(
-        "logisticspipes",
-        "textures/gui/chassipipe_bottom.png");
+            "logisticspipes",
+            "textures/gui/chassipipe_bottom.png");
 
     private static final int CHASSIS_SLOT_TEXTURE_HEIGHT = 20;
     private static final ResourceLocation CHASSIS_SLOT_TEXTURE = new ResourceLocation(
-        "logisticspipes",
-        "textures/gui/chassipipe_slot.png");
+            "logisticspipes",
+            "textures/gui/chassipipe_slot.png");
 
     @Override
     protected void drawGuiContainerBackgroundLayer(float f, int x, int y) {

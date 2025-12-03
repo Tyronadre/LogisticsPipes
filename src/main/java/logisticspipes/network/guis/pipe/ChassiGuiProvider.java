@@ -43,7 +43,6 @@ public class ChassiGuiProvider extends BooleanModuleCoordinatesGuiProvider {
 
         dummy.addNormalSlotsForPlayerInventory(18, 20 * chassisPipe.getChassieSize() + 20);
 
-
         if (chassisPipe.getUpgradeManager().hasUpgradeModuleUpgrade()) {
             for (int i = 0; i < chassisPipe.getChassiSize(); i++) {
                 final int fI = i;
