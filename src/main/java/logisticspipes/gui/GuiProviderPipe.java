@@ -115,7 +115,7 @@ public class GuiProviderPipe extends LogisticsBaseGuiScreen {
     private static final ResourceLocation TEXTURE = new ResourceLocation("logisticspipes", "textures/gui/supplier.png");
 
     @Override
-    protected void drawGuiContainerBackgroundLayer(float f, int x, int y) {
+    protected void drawGuiContainerBackgroundLayer(float partialTicks, int mouseX, int mouseY) {
         GL11.glColor4f(1.0F, 1.0F, 1.0F, 1.0F);
         mc.renderEngine.bindTexture(GuiProviderPipe.TEXTURE);
         int j = guiLeft;

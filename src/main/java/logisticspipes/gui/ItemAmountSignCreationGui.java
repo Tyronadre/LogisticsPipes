@@ -21,7 +21,7 @@ public class ItemAmountSignCreationGui extends LogisticsBaseGuiScreen {
     }
 
     @Override
-    protected void drawGuiContainerBackgroundLayer(float f, int i, int j) {
+    protected void drawGuiContainerBackgroundLayer(float partialTicks, int mouseX, int mouseY) {
         GuiGraphics.drawGuiBackGround(mc, guiLeft, guiTop, right, bottom, zLevel, true);
         GuiGraphics.drawPlayerInventoryBackground(mc, guiLeft + 10, guiTop + 40);
         GuiGraphics.drawSlotBackground(mc, guiLeft + 9, guiTop + 12);

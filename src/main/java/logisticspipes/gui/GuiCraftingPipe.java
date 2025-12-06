@@ -575,7 +575,7 @@ public class GuiCraftingPipe extends ModuleBaseGui {
     }
 
     @Override
-    protected void drawGuiContainerBackgroundLayer(float f, int x, int y) {
+    protected void drawGuiContainerBackgroundLayer(float partialTicks, int mouseX, int mouseY) {
         GuiGraphics.drawGuiBackGround(
                 mc,
                 guiLeft,

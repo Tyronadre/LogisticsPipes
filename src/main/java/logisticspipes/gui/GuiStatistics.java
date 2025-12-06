@@ -163,7 +163,7 @@ public class GuiStatistics extends LogisticsBaseGuiScreen {
     }
 
     @Override
-    protected void drawGuiContainerBackgroundLayer(float f, int mouse_x, int mouse_y) {
+    protected void drawGuiContainerBackgroundLayer(float partialTicks, int mouseX, int mouseY) {
         GL11.glColor4d(1.0D, 1.0D, 1.0D, 1.0D);
         for (int i = 0; i < TAB_COUNT; i++) {
             GuiGraphics.drawGuiBackGround(
@@ -371,7 +371,7 @@ public class GuiStatistics extends LogisticsBaseGuiScreen {
             itemDisplay_2.renderPageNumber(right - 50, guiTop + 66);
         }
 
-        super.drawGuiContainerBackgroundLayer(f, mouse_x, mouse_y);
+        super.drawGuiContainerBackgroundLayer(partialTicks, mouseX, mouseY);
     }
 
     @Override

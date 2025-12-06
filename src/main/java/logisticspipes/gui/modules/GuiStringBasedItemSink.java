@@ -81,7 +81,7 @@ public class GuiStringBasedItemSink extends ModuleBaseGui {
     }
 
     @Override
-    protected void drawGuiContainerBackgroundLayer(float var1, int var2, int var3) {
+    protected void drawGuiContainerBackgroundLayer(float partialTicks, int mouseX, int mouseY) {
         GuiGraphics.drawGuiBackGround(mc, guiLeft, guiTop, right, bottom, zLevel, true);
         GuiGraphics.drawPlayerInventoryBackground(mc, guiLeft + 7, guiTop + 126);
         GuiGraphics.drawSlotBackground(mc, guiLeft + 6, guiTop + 7);
@@ -119,8 +119,8 @@ public class GuiStringBasedItemSink extends ModuleBaseGui {
         }
         SimpleGraphics.drawRectNoBlend(guiLeft + 5, guiTop + 30, guiLeft + 169, guiTop + 122, Color.DARK_GREY, 0.0);
         for (int i = 0; i < _itemSink.getStringList().size() && i < 9; i++) {
-            int pointerX = var2 - guiLeft;
-            int pointerY = var3 - guiTop;
+            int pointerX = mouseX - guiLeft;
+            int pointerY = mouseY - guiTop;
             if (6 <= pointerX && pointerX < 168 && 31 + (10 * i) <= pointerY && pointerY < 31 + (10 * (i + 1))) {
                 SimpleGraphics.drawRectNoBlend(
                         guiLeft + 6,
@@ -131,10 +131,10 @@ public class GuiStringBasedItemSink extends ModuleBaseGui {
                         0.0);
             }
             mc.fontRenderer.drawString(_itemSink.getStringList().get(i), guiLeft + 7, guiTop + 32 + (10 * i), 0x404040);
-            if (6 <= mouseX && mouseX < 168 && 31 + (10 * i) <= mouseY && mouseY < 31 + (10 * (i + 1))) {
+            if (6 <= this.mouseX && this.mouseX < 168 && 31 + (10 * i) <= this.mouseY && this.mouseY < 31 + (10 * (i + 1))) {
                 name = _itemSink.getStringList().get(i);
-                mouseX = 0;
-                mouseY = 0;
+                this.mouseX = 0;
+                this.mouseY = 0;
                 tmpInv.clearInventorySlotContents(0);
             }
         }

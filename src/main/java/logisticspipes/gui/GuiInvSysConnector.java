@@ -87,7 +87,7 @@ public class GuiInvSysConnector extends LogisticsBaseGuiScreen {
     }
 
     @Override
-    protected void drawGuiContainerBackgroundLayer(float var1, int var2, int var3) {
+    protected void drawGuiContainerBackgroundLayer(float partialTicks, int mouseX, int mouseY) {
         GuiGraphics.drawGuiBackGround(mc, guiLeft, guiTop, right, bottom, zLevel, true);
         GuiGraphics.drawPlayerInventoryBackground(mc, guiLeft + 10, guiTop + 115);
         mc.fontRenderer.drawString(

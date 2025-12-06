@@ -136,10 +136,10 @@ public class LogicLayoutGui extends LogisticsBaseGuiScreen {
     }
 
     @Override
-    protected void drawGuiContainerBackgroundLayer(float f, int i, int j) {
-        super.drawGuiContainerBackgroundLayer(f, i, j);
+    protected void drawGuiContainerBackgroundLayer(float partialTicks, int mouseX, int mouseY) {
+        super.drawGuiContainerBackgroundLayer(partialTicks, mouseX, mouseY);
         drawTransparentBack();
-        drawMap(i, j);
+        drawMap(mouseX, mouseY);
         GuiGraphics.drawGuiBackGround(
                 getMC(),
                 guiLeft,

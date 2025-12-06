@@ -40,7 +40,7 @@ public class GuiCardManager extends LogisticsBaseGuiScreen {
     }
 
     @Override
-    protected void drawGuiContainerBackgroundLayer(float f, int j, int k) {
+    protected void drawGuiContainerBackgroundLayer(float partialTicks, int mouseX, int mouseY) {
         GuiGraphics.drawGuiBackGround(mc, guiLeft, guiTop, right, bottom, zLevel, true);
         GuiGraphics.drawPlayerInventoryBackground(mc, guiLeft + 10, bottom - 85);
         GuiGraphics.drawSlotBackground(mc, guiLeft + 20, guiTop + 20);

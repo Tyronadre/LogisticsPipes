@@ -77,9 +77,9 @@ public class GuiOreDictItemSink extends ModuleBaseGui {
     }
 
     @Override
-    protected void drawGuiContainerBackgroundLayer(float var1, int var2, int var3) {
-        int pointerX = var2 - guiLeft;
-        int pointerY = var3 - guiTop;
+    protected void drawGuiContainerBackgroundLayer(float partialTicks, int mouseX, int mouseY) {
+        int pointerX = mouseX - guiLeft;
+        int pointerY = mouseY - guiTop;
         GuiGraphics.drawGuiBackGround(mc, guiLeft, guiTop, right, bottom, zLevel, true);
         GuiGraphics.drawPlayerInventoryBackground(mc, guiLeft + 7, guiTop + 126);
         GuiGraphics.drawSlotBackground(mc, guiLeft + 6, guiTop + 7);
@@ -115,9 +115,9 @@ public class GuiOreDictItemSink extends ModuleBaseGui {
             }
             mc.fontRenderer
                     .drawString(unsunkNames.get(currentOffset + i), guiLeft + 28, guiTop + 7 + (10 * i), 0x404040);
-            if (27 <= mouseX && mouseX < 158 && 6 + (10 * i) <= mouseY && mouseY < 6 + (10 * (i + 1))) {
-                mouseX = 0;
-                mouseY = 0;
+            if (27 <= this.mouseX && this.mouseX < 158 && 6 + (10 * i) <= this.mouseY && this.mouseY < 6 + (10 * (i + 1))) {
+                this.mouseX = 0;
+                this.mouseY = 0;
                 if (_itemSink.oreList.size() < 9) {
                     String oreName = unsunkNames.get(currentOffset + i);
                     if (!_itemSink.oreList.contains(oreName)) {
@@ -142,9 +142,9 @@ public class GuiOreDictItemSink extends ModuleBaseGui {
                         0.0);
             }
             mc.fontRenderer.drawString(_itemSink.oreList.get(i), guiLeft + 7, guiTop + 32 + (10 * i), 0x404040);
-            if (6 <= mouseX && mouseX < 168 && 31 + (10 * i) <= mouseY && mouseY < 31 + (10 * (i + 1))) {
-                mouseX = 0;
-                mouseY = 0;
+            if (6 <= this.mouseX && this.mouseX < 168 && 31 + (10 * i) <= this.mouseY && this.mouseY < 31 + (10 * (i + 1))) {
+                this.mouseX = 0;
+                this.mouseY = 0;
                 String oreName = _itemSink.oreList.get(i);
                 if (!unsunkNames.contains(oreName)) {
                     unsunkNames.add(oreName);

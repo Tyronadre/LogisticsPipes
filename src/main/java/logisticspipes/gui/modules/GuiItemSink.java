@@ -169,7 +169,7 @@ public class GuiItemSink extends ModuleBaseGui {
     }
 
     @Override
-    protected void drawGuiContainerBackgroundLayer(float f, int x, int y) {
+    protected void drawGuiContainerBackgroundLayer(float partialTicks, int mouseX, int mouseY) {
         GL11.glColor4f(1.0F, 1.0F, 1.0F, 1.0F);
         mc.renderEngine.bindTexture(GuiItemSink.TEXTURE);
         int j = guiLeft;

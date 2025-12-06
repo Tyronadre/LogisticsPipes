@@ -47,8 +47,8 @@ public class NormalMk2GuiOrderer extends NormalGuiOrderer implements IDiskProvid
     }
 
     @Override
-    public void drawGuiContainerBackgroundLayer(float f, int i, int j) {
-        super.drawGuiContainerBackgroundLayer(f, i, j);
+    public void drawGuiContainerBackgroundLayer(float partialTicks, int mouseX, int mouseY) {
+        super.drawGuiContainerBackgroundLayer(partialTicks, mouseX, mouseY);
 
         drawRect(right - 39, bottom - 47, right - 19, bottom - 27, Color.BLACK);
         drawRect(right - 37, bottom - 45, right - 21, bottom - 29, Color.DARKER_GREY);

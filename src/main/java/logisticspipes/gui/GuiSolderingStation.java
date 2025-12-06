@@ -36,7 +36,7 @@ public class GuiSolderingStation extends LogisticsBaseGuiScreen {
             "textures/gui/soldering_station.png");
 
     @Override
-    protected void drawGuiContainerBackgroundLayer(float var1, int var2, int var3) {
+    protected void drawGuiContainerBackgroundLayer(float partialTicks, int mouseX, int mouseY) {
         GL11.glColor4f(1.0F, 1.0F, 1.0F, 1.0F);
         mc.renderEngine.bindTexture(GuiSolderingStation.TEXTURE);
         int j = guiLeft;

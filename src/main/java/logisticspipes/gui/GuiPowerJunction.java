@@ -39,7 +39,7 @@ public class GuiPowerJunction extends LogisticsBaseGuiScreen {
             "textures/gui/power_junction.png");
 
     @Override
-    protected void drawGuiContainerBackgroundLayer(float var1, int var2, int var3) {
+    protected void drawGuiContainerBackgroundLayer(float partialTicks, int mouseX, int mouseY) {
         GL11.glColor4f(1.0F, 1.0F, 1.0F, 1.0F);
         mc.renderEngine.bindTexture(GuiPowerJunction.TEXTURE);
         int j = guiLeft;

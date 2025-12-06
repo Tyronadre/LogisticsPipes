@@ -225,7 +225,7 @@ public class GuiRequestTable extends LogisticsBaseGuiScreen
     }
 
     @Override
-    public void drawGuiContainerBackgroundLayer(float f, int i, int j) {
+    public void drawGuiContainerBackgroundLayer(float partialTicks, int mouseX, int mouseY) {
         for (GuiButton sycleButton : sycleButtons) {
             sycleButton.visible = _table.targetType != null;
         }

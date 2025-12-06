@@ -56,7 +56,7 @@ public class GuiHUDSettings extends LogisticsBaseGuiScreen {
     }
 
     @Override
-    protected void drawGuiContainerBackgroundLayer(float var1, int var2, int var3) {
+    protected void drawGuiContainerBackgroundLayer(float partialTicks, int mouseX, int mouseY) {
         if (player.inventory.getStackInSlot(slot) == null
                 || player.inventory.getStackInSlot(slot).getItem() != LogisticsPipes.LogisticsHUDArmor) {
             mc.thePlayer.closeScreen();

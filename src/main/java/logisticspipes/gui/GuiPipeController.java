@@ -176,7 +176,7 @@ public class GuiPipeController extends LogisticsBaseGuiScreen {
     }
 
     @Override
-    protected void drawGuiContainerBackgroundLayer(float f, int mouse_x, int mouse_y) {
+    protected void drawGuiContainerBackgroundLayer(float partialTicks, int mouseX, int mouseY) {
         if (current_Tab == 3 && !pipe.getOriginalUpgradeManager().hasLogicControll()) {
             current_Tab = 0;
         }
@@ -268,7 +268,7 @@ public class GuiPipeController extends LogisticsBaseGuiScreen {
             drawRect(guiLeft + 14, guiTop + 36, guiLeft + 30, guiTop + 52, Color.DARKER_GREY);
         }
 
-        super.drawGuiContainerBackgroundLayer(f, mouse_x, mouse_y);
+        super.drawGuiContainerBackgroundLayer(partialTicks, mouseX, mouseY);
     }
 
     @Override

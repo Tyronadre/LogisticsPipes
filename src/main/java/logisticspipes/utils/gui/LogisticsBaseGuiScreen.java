@@ -223,7 +223,7 @@ public abstract class LogisticsBaseGuiScreen extends GuiContainer implements ISu
     }
 
     @Override
-    protected void drawGuiContainerBackgroundLayer(float f, int i, int j) {
+    protected void drawGuiContainerBackgroundLayer(float partialTicks, int mouseX, int mouseY) {
         renderExtentions();
     }
 

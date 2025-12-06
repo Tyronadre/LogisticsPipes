@@ -129,8 +129,8 @@ public class GuiThaumicAspectSink extends ModuleBaseGui {
     }
 
     @Override
-    protected void drawGuiContainerBackgroundLayer(float var1, int var2, int var3) {
-        super.drawGuiContainerBackgroundLayer(var1, var2, var3);
+    protected void drawGuiContainerBackgroundLayer(float partialTicks, int mouseX, int mouseY) {
+        super.drawGuiContainerBackgroundLayer(partialTicks, mouseX, mouseY);
         GuiGraphics.drawGuiBackGround(mc, guiLeft, guiTop, right, bottom, zLevel, false);
         GuiGraphics.drawPlayerInventoryBackground(mc, guiLeft + 7, guiTop + 90);
 
