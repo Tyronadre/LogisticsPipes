@@ -1,9 +1,9 @@
 package logisticspipes.utils.gui;
 
+import lombok.Getter;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.inventory.IInventory;
 import net.minecraft.inventory.Slot;
-import net.minecraft.item.ItemStack;
 
 import logisticspipes.LogisticsPipes;
 import logisticspipes.logisticspipes.ItemModuleInformationManager;
@@ -13,22 +13,27 @@ import logisticspipes.utils.DummyWorldProvider;
 
 public class DummyModuleContainer extends DummyContainer {
 
-    private final ItemStack moduleStack;
+    @Getter
     private final LogisticsModule module;
     private final int slot;
 
     public DummyModuleContainer(EntityPlayer player, int slot) {
         super(player.inventory, null);
         this.slot = slot;
-        moduleStack = player.inventory.mainInventory[slot];
+        var moduleStack = player.inventory.mainInventory[slot];
         module = LogisticsPipes.ModuleItem
                 .getModuleForItem(moduleStack, null, new DummyWorldProvider(player.worldObj), null);
         module.registerPosition(ModulePositionType.IN_HAND, slot);
         ItemModuleInformationManager.readInformation(moduleStack, module);
     }
 
-    public LogisticsModule getModule() {
-        return module;
+    public DummyModuleContainer(EntityPlayer player, int slot, LogisticsModule module) {
+        super(player.inventory, null);
+        this.slot = slot;
+        this.module = module;
+        module.registerPosition(ModulePositionType.IN_HAND, slot);
+        module.registerHandler(new DummyWorldProvider(player.worldObj), null);
+        ItemModuleInformationManager.readInformation(player.inventory.mainInventory[slot], module);
     }
 
     public void setInventory(IInventory inv) {
@@ -46,7 +51,7 @@ public class DummyModuleContainer extends DummyContainer {
     @Override
     public void onContainerClosed(EntityPlayer par1EntityPlayer) {
         super.onContainerClosed(par1EntityPlayer);
-        ItemModuleInformationManager.saveInfotmation(par1EntityPlayer.inventory.mainInventory[slot], module);
+        ItemModuleInformationManager.saveInformation(par1EntityPlayer.inventory.mainInventory[slot], module);
         par1EntityPlayer.inventory.markDirty();
     }
 }

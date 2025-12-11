@@ -257,7 +257,7 @@ public class PipeItemsSatelliteLogistics extends CoreRoutedPipe
 
                         crafter.satelliteId = this.satelliteId;
 
-                        ItemModuleInformationManager.saveInfotmation(crafterStack, crafter);
+                        ItemModuleInformationManager.saveInformation(crafterStack, crafter);
                         entityplayer.addChatComponentMessage(
                                 new ChatComponentTranslation("lp.chat.satelliteid.set", this.satelliteId));
                     }

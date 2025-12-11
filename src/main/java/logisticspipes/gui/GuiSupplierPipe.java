@@ -4,13 +4,6 @@
  */
 package logisticspipes.gui;
 
-import net.minecraft.client.gui.GuiButton;
-import net.minecraft.inventory.IInventory;
-import net.minecraft.inventory.Slot;
-import net.minecraft.util.ResourceLocation;
-
-import org.lwjgl.opengl.GL11;
-
 import logisticspipes.modules.ModuleActiveSupplier;
 import logisticspipes.modules.ModuleActiveSupplier.PatternMode;
 import logisticspipes.modules.ModuleActiveSupplier.SupplyMode;
@@ -19,64 +12,51 @@ import logisticspipes.network.packets.module.SupplierPipeLimitedPacket;
 import logisticspipes.network.packets.module.SupplierPipeModePacket;
 import logisticspipes.network.packets.pipe.SlotFinderOpenGuiPacket;
 import logisticspipes.proxy.MainProxy;
-import logisticspipes.utils.Color;
 import logisticspipes.utils.gui.DummyContainer;
-import logisticspipes.utils.gui.GuiGraphics;
 import logisticspipes.utils.gui.LogisticsBaseGuiScreen;
 import logisticspipes.utils.gui.SmallGuiButton;
-import logisticspipes.utils.string.StringUtils;
+import lombok.Getter;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiButton;
+import net.minecraft.entity.player.InventoryPlayer;
+import net.minecraft.inventory.IInventory;
 
 public class GuiSupplierPipe extends LogisticsBaseGuiScreen {
 
-    private static final String PREFIX = "gui.supplierpipe.";
-
     private final ModuleActiveSupplier module;
-    private final boolean hasPatternUpgrade;
+    private boolean hasPatternUpgrade;
+    @Getter
+    private final DefaultGuiLayout autoGuiLayout;
 
-    public GuiSupplierPipe(IInventory playerInventory, IInventory dummyInventory, ModuleActiveSupplier module,
-            Boolean flag, int[] slots) {
-        super(null);
-        hasPatternUpgrade = flag;
 
-        DummyContainer dummy = new DummyContainer(playerInventory, dummyInventory);
-        dummy.addNormalSlotsForPlayerInventory(18, 97);
+    public GuiSupplierPipe(IInventory playerInventory, ModuleActiveSupplier module, DummyContainer container) {
+        super(container);
+        hasPatternUpgrade = module.hasPatternUpgrade();
 
-        if (hasPatternUpgrade) {
-            for (int i = 0; i < 9; i++) {
-                dummy.addDummySlot(i, 18 + i * 18, 20);
-            }
-        } else {
-            int xOffset = 72;
-            int yOffset = 18;
-            for (int row = 0; row < 3; row++) {
-                for (int column = 0; column < 3; column++) {
-                    dummy.addDummySlot(column + row * 3, xOffset + column * 18, yOffset + row * 18);
-                }
-            }
-        }
-        inventorySlots = dummy;
-        module.slotArray = slots;
+        autoGuiLayout = new DefaultGuiLayout(this, playerInventory, module.getDummyInventory(), container)
+            .setTitle("Supplier")
+            .addSlots(9)
+            .build();
+
         this.module = module;
-        xSize = 194;
-        ySize = 186;
+    }
+
+    public GuiSupplierPipe(InventoryPlayer inventory, ModuleActiveSupplier module, boolean patternUpgrade, int[] slots) {
+        this(inventory, module, null);
+        hasPatternUpgrade = patternUpgrade;
+        module.slotArray =  slots;
+    }
+
+
+    @Override
+    public void setWorldAndResolution(Minecraft mc, int width, int height) {
+        super.setWorldAndResolution(mc, width, height);
+        this.autoGuiLayout.setMc(mc);
     }
 
     @Override
     protected void drawGuiContainerForegroundLayer(int par1, int par2) {
-        String name = "";
-        if (hasPatternUpgrade) {
-            name = StringUtils.translate(GuiSupplierPipe.PREFIX + "TargetInvPattern");
-        } else {
-            name = StringUtils.translate(GuiSupplierPipe.PREFIX + "TargetInv");
-        }
-        mc.fontRenderer.drawString(name, xSize / 2 - mc.fontRenderer.getStringWidth(name) / 2, 6, 0x404040);
-        mc.fontRenderer
-                .drawString(StringUtils.translate(GuiSupplierPipe.PREFIX + "Inventory"), 18, ySize - 102, 0x404040);
-        mc.fontRenderer.drawString(
-                StringUtils.translate(GuiSupplierPipe.PREFIX + "RequestMode"),
-                xSize - 140,
-                ySize - 112,
-                0x404040);
+        autoGuiLayout.renderForeground();
         if (hasPatternUpgrade) {
             for (int i = 0; i < 9; i++) {
                 mc.fontRenderer.drawString(Integer.toString(module.slotArray[i]), 22 + i * 18, 55, 0x404040);
@@ -84,29 +64,9 @@ public class GuiSupplierPipe extends LogisticsBaseGuiScreen {
         }
     }
 
-    private static final ResourceLocation TEXTURE = new ResourceLocation("logisticspipes", "textures/gui/supplier.png");
-
     @Override
-    protected void drawGuiContainerBackgroundLayer(float f, int x, int y) {
-        if (!hasPatternUpgrade) {
-            GL11.glColor4f(1.0F, 1.0F, 1.0F, 1.0F);
-            mc.renderEngine.bindTexture(GuiSupplierPipe.TEXTURE);
-            int j = guiLeft;
-            int k = guiTop;
-            drawTexturedModalRect(j, k, 0, 0, xSize, ySize);
-        } else {
-            GuiGraphics.drawGuiBackGround(mc, guiLeft, guiTop, right, bottom, zLevel, true);
-            GL11.glTranslated(guiLeft, guiTop, 0);
-            for (int i = 0; i < 9; i++) {
-                GuiGraphics.drawSlotBackground(mc, 17 + i * 18, 19);
-                Slot slot = inventorySlots.getSlot(36 + i);
-                if (slot != null && slot.getHasStack() && slot.getStack().stackSize > 64) {
-                    drawRect(18 + i * 18, 20, 34 + i * 18, 36, Color.RED);
-                }
-            }
-            GuiGraphics.drawPlayerInventoryBackground(mc, 18, 97);
-            GL11.glTranslated(-guiLeft, -guiTop, 0);
-        }
+    protected void drawGuiContainerBackgroundLayer(float partialTicks, int mouseX, int mouseY) {
+        autoGuiLayout.renderBackground();
     }
 
     @Override
@@ -114,22 +74,22 @@ public class GuiSupplierPipe extends LogisticsBaseGuiScreen {
         super.initGui();
         buttonList.clear();
         buttonList.add(
-                new GuiButton(
-                        0,
-                        width / 2 + 35,
-                        height / 2 - 25,
-                        50,
-                        20,
-                        (hasPatternUpgrade ? module.getPatternMode() : module.getSupplyMode()).toString()));
+            new GuiButton(
+                0,
+                width / 2 + 35,
+                height / 2 - 25,
+                50,
+                20,
+                (hasPatternUpgrade ? module.getPatternMode() : module.getSupplyMode()).toString()));
         if (hasPatternUpgrade) {
             buttonList.add(
-                    new SmallGuiButton(
-                            1,
-                            guiLeft + 5,
-                            guiTop + 68,
-                            45,
-                            10,
-                            module.isLimited() ? "Limited" : "Unlimited"));
+                new SmallGuiButton(
+                    1,
+                    guiLeft + 5,
+                    guiTop + 68,
+                    45,
+                    10,
+                    module.isLimited() ? "Limited" : "Unlimited"));
             for (int i = 0; i < 9; i++) {
                 buttonList.add(new SmallGuiButton(i + 2, guiLeft + 18 + i * 18, guiTop + 40, 17, 10, "Set"));
             }
@@ -160,12 +120,12 @@ public class GuiSupplierPipe extends LogisticsBaseGuiScreen {
                 module.setLimited(!module.isLimited());
                 ((GuiButton) buttonList.get(1)).displayString = module.isLimited() ? "Limited" : "Unlimited";
                 MainProxy.sendPacketToServer(
-                        PacketHandler.getPacket(SupplierPipeLimitedPacket.class).setLimited(module.isLimited())
-                                .setModulePos(module));
+                    PacketHandler.getPacket(SupplierPipeLimitedPacket.class).setLimited(module.isLimited())
+                        .setModulePos(module));
             } else if (guibutton.id >= 2 && guibutton.id <= 10) {
                 MainProxy.sendPacketToServer(
-                        PacketHandler.getPacket(SlotFinderOpenGuiPacket.class).setSlot(guibutton.id - 2)
-                                .setModulePos(module));
+                    PacketHandler.getPacket(SlotFinderOpenGuiPacket.class).setSlot(guibutton.id - 2)
+                        .setModulePos(module));
             }
         }
         super.actionPerformed(guibutton);
@@ -173,7 +133,7 @@ public class GuiSupplierPipe extends LogisticsBaseGuiScreen {
 
     public void refreshMode() {
         ((GuiButton) buttonList.get(0)).displayString = (hasPatternUpgrade ? module.getPatternMode()
-                : module.getSupplyMode()).toString();
+            : module.getSupplyMode()).toString();
         if (hasPatternUpgrade) {
             ((GuiButton) buttonList.get(1)).displayString = module.isLimited() ? "Limited" : "Unlimited";
         }

@@ -1,10 +1,6 @@
 package logisticspipes.network.guis.module.inpipe;
 
-import java.io.IOException;
-
-import net.minecraft.entity.player.EntityPlayer;
-
-import logisticspipes.gui.GuiSupplierPipe;
+import logisticspipes.gui.factory.SupplierGuiFactory;
 import logisticspipes.modules.ModuleActiveSupplier;
 import logisticspipes.modules.ModuleActiveSupplier.PatternMode;
 import logisticspipes.modules.ModuleActiveSupplier.SupplyMode;
@@ -16,13 +12,16 @@ import logisticspipes.utils.gui.DummyContainer;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.experimental.Accessors;
+import net.minecraft.entity.player.EntityPlayer;
+
+import java.io.IOException;
 
 @Accessors(chain = true)
 public class ActiveSupplierSlot extends ModuleCoordinatesGuiProvider {
 
     @Getter
     @Setter
-    private boolean patternUpgarde;
+    private boolean patternUpgrade;
 
     @Getter
     @Setter
@@ -43,7 +42,7 @@ public class ActiveSupplierSlot extends ModuleCoordinatesGuiProvider {
     @Override
     public void writeData(LPDataOutputStream data) throws IOException {
         super.writeData(data);
-        data.writeBoolean(patternUpgarde);
+        data.writeBoolean(patternUpgrade);
         data.writeIntegerArray(slotArray);
         data.writeBoolean(isLimit);
         data.writeInt(mode);
@@ -52,7 +51,7 @@ public class ActiveSupplierSlot extends ModuleCoordinatesGuiProvider {
     @Override
     public void readData(LPDataInputStream data) throws IOException {
         super.readData(data);
-        patternUpgarde = data.readBoolean();
+        patternUpgrade = data.readBoolean();
         slotArray = data.readIntegerArray();
         isLimit = data.readBoolean();
         mode = data.readInt();
@@ -65,12 +64,12 @@ public class ActiveSupplierSlot extends ModuleCoordinatesGuiProvider {
             return null;
         }
         module.setLimited(isLimit);
-        if (patternUpgarde) {
+        if (patternUpgrade) {
             module.setPatternMode(PatternMode.values()[mode]);
         } else {
             module.setSupplyMode(SupplyMode.values()[mode]);
         }
-        return new GuiSupplierPipe(player.inventory, module.getDummyInventory(), module, patternUpgarde, slotArray);
+        return SupplierGuiFactory.INSTANCE.createClientGui(player, module, patternUpgrade, slotArray);
     }
 
     @Override
@@ -79,15 +78,7 @@ public class ActiveSupplierSlot extends ModuleCoordinatesGuiProvider {
         if (module == null) {
             return null;
         }
-        DummyContainer dummy = new DummyContainer(player.inventory, module.getDummyInventory());
-        dummy.addNormalSlotsForPlayerInventory(18, 97);
-
-        for (int row = 0; row < 3; row++) {
-            for (int column = 0; column < 3; column++) {
-                dummy.addDummySlot(column + row * 3, 72 + column * 18, 18 + row * 18);
-            }
-        }
-        return dummy;
+        return SupplierGuiFactory.INSTANCE.createContainer(player, module);
     }
 
     @Override

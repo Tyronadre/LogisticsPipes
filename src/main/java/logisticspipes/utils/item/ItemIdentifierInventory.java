@@ -190,6 +190,7 @@ public class ItemIdentifierInventory
             if (index < _contents.length) {
                 ItemStack stack = ItemStack.loadItemStackFromNBT(itemTag);
                 if (stack != null) {
+                    stack.stackSize = itemTag.getInteger("IntCount");
                     ItemIdentifierStack itemstack = ItemIdentifierStack.getFromStack(stack);
                     if (isValidStack(itemstack)) {
                         _contents[index] = itemstack;
@@ -218,6 +219,7 @@ public class ItemIdentifierInventory
                 nbttaglist.appendTag(itemTag);
                 itemTag.setInteger("index", j);
                 _contents[j].unsafeMakeNormalStack().writeToNBT(itemTag);
+                itemTag.setInteger("IntCount", _contents[j].getStackSize());
             }
         }
         nbttagcompound.setTag(prefix + "items", nbttaglist);

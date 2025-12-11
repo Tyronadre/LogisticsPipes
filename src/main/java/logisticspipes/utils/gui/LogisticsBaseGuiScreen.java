@@ -54,10 +54,10 @@ public abstract class LogisticsBaseGuiScreen extends GuiContainer implements ISu
             "logisticspipes",
             "textures/gui/itemsink.png");
 
-    protected int right;
-    protected int bottom;
-    protected int xCenter;
-    protected int yCenter;
+    public int right;
+    public int bottom;
+    public int xCenter;
+    public int yCenter;
     protected final int xCenterOffset;
     protected final int yCenterOffset;
 

@@ -25,7 +25,7 @@ public class ItemModuleInformationManager {
         ItemModuleInformationManager.Filter.add("Random-Stack-Prevent");
     }
 
-    public static void saveInfotmation(ItemStack itemStack, LogisticsModule module) {
+    public static void saveInformation(ItemStack itemStack, LogisticsModule module) {
         if (module == null) {
             return;
         }

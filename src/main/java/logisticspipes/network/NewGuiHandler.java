@@ -1,21 +1,7 @@
 package logisticspipes.network;
 
-import java.io.IOException;
-import java.lang.reflect.InvocationTargetException;
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-
-import net.minecraft.client.gui.inventory.GuiContainer;
-import net.minecraft.entity.player.EntityPlayer;
-import net.minecraft.entity.player.EntityPlayerMP;
-import net.minecraft.inventory.Container;
-
 import com.google.common.reflect.ClassPath;
 import com.google.common.reflect.ClassPath.ClassInfo;
-
 import cpw.mods.fml.common.FMLCommonHandler;
 import cpw.mods.fml.relauncher.Side;
 import cpw.mods.fml.relauncher.SideOnly;
@@ -24,6 +10,18 @@ import logisticspipes.network.abstractguis.GuiProvider;
 import logisticspipes.network.packets.gui.GUIPacket;
 import logisticspipes.proxy.MainProxy;
 import lombok.SneakyThrows;
+import net.minecraft.client.gui.inventory.GuiContainer;
+import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.inventory.Container;
+
+import java.io.IOException;
+import java.lang.reflect.InvocationTargetException;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 public class NewGuiHandler {
 
@@ -62,14 +60,13 @@ public class NewGuiHandler {
 
     @SneakyThrows(IOException.class)
     public static void openGui(GuiProvider guiProvider, EntityPlayer oPlayer) {
-        if (!(oPlayer instanceof EntityPlayerMP)) {
+        if (!(oPlayer instanceof EntityPlayerMP player)) {
             throw new UnsupportedOperationException("Gui can only be opened on the server side");
         }
-        EntityPlayerMP player = (EntityPlayerMP) oPlayer;
+
         Container container = guiProvider.getContainer(player);
-        if (container == null) {
-            return;
-        }
+        if (container == null) return;
+
         player.getNextWindowId();
         player.closeContainer();
         int windowId = player.currentWindowId;

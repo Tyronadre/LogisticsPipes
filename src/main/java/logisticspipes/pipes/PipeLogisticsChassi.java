@@ -277,7 +277,7 @@ public abstract class PipeLogisticsChassi extends CoreRoutedPipe
                 ItemIdentifierStack ms = _moduleInventory.getIDStackInSlot(i);
                 if (ms != null) {
                     ItemStack s = ms.makeNormalStack();
-                    ItemModuleInformationManager.saveInfotmation(s, getLogisticsModule().getSubModule(i));
+                    ItemModuleInformationManager.saveInformation(s, getLogisticsModule().getSubModule(i));
                     _moduleInventory.setInventorySlotContents(i, s);
                 }
             }

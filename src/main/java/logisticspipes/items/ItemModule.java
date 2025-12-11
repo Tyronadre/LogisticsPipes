@@ -252,15 +252,17 @@ public class ItemModule extends LogisticsItem {
         }
     }
 
-    private void openConfigGui(ItemStack par1ItemStack, EntityPlayer par2EntityPlayer, World par3World) {
-        LogisticsModule module = getModuleForItem(par1ItemStack, null, null, null);
-        if (module != null && module.hasGui()) {
-            if (par1ItemStack != null && par1ItemStack.stackSize > 0) {
-                ItemModuleInformationManager.readInformation(par1ItemStack, module);
-                module.registerPosition(ModulePositionType.IN_HAND, par2EntityPlayer.inventory.currentItem);
-                ((LogisticsGuiModule) module).getInHandGuiProviderForModule().open(par2EntityPlayer);
-            }
-        }
+    private void openConfigGui(ItemStack itemStack, EntityPlayer player, World world) {
+        if (itemStack == null || itemStack.stackSize == 0) return;
+
+        LogisticsModule module = getModuleForItem(itemStack, null, null, null);
+        if (module == null || !module.hasGui()) return;
+
+        ItemModuleInformationManager.readInformation(itemStack, module);
+        module.registerPosition(ModulePositionType.IN_HAND, player.inventory.currentItem);
+
+        ((LogisticsGuiModule) module).getInHandGuiProviderForModule().open(player, module);
+
     }
 
     @Override

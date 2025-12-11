@@ -177,7 +177,7 @@ public class ModuleActiveSupplier extends LogisticsGuiModule
         _lastRequestFailed = value;
     }
 
-    private final ItemIdentifierInventory dummyInventory = new ItemIdentifierInventory(9, "", 127);
+    private final ItemIdentifierInventory dummyInventory = new ItemIdentifierInventory(9, "", Integer.MAX_VALUE);
 
     private final HashMap<ItemIdentifier, Integer> _requestedItems = new HashMap<>();
 
@@ -567,7 +567,7 @@ public class ModuleActiveSupplier extends LogisticsGuiModule
 
     @Override
     protected ModuleCoordinatesGuiProvider getPipeGuiProvider() {
-        return NewGuiHandler.getGui(ActiveSupplierSlot.class).setPatternUpgarde(hasPatternUpgrade())
+        return NewGuiHandler.getGui(ActiveSupplierSlot.class).setPatternUpgrade(hasPatternUpgrade())
                 .setSlotArray(slotArray)
                 .setMode(
                         (_service.getUpgradeManager(slot, positionInt).hasPatternUpgrade() ? getPatternMode()

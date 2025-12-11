@@ -565,7 +565,7 @@ public class DummyContainer extends Container {
             ChassiModule logisticsModule = (ChassiModule) ((ModuleSlot) slot2).get_pipe().getLogisticsModule();
             int moduleIndex = ((ModuleSlot) slot2).get_moduleIndex();
             if (out.getItem() instanceof ItemModule) {
-                ItemModuleInformationManager.saveInfotmation(out, logisticsModule.getSubModule(moduleIndex));
+                ItemModuleInformationManager.saveInformation(out, logisticsModule.getSubModule(moduleIndex));
                 if (logisticsModule.hasModule(moduleIndex)) {
                     logisticsModule.removeModule(moduleIndex);
                 }
