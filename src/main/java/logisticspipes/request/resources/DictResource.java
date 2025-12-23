@@ -14,6 +14,7 @@ import logisticspipes.routing.IRouter;
 import logisticspipes.utils.item.ItemIdentifier;
 import logisticspipes.utils.item.ItemIdentifierStack;
 import logisticspipes.utils.string.ChatColor;
+import net.minecraft.nbt.NBTTagCompound;
 
 public class DictResource implements IResource {
 

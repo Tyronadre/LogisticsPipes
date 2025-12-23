@@ -12,6 +12,7 @@ import logisticspipes.request.resources.DictResource;
 import logisticspipes.routing.order.IOrderInfoProvider.ResourceType;
 import logisticspipes.utils.item.ItemIdentifier;
 import logisticspipes.utils.item.ItemIdentifierStack;
+import net.minecraft.nbt.NBTTagCompound;
 
 public class LogisticsItemOrderManager extends LogisticsOrderManager<LogisticsItemOrder, DictResource.Identifier> {
 

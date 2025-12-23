@@ -79,4 +79,9 @@ public class LogisticsPromise implements IPromise {
         }
         return sender.fullFill(this, destination, info);
     }
+
+    @Override
+    public String toString() {
+        return "LogisticsPromise [item=" + item + ", numberOfItems=" + numberOfItems + ", type=" + type + "]";
+    }
 }

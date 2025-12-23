@@ -62,7 +62,7 @@ public class RequestHandler {
                         PacketHandler.getPacket(MissingItems.class).setItems(coll).setFlag(false),
                         player);
                 if (pipe instanceof IRequestWatcher) {
-                    ((IRequestWatcher) pipe).handleOrderList(item, parts);
+                        ((IRequestWatcher) pipe).handleOrderList(item, parts);
                 }
             }
 

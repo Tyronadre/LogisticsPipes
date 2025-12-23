@@ -10,6 +10,7 @@ import java.util.LinkedList;
 import java.util.List;
 
 import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.world.World;
 
 import logisticspipes.interfaces.IChangeListener;
@@ -215,4 +216,9 @@ public abstract class LogisticsOrderManager<T extends LogisticsOrder, I> impleme
     public Iterator<T> iterator() {
         return this._orders.iterator();
     }
+
+    public void writeToNBT(NBTTagCompound nbttagcompound) {
+        _orders.writeToNBT(nbttagcompound);
+    }
+
 }

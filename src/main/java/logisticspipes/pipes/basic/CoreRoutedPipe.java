@@ -798,6 +798,8 @@ public abstract class CoreRoutedPipe extends CoreUnroutedPipe
                 nbttagcompound.setBoolean("PipeSign_" + i, false);
             }
         }
+
+        if (_orderItemManager != null) _orderItemManager.writeToNBT(nbttagcompound);
     }
 
     @Override

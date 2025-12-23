@@ -12,6 +12,7 @@ import logisticspipes.utils.tuples.LPPosition;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.experimental.Accessors;
+import net.minecraft.nbt.NBTTagCompound;
 
 @Accessors(chain = true)
 public abstract class LogisticsOrder implements IOrderInfoProvider {
@@ -114,4 +115,6 @@ public abstract class LogisticsOrder implements IOrderInfoProvider {
         if (router == null) return null;
         return router.getLPPosition();
     }
+
+    public abstract void writeToNBT(NBTTagCompound nbtTagCompound);
 }

@@ -2,6 +2,7 @@ package logisticspipes.routing.order;
 
 import java.util.List;
 
+import logisticspipes.pipes.basic.CoreRoutedPipe;
 import logisticspipes.utils.item.ItemIdentifier;
 import logisticspipes.utils.item.ItemIdentifierStack;
 import logisticspipes.utils.tuples.LPPosition;
@@ -35,4 +36,6 @@ public interface IOrderInfoProvider {
     ItemIdentifier getTargetType();
 
     LPPosition getTargetPosition();
+
+    //CoreRoutedPipe getDestination();
 }

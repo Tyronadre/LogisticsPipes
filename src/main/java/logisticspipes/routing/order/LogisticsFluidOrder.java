@@ -6,6 +6,7 @@ import logisticspipes.routing.IRouter;
 import logisticspipes.utils.FluidIdentifier;
 import logisticspipes.utils.item.ItemIdentifierStack;
 import lombok.Getter;
+import net.minecraft.nbt.NBTTagCompound;
 
 public class LogisticsFluidOrder extends LogisticsOrder {
 
@@ -46,5 +47,10 @@ public class LogisticsFluidOrder extends LogisticsOrder {
     @Override
     public void reduceAmountBy(int reduce) {
         amount -= reduce;
+    }
+
+    @Override
+    public void writeToNBT(NBTTagCompound nbtTagCompound) {
+
     }
 }

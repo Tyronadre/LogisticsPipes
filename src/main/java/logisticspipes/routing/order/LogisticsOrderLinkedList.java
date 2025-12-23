@@ -1,5 +1,8 @@
 package logisticspipes.routing.order;
 
+import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.nbt.NBTTagList;
+
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -89,6 +92,17 @@ public class LogisticsOrderLinkedList<E extends LogisticsOrder, I> implements It
 
     public boolean isEmpty() {
         return list.isEmpty();
+    }
+
+    public void writeToNBT(NBTTagCompound nbttagcompound) {
+        NBTTagList nbttaglist = nbttagcompound.getTagList("order_items", nbttagcompound.getId());
+
+        int i = 0;
+        for (E e : list) {
+            NBTTagCompound elementTag = new NBTTagCompound();
+            elementTag.setInteger("index", i++);
+            e.writeToNBT(elementTag);
+        }
     }
 
     public interface IIdentityProvider<A, B> {

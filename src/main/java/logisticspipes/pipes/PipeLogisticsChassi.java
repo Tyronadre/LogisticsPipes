@@ -794,5 +794,11 @@ public abstract class PipeLogisticsChassi extends CoreRoutedPipe
         public ChassiTargetInformation(int slot) {
             moduleSlot = slot;
         }
+
+        @Override
+        public void writeToNBT(NBTTagCompound nbtTagCompound) {
+            nbtTagCompound.setInteger("ai_moduleSlot", moduleSlot);
+            nbtTagCompound.setInteger("ai_type", Type.ChassiTargetInformation.ordinal());
+        }
     }
 }

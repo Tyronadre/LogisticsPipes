@@ -632,6 +632,14 @@ public class ModuleActiveSupplier extends LogisticsGuiModule
         public boolean isLimited() {
             return ModuleActiveSupplier.this.isLimited();
         }
+
+        @Override
+        public void writeToNBT(NBTTagCompound nbtTagCompound) {
+            super.writeToNBT(nbtTagCompound);
+            nbtTagCompound.setInteger("ai_amount", amount);
+            nbtTagCompound.setInteger("ai_targetSlot", targetSlot);
+            nbtTagCompound.setInteger("ai_type", Type.PatternSupplierTargetInformation.ordinal());
+        }
     }
 
     public class SupplierTargetInformation extends ChassiTargetInformation {

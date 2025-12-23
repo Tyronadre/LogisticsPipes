@@ -190,10 +190,12 @@ public class RequestTree extends RequestTreeNode {
         RequestTree tree = new RequestTree(req, null, requestFlags, info);
         if (!simulateOnly && (tree.isDone() || ((tree.getPromiseAmount() > 0) && acceptPartial))) {
             LinkedLogisticsOrderList list = tree.fullFillAll();
+//            for (var promises : promises) {
+//                ;
+//            }
             if (log != null) {
                 log.handleSucessfullRequestOf(req.copyForDisplayWith(item.getStackSize()), list);
             }
-            return tree.getPromiseAmount();
         } else {
             if (log != null) {
                 if (!tree.isDone()) {
@@ -206,8 +208,8 @@ public class RequestTree extends RequestTreeNode {
                     tree.sendUsedMessage(log);
                 }
             }
-            return tree.getPromiseAmount();
         }
+        return tree.getPromiseAmount();
     }
 
     public static boolean request(ItemIdentifierStack item, IRequestItems requester, RequestLog log,

@@ -1698,5 +1698,12 @@ public class ModuleCrafter extends LogisticsGuiModule implements ICraftItems, IH
             super(moduleSlot);
             this.craftingSlot = craftingSlot;
         }
+
+        @Override
+        public void writeToNBT(NBTTagCompound nbtTagCompound) {
+            super.writeToNBT(nbtTagCompound);
+            nbtTagCompound.setInteger("ai_craftingSlot", craftingSlot);
+            nbtTagCompound.setInteger("ai_type", Type.CraftingChassieInformation.ordinal());
+        }
     }
 }
