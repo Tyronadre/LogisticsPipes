@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.TreeSet;
 
+import logisticspipes.utils.item.ItemIdentifierStack;
 import net.minecraft.item.ItemStack;
 
 import logisticspipes.LogisticsPipes;
@@ -152,5 +153,4 @@ class PatternHandler {
         }
         return Pattern.fromStack(pattern).getAggregatedOutputs();
     }
-
 }

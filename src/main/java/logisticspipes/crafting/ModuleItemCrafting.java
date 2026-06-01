@@ -1231,6 +1231,19 @@ public class ModuleItemCrafting extends LogisticsGuiModule
             bufferedIngredients.remove(patternSlot);
             return;
         }
+
+
+        var result = patternHandler.getAggregatedOutputs(pattern);
+
+        for (var res : result){
+            if(hasOrderFor(res.makePatternStack())){
+                continue;
+            }
+
+            debug("push slot=%d skipped: no order for any crafting results", patternSlot);
+            return;
+        }
+
         PipeItemsPatternCraftingLogistics.BlockingMode mode = getEffectiveBlockingMode();
         if (mode != PipeItemsPatternCraftingLogistics.BlockingMode.OFF && isRunningCraftLocked()
                 && runningCraft != patternSlot) {
@@ -1277,6 +1290,22 @@ public class ModuleItemCrafting extends LogisticsGuiModule
             runningCraftInAdjacent = true;
         }
         requestIngredientsForStagedCrafts();
+    }
+
+
+    private boolean hasOrderFor(ItemStack itemStack){
+        if(!pipe.getOrderManager().hasOrders(ResourceType.CRAFTING, ResourceType.EXTRA)) return false;
+
+        for (var order : pipe.getOrderManager()){
+            if(!(order instanceof LogisticsItemOrder)) continue;
+
+            var targetItem = ((LogisticsItemOrder) order).getAsDisplayItem().makeNormalStack().getItem();
+            var stackItem = itemStack.getItem();
+
+            if(targetItem == stackItem) return true;
+        }
+
+        return false;
     }
 
     /**

@@ -82,9 +82,10 @@ public class LogisticPatternHandler implements IOverlayHandler {
 
     }
 
+
     /**
      * Collects the inputs of a given recipe, transformed into IPatternStacks.
-     * 
+     *
      * @param recipe      the recipe
      * @param recipeIndex the recipe index
      * @return the inputs of the given recipe
@@ -97,7 +98,7 @@ public class LogisticPatternHandler implements IOverlayHandler {
 
     /**
      * Collects the aggregated outputs of a given recipe, transformed into IPatternStacks.
-     * 
+     *
      * @param recipe      the recipe
      * @param recipeIndex the recipe index
      * @return the aggregated outputs of the given recipe
@@ -123,7 +124,7 @@ public class LogisticPatternHandler implements IOverlayHandler {
 
     /**
      * Adds a patternStack to a list of patternStacks, aggregating if possible.
-     * 
+     *
      * @param stacks the list of stacks
      * @param stack  the stack to add
      */
