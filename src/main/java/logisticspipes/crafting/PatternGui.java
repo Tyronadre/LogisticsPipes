@@ -1,20 +1,20 @@
 package logisticspipes.crafting;
 
-import logisticspipes.network.packets.crafting.NEISetPatternCraftingRecipe;
+import java.util.ArrayList;
+import java.util.List;
+
 import net.minecraft.client.gui.GuiButton;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.inventory.IInventory;
+import net.minecraft.inventory.Slot;
 
 import logisticspipes.network.PacketHandler;
+import logisticspipes.network.packets.crafting.NEISetPatternCraftingRecipe;
 import logisticspipes.network.packets.crafting.PatternSatelliteAssignmentPacket;
 import logisticspipes.network.packets.gui.PatternSlotActionPacket;
 import logisticspipes.proxy.MainProxy;
 import logisticspipes.utils.gui.GuiGraphics;
 import logisticspipes.utils.gui.LogisticsBaseGuiScreen;
-import net.minecraft.inventory.Slot;
-
-import java.util.ArrayList;
-import java.util.List;
 
 public class PatternGui extends LogisticsBaseGuiScreen {
 
@@ -115,44 +115,41 @@ public class PatternGui extends LogisticsBaseGuiScreen {
         }
     }
 
-
     @Override
     protected void keyTyped(char typedChar, int keyCode) {
-        if (keyCode == 1 || keyCode == this.mc.gameSettings.keyBindInventory.getKeyCode())
-        {
+        if (keyCode == 1 || keyCode == this.mc.gameSettings.keyBindInventory.getKeyCode()) {
             OnClose();
         }
         super.keyTyped(typedChar, keyCode);
     }
 
-    private void OnClose(){
+    private void OnClose() {
 
         List<IPatternStack> inputSlots = new ArrayList<>();
         List<Integer> inputIndices = new ArrayList<>();
         List<IPatternStack> outputSlots = new ArrayList<>();
-
 
         List<Slot> slotList = inventorySlots.inventorySlots;
         for (int i = 0; i < Pattern.INGREDIENT_SLOTS + Pattern.RESULT_SLOTS; i++) {
             var slot = slotList.get(i);
             IPatternStack patternStack = IPatternStack.fromItemStack(slot.getStack());
 
-            if(patternStack == null) continue;
+            if (patternStack == null) continue;
 
-            if(i < Pattern.INGREDIENT_SLOTS) {
+            if (i < Pattern.INGREDIENT_SLOTS) {
                 inputSlots.add(patternStack);
                 inputIndices.add(i);
-            }
-            else{
+            } else {
                 outputSlots.add(patternStack);
             }
         }
 
         MainProxy.sendPacketToServer(
-            PacketHandler.getPacket(NEISetPatternCraftingRecipe.class)
-                .setPatternInventorySlot(patternInventory.getInventorySlot()).setInputs(inputSlots).setIndices(inputIndices)
-                .setOutputs(outputSlots));
+                PacketHandler.getPacket(NEISetPatternCraftingRecipe.class)
+                        .setPatternInventorySlot(patternInventory.getInventorySlot()).setInputs(inputSlots)
+                        .setIndices(inputIndices).setOutputs(outputSlots));
     }
+
     private int nextSatelliteId(int currentSatelliteId) {
         java.util.List<Integer> knownIds = PipeItemsPatternSatelliteLogistics.getKnownSatelliteIds();
         if (knownIds.isEmpty()) {

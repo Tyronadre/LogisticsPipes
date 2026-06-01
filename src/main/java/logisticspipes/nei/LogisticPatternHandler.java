@@ -82,7 +82,6 @@ public class LogisticPatternHandler implements IOverlayHandler {
 
     }
 
-
     /**
      * Collects the inputs of a given recipe, transformed into IPatternStacks.
      *

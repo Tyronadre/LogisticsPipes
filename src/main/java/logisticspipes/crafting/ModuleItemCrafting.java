@@ -1232,11 +1232,10 @@ public class ModuleItemCrafting extends LogisticsGuiModule
             return;
         }
 
-
         var result = patternHandler.getAggregatedOutputs(pattern);
 
-        for (var res : result){
-            if(hasOrderFor(res.makePatternStack())){
+        for (var res : result) {
+            if (hasOrderFor(res.makePatternStack())) {
                 continue;
             }
 
@@ -1292,17 +1291,16 @@ public class ModuleItemCrafting extends LogisticsGuiModule
         requestIngredientsForStagedCrafts();
     }
 
+    private boolean hasOrderFor(ItemStack itemStack) {
+        if (!pipe.getOrderManager().hasOrders(ResourceType.CRAFTING, ResourceType.EXTRA)) return false;
 
-    private boolean hasOrderFor(ItemStack itemStack){
-        if(!pipe.getOrderManager().hasOrders(ResourceType.CRAFTING, ResourceType.EXTRA)) return false;
-
-        for (var order : pipe.getOrderManager()){
-            if(!(order instanceof LogisticsItemOrder)) continue;
+        for (var order : pipe.getOrderManager()) {
+            if (!(order instanceof LogisticsItemOrder)) continue;
 
             var targetItem = ((LogisticsItemOrder) order).getAsDisplayItem().makeNormalStack().getItem();
             var stackItem = itemStack.getItem();
 
-            if(targetItem == stackItem) return true;
+            if (targetItem == stackItem) return true;
         }
 
         return false;
