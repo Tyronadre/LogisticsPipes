@@ -17,7 +17,9 @@ import net.minecraft.util.ChatComponentText;
 
 import logisticspipes.LogisticsPipes;
 import logisticspipes.api.IRequestAPI;
+import logisticspipes.interfaces.routing.IAdditionalTargetInformation;
 import logisticspipes.interfaces.routing.IRequestItems;
+import logisticspipes.interfaces.routing.IRequireReliableTransport;
 import logisticspipes.modules.abstractmodules.LogisticsModule;
 import logisticspipes.network.GuiIDs;
 import logisticspipes.pipes.basic.CoreRoutedPipe;
@@ -33,6 +35,9 @@ import logisticspipes.request.resources.DictResource;
 import logisticspipes.request.resources.IResource;
 import logisticspipes.request.resources.ItemResource;
 import logisticspipes.routing.order.LinkedLogisticsOrderList;
+import logisticspipes.routing.request.JobTargetInformation;
+import logisticspipes.routing.request.RequestJob;
+import logisticspipes.routing.request.RequestJobManager;
 import logisticspipes.security.SecuritySettings;
 import logisticspipes.textures.Textures;
 import logisticspipes.textures.Textures.TextureType;
@@ -41,7 +46,7 @@ import logisticspipes.utils.item.ItemIdentifierStack;
 import logisticspipes.utils.tuples.Pair;
 
 @CCType(name = "LogisticsPipes:Request")
-public class PipeItemsRequestLogistics extends CoreRoutedPipe implements IRequestItems, IRequestAPI {
+public class PipeItemsRequestLogistics extends CoreRoutedPipe implements IRequestItems, IRequestAPI, IRequireReliableTransport {
 
     private final LinkedList<Map<ItemIdentifier, Integer>> _history = new LinkedList<>();
 
@@ -93,6 +98,23 @@ public class PipeItemsRequestLogistics extends CoreRoutedPipe implements IReques
 
     public LinkedList<Map<ItemIdentifier, Integer>> getHistory() {
         return _history;
+    }
+
+    @Override
+    public void itemArrived(ItemIdentifierStack item, IAdditionalTargetInformation info) {
+        if (info instanceof JobTargetInformation jobInfo) {
+            jobInfo.getJobManager().notifyItemTaken(jobInfo.getJobId(), item.getStackSize());
+        }
+    }
+
+    @Override
+    public void itemLost(ItemIdentifierStack item, IAdditionalTargetInformation info) {
+        if (info instanceof JobTargetInformation jobInfo) {
+            RequestJob job = jobInfo.getJobManager().findJob(jobInfo.getJobId());
+            if (job != null) {
+                job.fail();
+            }
+        }
     }
 
     @Override
@@ -177,19 +199,46 @@ public class PipeItemsRequestLogistics extends CoreRoutedPipe implements IReques
     @Override
     public List<ItemStack> performRequest(ItemStack wanted) {
         final List<IResource> missing = new ArrayList<>();
-        RequestTree.request(ItemIdentifier.get(wanted).makeStack(wanted.stackSize), this, new RequestLog() {
+        ItemIdentifierStack stack = ItemIdentifier.get(wanted).makeStack(wanted.stackSize);
 
-            @Override
-            public void handleMissingItems(List<IResource> items) {
-                missing.addAll(items);
+        RequestJobManager jobManager = getRequestJobManager();
+        if (jobManager.canAcceptJob()) {
+            // Route the request through the job manager so it is tracked.
+            ItemResource resource = new ItemResource(stack, this);
+            RequestJob job = jobManager.createJob(resource);
+            LinkedLogisticsOrderList orderList = jobManager.dispatchJob(job, this, null);
+            if (orderList == null) {
+                // Job failed — collect missing items via a plain simulate pass.
+                RequestTree.request(stack, this, new RequestLog() {
+                    @Override
+                    public void handleMissingItems(List<IResource> items) {
+                        missing.addAll(items);
+                    }
+
+                    @Override
+                    public void handleSucessfullRequestOf(IResource item, LinkedLogisticsOrderList parts) {}
+
+                    @Override
+                    public void handleSucessfullRequestOfList(List<IResource> items,
+                            LinkedLogisticsOrderList parts) {}
+                }, null);
             }
+        } else {
+            // Concurrent job limit reached — fall back to the legacy path.
+            RequestTree.request(stack, this, new RequestLog() {
+                @Override
+                public void handleMissingItems(List<IResource> items) {
+                    missing.addAll(items);
+                }
 
-            @Override
-            public void handleSucessfullRequestOf(IResource item, LinkedLogisticsOrderList parts) {}
+                @Override
+                public void handleSucessfullRequestOf(IResource item, LinkedLogisticsOrderList parts) {}
 
-            @Override
-            public void handleSucessfullRequestOfList(List<IResource> items, LinkedLogisticsOrderList parts) {}
-        }, null);
+                @Override
+                public void handleSucessfullRequestOfList(List<IResource> items, LinkedLogisticsOrderList parts) {}
+            }, null);
+        }
+
         List<ItemStack> missingList = new ArrayList<>(missing.size());
         for (IResource e : missing) {
             if (e instanceof ItemResource) {
@@ -198,7 +247,6 @@ public class PipeItemsRequestLogistics extends CoreRoutedPipe implements IReques
                 missingList.add(((DictResource) e).getItem().unsafeMakeNormalStack(e.getRequestedAmount()));
             }
         }
-
         return missingList;
     }
 

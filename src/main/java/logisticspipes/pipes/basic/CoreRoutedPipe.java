@@ -102,6 +102,7 @@ import logisticspipes.routing.ServerRouter;
 import logisticspipes.routing.order.IOrderInfoProvider;
 import logisticspipes.routing.order.LogisticsItemOrderManager;
 import logisticspipes.routing.order.LogisticsOrderManager;
+import logisticspipes.routing.request.RequestJobManager;
 import logisticspipes.security.PermissionException;
 import logisticspipes.security.SecuritySettings;
 import logisticspipes.textures.Textures;
@@ -164,6 +165,8 @@ public abstract class CoreRoutedPipe extends CoreUnroutedPipe
 
     protected UpgradeManager upgradeManager = new UpgradeManager(this);
     protected LogisticsItemOrderManager _orderItemManager = null;
+
+    private final RequestJobManager _requestJobManager = new RequestJobManager();
 
     @Getter
     private final List<IOrderInfoProvider> clientSideOrderManager = new ArrayList<>();
@@ -415,6 +418,7 @@ public abstract class CoreRoutedPipe extends CoreUnroutedPipe
      * Only Called Server Side Only Called when the pipe is enabled
      */
     public void enabledUpdateEntity() {
+        _requestJobManager.tick();
         powerHandler.update();
         for (int i = 0; i < 6; i++) {
             if (signItem[i] != null) {
@@ -633,6 +637,7 @@ public abstract class CoreRoutedPipe extends CoreUnroutedPipe
     public final void onBlockRemoval() {
         try {
             onAllowedRemoval();
+            _requestJobManager.cancelAll();
             super.onBlockRemoval();
             // invalidate() removes the router
             // if (logic instanceof BaseRoutingLogic){
@@ -1778,6 +1783,10 @@ public abstract class CoreRoutedPipe extends CoreUnroutedPipe
 
     public LogisticsOrderManager<?, ?> getOrderManager() {
         return getItemOrderManager();
+    }
+
+    public RequestJobManager getRequestJobManager() {
+        return _requestJobManager;
     }
 
     public void addPipeSign(ForgeDirection dir, IPipeSign type, EntityPlayer player) {

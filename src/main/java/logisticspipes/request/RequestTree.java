@@ -232,6 +232,38 @@ public class RequestTree extends RequestTreeNode {
                 == item.getStackSize();
     }
 
+    /**
+     * Builds and fulfils a request tree for {@code item}, then returns the resolved tree so callers
+     * (e.g. {@link logisticspipes.routing.request.RequestJobManager}) can walk it to populate job
+     * sub-requests.  Returns {@code null} when the request cannot be fulfilled.
+     *
+     * @param item      the item stack to request
+     * @param requester the pipe initiating the request
+     * @param log       optional request log (may be {@code null})
+     * @param info      additional routing target information (may be {@code null})
+     * @return the fulfilled {@link RequestTree}, or {@code null} on failure
+     */
+    public static RequestTree requestAndReturnTree(ItemIdentifierStack item, IRequestItems requester, RequestLog log,
+            IAdditionalTargetInformation info) {
+        ItemResource req = new ItemResource(item, requester);
+        RequestTree tree = new RequestTree(req, null, RequestTree.defaultRequestFlags, info);
+        if (tree.isDone()) {
+            LinkedLogisticsOrderList list = tree.fullFillAll();
+            CraftingRequestDebugManager.record("Item request fulfilled (tree): " + item, tree, list);
+            if (log != null) {
+                log.handleSucessfullRequestOf(req.copyForDisplayWith(item.getStackSize()), list);
+            }
+            return tree;
+        } else {
+            if (log != null) {
+                tree.recurseFailedRequestTree();
+                tree.sendMissingMessage(log);
+            }
+            CraftingRequestDebugManager.record("Item request not fulfilled (tree): " + item, tree, null);
+            return null;
+        }
+    }
+
     public static int requestPartial(ItemIdentifierStack item, IRequestItems requester,
             IAdditionalTargetInformation info) {
         return RequestTree

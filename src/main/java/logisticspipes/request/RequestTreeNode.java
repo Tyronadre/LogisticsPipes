@@ -823,6 +823,44 @@ public class RequestTreeNode {
         parentNode.remove(this);
     }
 
+    // -------------------------------------------------------------------------
+    // Tree introspection — used by RequestJobManager to populate sub-requests
+    // -------------------------------------------------------------------------
+
+    /**
+     * Returns the child nodes of this request tree node (ingredients / intermediate steps).
+     */
+    public List<RequestTreeNode> getChildNodes() {
+        return subRequests;
+    }
+
+    /**
+     * Returns the crafting templates that were committed to satisfy this node's request.
+     */
+    public SortedSet<ICraftingTemplate> getUsedCrafters() {
+        return usedCrafters;
+    }
+
+    /**
+     * Returns the promises that were made to satisfy this node's request.
+     */
+    public List<IPromise> getPromises() {
+        return promises;
+    }
+
+    /**
+     * Walks the fully-resolved request tree depth-first and invokes {@code visitor}
+     * on every node (including this one).
+     *
+     * @param visitor called for each node in the tree
+     */
+    public void visitTree(java.util.function.Consumer<RequestTreeNode> visitor) {
+        visitor.accept(this);
+        for (RequestTreeNode child : subRequests) {
+            child.visitTree(visitor);
+        }
+    }
+
     protected static List<IResource> shrinkToList(Map<IResource, Integer> items) {
         List<IResource> resources = new ArrayList<>();
         outer: for (Entry<IResource, Integer> entry : items.entrySet()) {

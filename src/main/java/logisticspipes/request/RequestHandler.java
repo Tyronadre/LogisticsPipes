@@ -30,7 +30,10 @@ import logisticspipes.proxy.SimpleServiceLocator;
 import logisticspipes.request.RequestTree.ActiveRequestType;
 import logisticspipes.request.resources.FluidResource;
 import logisticspipes.request.resources.IResource;
+import logisticspipes.request.resources.ItemResource;
 import logisticspipes.routing.order.LinkedLogisticsOrderList;
+import logisticspipes.routing.request.RequestJob;
+import logisticspipes.routing.request.RequestJobManager;
 import logisticspipes.utils.FluidIdentifier;
 import logisticspipes.utils.item.ItemIdentifier;
 import logisticspipes.utils.item.ItemIdentifierStack;
@@ -48,6 +51,41 @@ public class RequestHandler {
             player.addChatMessage(new ChatComponentTranslation("lp.misc.noenergy"));
             return;
         }
+        RequestJobManager jobManager = pipe.getRequestJobManager();
+        if (jobManager.canAcceptJob()) {
+            IResource resource = new ItemResource(stack.clone(), pipe);
+            RequestJob job = jobManager.createJob(resource);
+            LinkedLogisticsOrderList orderList = jobManager.dispatchJob(job, pipe, null);
+            if (orderList != null) {
+                Collection<IResource> coll = new ArrayList<>(1);
+                coll.add(resource.copyForDisplayWith(stack.getStackSize()));
+                MainProxy.sendPacketToPlayer(
+                        PacketHandler.getPacket(MissingItems.class).setItems(coll).setFlag(false),
+                        player);
+                if (pipe instanceof IRequestWatcher) {
+                    ((IRequestWatcher) pipe).handleOrderList(resource, orderList);
+                }
+            } else {
+                // Dispatch failed — simulate to report what is missing.
+                RequestTree.request(stack.clone(), pipe, new RequestLog() {
+                    @Override
+                    public void handleMissingItems(List<IResource> resources) {
+                        MainProxy.sendPacketToPlayer(
+                                PacketHandler.getPacket(MissingItems.class).setItems(resources).setFlag(true),
+                                player);
+                    }
+
+                    @Override
+                    public void handleSucessfullRequestOf(IResource item, LinkedLogisticsOrderList parts) {}
+
+                    @Override
+                    public void handleSucessfullRequestOfList(List<IResource> resources,
+                            LinkedLogisticsOrderList parts) {}
+                }, false, true, true, false, RequestTree.defaultRequestFlags, null);
+            }
+            return;
+        }
+        // Concurrent job limit reached — fall back to the legacy path.
         RequestTree.request(stack.clone(), pipe, new RequestLog() {
 
             @Override

@@ -285,13 +285,10 @@ public class ModuleCrafter extends LogisticsGuiModule implements ICraftItems, IH
     }
 
     @Override
-    public void itemArrived(ItemIdentifierStack item, IAdditionalTargetInformation info) {
-        System.out.println("itemArrived: " + item + ", " + info);
-    }
+    public void itemArrived(ItemIdentifierStack item, IAdditionalTargetInformation info) {}
 
     @Override
     public void itemLost(ItemIdentifierStack item, IAdditionalTargetInformation info) {
-        System.out.println("itemLost: " + item + ", " + info);
         _lostItems.add(new DelayedGeneric<>(new Pair<>(item, info), 5000));
     }
 
