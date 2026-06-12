@@ -1424,13 +1424,13 @@ public class ModuleItemCrafting extends LogisticsGuiModule
      * Returns a pattern slot whose buffered arrived ingredients can be pushed as a complete set.
      */
     private Integer findCompleteBufferedPattern() {
-        for (Integer patternSlot : bufferedIngredients.keySet()) {
-            ItemStack pattern = getPatternStack(patternSlot);
+        for (int i = 0; i < patternInventory.getSizeInventory(); i++) {
+            var pattern = patternHandler.getConfiguredPatternStack(i);
             if (pattern == null) {
                 continue;
             }
-            if (completeBufferedSets(patternSlot, pattern) > 0) {
-                return patternSlot;
+            if (completeBufferedSets(i, pattern) > 0) {
+                return i;
             }
         }
         return null;
@@ -1453,8 +1453,8 @@ public class ModuleItemCrafting extends LogisticsGuiModule
      * Checks whether a pattern slot has arrived ingredients waiting in the module buffer.
      */
     private boolean hasBufferedIngredients(int patternSlot) {
-        List<IPatternStack> buffer = bufferedIngredients.get(patternSlot);
-        return buffer != null && !buffer.isEmpty();
+        var pattern = patternHandler.getConfiguredPatternStack(patternSlot);
+        return (completeBufferedSets(patternSlot, pattern) > 0);
     }
 
     /**
