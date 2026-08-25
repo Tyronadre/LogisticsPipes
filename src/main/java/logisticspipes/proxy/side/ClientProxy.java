@@ -1,25 +1,5 @@
 package logisticspipes.proxy.side;
 
-import java.util.ArrayList;
-import java.util.List;
-
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiChat;
-import net.minecraft.client.gui.GuiScreen;
-import net.minecraft.client.multiplayer.WorldClient;
-import net.minecraft.client.renderer.texture.IIconRegister;
-import net.minecraft.entity.player.EntityPlayer;
-import net.minecraft.network.INetHandler;
-import net.minecraft.network.NetHandlerPlayServer;
-import net.minecraft.server.integrated.IntegratedServer;
-import net.minecraft.tileentity.TileEntity;
-import net.minecraft.util.ChatComponentText;
-import net.minecraft.util.MovingObjectPosition;
-import net.minecraft.world.World;
-import net.minecraft.world.WorldServer;
-import net.minecraftforge.client.IItemRenderer;
-import net.minecraftforge.common.DimensionManager;
-
 import cpw.mods.fml.client.FMLClientHandler;
 import cpw.mods.fml.client.registry.ClientRegistry;
 import cpw.mods.fml.client.registry.RenderingRegistry;
@@ -35,6 +15,7 @@ import logisticspipes.blocks.powertile.LogisticsPowerJunctionTileEntity;
 import logisticspipes.blocks.powertile.LogisticsRFPowerProviderTileEntity;
 import logisticspipes.blocks.stats.LogisticsStatisticsTileEntity;
 import logisticspipes.config.Configs;
+import logisticspipes.crafting.CraftingMonitorTileEntity;
 import logisticspipes.crafting.PatternLogisticsCraftingTableTileEntity;
 import logisticspipes.crafting.requesttable.RequestTableGui;
 import logisticspipes.gui.GuiCraftingPipe;
@@ -83,6 +64,25 @@ import logisticspipes.utils.gui.SubGuiScreen;
 import logisticspipes.utils.item.ItemIdentifier;
 import logisticspipes.utils.item.ItemIdentifierStack;
 import logisticspipes.utils.string.ChatColor;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiChat;
+import net.minecraft.client.gui.GuiScreen;
+import net.minecraft.client.multiplayer.WorldClient;
+import net.minecraft.client.renderer.texture.IIconRegister;
+import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.network.INetHandler;
+import net.minecraft.network.NetHandlerPlayServer;
+import net.minecraft.server.integrated.IntegratedServer;
+import net.minecraft.tileentity.TileEntity;
+import net.minecraft.util.ChatComponentText;
+import net.minecraft.util.MovingObjectPosition;
+import net.minecraft.world.World;
+import net.minecraft.world.WorldServer;
+import net.minecraftforge.client.IItemRenderer;
+import net.minecraftforge.common.DimensionManager;
+
+import java.util.ArrayList;
+import java.util.List;
 
 public class ClientProxy implements IProxy {
 
@@ -121,6 +121,9 @@ public class ClientProxy implements IProxy {
         GameRegistry.registerTileEntity(
                 PatternLogisticsCraftingTableTileEntity.class,
                 "logisticspipes.crafting.PatternLogisticsCraftingTableTileEntity");
+        GameRegistry.registerTileEntity(
+            CraftingMonitorTileEntity.class,
+            "logisticspipes.crafting.CraftingMonitorTileEntity");
         GameRegistry.registerTileEntity(LogisticsTileGenericPipe.class, LogisticsPipes.logisticsTileGenericPipeMapping);
         GameRegistry.registerTileEntity(
                 LogisticsStatisticsTileEntity.class,
@@ -297,7 +300,7 @@ public class ClientProxy implements IProxy {
 
     @Override
     public void openFluidSelectGui(final int slotId) {
-        if (Minecraft.getMinecraft().currentScreen instanceof LogisticsBaseGuiScreen) {
+        if (Minecraft.getMinecraft().currentScreen instanceof LogisticsBaseGuiScreen gui) {
             final List<ItemIdentifierStack> list = new ArrayList<>();
             for (FluidIdentifier fluid : FluidIdentifier.all()) {
                 if (fluid == null) {
@@ -310,7 +313,6 @@ public class ClientProxy implements IProxy {
                     slot -> MainProxy.sendPacketToServer(
                             PacketHandler.getPacket(DummyContainerSlotClick.class).setSlotId(slotId)
                                     .setStack(list.get(slot).makeNormalStack()).setButton(0)));
-            LogisticsBaseGuiScreen gui = (LogisticsBaseGuiScreen) Minecraft.getMinecraft().currentScreen;
             if (!gui.hasSubGui()) {
                 gui.setSubGui(subGui);
             } else {

@@ -1,15 +1,5 @@
 package logisticspipes.pipes.upgrades;
 
-import java.util.EnumSet;
-import java.util.UUID;
-
-import net.minecraft.entity.player.EntityPlayer;
-import net.minecraft.inventory.IInventory;
-import net.minecraft.item.ItemStack;
-import net.minecraft.nbt.NBTTagCompound;
-import net.minecraft.world.World;
-import net.minecraftforge.common.util.ForgeDirection;
-
 import logisticspipes.LogisticsPipes;
 import logisticspipes.interfaces.IGuiOpenControler;
 import logisticspipes.interfaces.IPipeUpgradeManager;
@@ -28,6 +18,15 @@ import logisticspipes.utils.PlayerCollectionList;
 import logisticspipes.utils.gui.DummyContainer;
 import logisticspipes.utils.item.SimpleStackInventory;
 import lombok.Getter;
+import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.inventory.IInventory;
+import net.minecraft.item.ItemStack;
+import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.world.World;
+import net.minecraftforge.common.util.ForgeDirection;
+
+import java.util.EnumSet;
+import java.util.UUID;
 
 public class UpgradeManager implements ISimpleInventoryEventHandler, ISlotUpgradeManager, IPipeUpgradeManager {
 
@@ -51,6 +50,7 @@ public class UpgradeManager implements ISimpleInventoryEventHandler, ISlotUpgrad
     private int speedUpgradeCount = 0;
     private final EnumSet<ForgeDirection> disconnectedSides = EnumSet.noneOf(ForgeDirection.class);
     private boolean isAdvancedCrafter = false;
+    private boolean hasInstantSatelliteUpgrade = false;
     private boolean isFuzzyUpgrade = false;
     private boolean isCombinedSneakyUpgrade = false;
     private int liquidCrafter = 0;
@@ -131,6 +131,7 @@ public class UpgradeManager implements ISimpleInventoryEventHandler, ISlotUpgrad
         sneakyOrientation = ForgeDirection.UNKNOWN;
         speedUpgradeCount = 0;
         isAdvancedCrafter = false;
+        hasInstantSatelliteUpgrade = false;
         isFuzzyUpgrade = false;
         boolean combinedBuffer = isCombinedSneakyUpgrade;
         isCombinedSneakyUpgrade = false;
@@ -158,6 +159,8 @@ public class UpgradeManager implements ISimpleInventoryEventHandler, ISlotUpgrad
                 disconnectedSides.add(((ConnectionUpgrade) upgrade).getSide());
             } else if (upgrade instanceof AdvancedSatelliteUpgrade) {
                 isAdvancedCrafter = true;
+            } else if (upgrade instanceof InstantSatelliteUpgrade) {
+                hasInstantSatelliteUpgrade = true;
             } else if (upgrade instanceof FuzzyUpgrade) {
                 isFuzzyUpgrade = true;
             } else if (upgrade instanceof CombinedSneakyUpgrade && sneakyOrientation == ForgeDirection.UNKNOWN) {
@@ -438,6 +441,11 @@ public class UpgradeManager implements ISimpleInventoryEventHandler, ISlotUpgrad
     @Override
     public boolean isAdvancedSatelliteCrafter() {
         return isAdvancedCrafter;
+    }
+
+    @Override
+    public boolean hasInstantSatelliteUpgrade() {
+        return hasInstantSatelliteUpgrade;
     }
 
     @Override

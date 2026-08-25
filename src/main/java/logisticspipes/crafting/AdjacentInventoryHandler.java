@@ -1,12 +1,12 @@
 package logisticspipes.crafting;
 
-import logisticspipes.crafting.pattern.AbstractPattern;
-import logisticspipes.crafting.pattern.ItemPattern;
+import logisticspipes.crafting.pattern.PatternRecipeSnapshot;
 import logisticspipes.crafting.patternStack.IPatternStack;
 import logisticspipes.crafting.patternStack.PatternFluidStack;
 import logisticspipes.crafting.patternStack.PatternItemStack;
 import logisticspipes.crafting.patternStack.PatternStackHelper;
 import logisticspipes.interfaces.IInventoryUtil;
+import logisticspipes.interfaces.ISlotUpgradeManager;
 import logisticspipes.pipes.PipeItemsPatternCraftingLogistics;
 import logisticspipes.proxy.SimpleServiceLocator;
 import logisticspipes.request.resources.IResource;
@@ -25,16 +25,31 @@ import net.minecraftforge.fluids.FluidTankInfo;
 import net.minecraftforge.fluids.IFluidHandler;
 
 import java.util.ArrayList;
+import java.util.IdentityHashMap;
 import java.util.List;
+import java.util.Map;
 
 class AdjacentInventoryHandler {
 
     private final ModulePatternCrafting module;
     private final PipeItemsPatternCraftingLogistics pipe;
+    private final Map<ItemStack, Integer> patternSetCapacity = new IdentityHashMap<>();
+    private long contentCacheTick = Long.MIN_VALUE;
+    private net.minecraft.tileentity.TileEntity contentCacheTile;
+    private ForgeDirection contentCacheOrientation = ForgeDirection.UNKNOWN;
+    private boolean emptyCached;
+    private boolean cachedEmpty;
 
     AdjacentInventoryHandler(ModulePatternCrafting module, PipeItemsPatternCraftingLogistics pipe) {
         this.module = module;
         this.pipe = pipe;
+    }
+
+    void invalidate() {
+        contentCacheTick = Long.MIN_VALUE;
+        contentCacheTile = null;
+        contentCacheOrientation = ForgeDirection.UNKNOWN;
+        clearContentCacheValues();
     }
 
     AdjacentTile getConnected() {
@@ -47,7 +62,8 @@ class AdjacentInventoryHandler {
     }
 
     public boolean hasConnectedTE() {
-        return getConnected() != null && getConnected().tile != null;
+        AdjacentTile connected = getConnected();
+        return connected != null && connected.tile != null;
     }
 
     List<AdjacentTile> locateFluidHandlers() {
@@ -80,6 +96,11 @@ class AdjacentInventoryHandler {
         if (connected == null || pattern == null) {
             module.debug("adjacent capacity result=0 connected=%s pattern=%s", connected, pattern);
             return 0;
+        }
+        refreshContentCache(connected);
+        Integer cached = patternSetCapacity.get(pattern);
+        if (cached != null) {
+            return cached;
         }
         int sets = Integer.MAX_VALUE;
         boolean hasIngredient = false;
@@ -120,6 +141,7 @@ class AdjacentInventoryHandler {
             solidIngredients.size(),
             fluidIngredients.size(),
             connected.tile);
+        patternSetCapacity.put(pattern, result);
         return result;
     }
 
@@ -134,6 +156,9 @@ class AdjacentInventoryHandler {
             && getFluidIngredients(module.getLocalAggregatedIngredients(pattern)).isEmpty()) {
             boolean inserted = ((PatternLogisticsCraftingTableTileEntity) connected.tile)
                 .insertPatternFromPatternPipe(pattern, sets);
+            if (inserted) {
+                invalidateContentCache();
+            }
             module.debug("adjacent pattern-table insert pattern=%s sets=%d inserted=%s", pattern, sets, inserted);
             return inserted;
         }
@@ -141,7 +166,7 @@ class AdjacentInventoryHandler {
             if (ingredient instanceof PatternItemStack) {
                 ItemIdentifierStack item = ((PatternItemStack) ingredient).getItemIdentifierStack();
                 ItemIdentifierStack stack = new ItemIdentifierStack(item.getItem(), item.getStackSize() * sets);
-                int inserted = insert(pattern, stack);
+                int inserted = insert(stack);
                 module.debug(
                     "adjacent insert item ingredient=%s wanted=%d inserted=%d",
                     item.getItem(),
@@ -225,17 +250,22 @@ class AdjacentInventoryHandler {
         }
         AdjacentTile connected = getConnected();
         if (connected.tile instanceof PatternLogisticsCraftingTableTileEntity table) {
-            return table.insertPatternPlanFromPatternPipe(assignments);
+            boolean inserted = table.insertPatternPlanFromPatternPipe(assignments);
+            if (inserted) {
+                invalidateContentCache();
+            }
+            return inserted;
         }
         for (PatternIngredientAssignment assignment : assignments) {
             ItemIdentifierStack item = PatternStackHelper.asSolidStack(assignment.stack());
             if (item != null) {
-                if (insert(pattern, item.clone()) != item.getStackSize()) {
+                if (insert(item.clone()) != item.getStackSize()) {
                     return false;
                 }
                 continue;
             }
-            if (assignment.stack() instanceof PatternFluidStack fluid && insertFluid(fluid.copy()) != fluid.getAmount()) {
+            if (assignment.stack() instanceof PatternFluidStack fluid
+                && insertFluid(fluid.copy()) != fluid.getAmount()) {
                 return false;
             }
         }
@@ -387,9 +417,12 @@ class AdjacentInventoryHandler {
     private int availablePatternSetsForPatternTable(ItemStack pattern, PatternLogisticsCraftingTableTileEntity table) {
         int sets = Integer.MAX_VALUE;
         boolean hasIngredient = false;
-        AbstractPattern configuredPattern = ItemPattern.fromStack(pattern);
+        PatternRecipeSnapshot configuredPattern = module.getPatternRecipe(pattern);
+        if (configuredPattern == null) {
+            return 0;
+        }
         for (int slot = 0; slot < configuredPattern.getIngredientSlotCount(); slot++) {
-            IPatternStack patternStack = configuredPattern.getPatternStackInSlot(slot);
+            IPatternStack patternStack = configuredPattern.getInput(slot);
             if (!(patternStack instanceof PatternItemStack)) {
                 continue;
             }
@@ -412,18 +445,13 @@ class AdjacentInventoryHandler {
         return result;
     }
 
-    private int insert(ItemStack pattern, ItemIdentifierStack item) {
+    private int insert(ItemIdentifierStack item) {
         AdjacentTile connected = getConnected();
         if (connected == null || item.getStackSize() <= 0) {
             module.debug("adjacent item insert skipped connected=%s item=%s", connected, item);
             return 0;
         }
         int amount = item.getStackSize();
-        if (module.getBlockingMode() == PipeItemsPatternCraftingLogistics.BlockingMode.BLOCKING
-            && module.getRunningCraftForHandler() >= 0) {
-            amount = Math.min(amount, missingFor(pattern, item.getItem()));
-            module.debug("adjacent item insert blocking clamp item=%s clampedAmount=%d", item.getItem(), amount);
-        }
         if (amount <= 0) {
             module.debug("adjacent item insert skipped after clamp item=%s", item);
             return 0;
@@ -432,6 +460,9 @@ class AdjacentInventoryHandler {
         toInsert.stackSize = amount;
         if (connected.tile instanceof PatternLogisticsCraftingTableTileEntity) {
             int inserted = ((PatternLogisticsCraftingTableTileEntity) connected.tile).insertFromPatternPipe(toInsert);
+            if (inserted > 0) {
+                invalidateContentCache();
+            }
             module.debug(
                 "adjacent item inserted into pattern table item=%s amount=%d inserted=%d",
                 item.getItem(),
@@ -446,6 +477,9 @@ class AdjacentInventoryHandler {
         }
         ItemStack added = transactor.add(toInsert, module.getInsertionOrientation(connected), true);
         int inserted = added != null ? added.stackSize : 0;
+        if (inserted > 0) {
+            invalidateContentCache();
+        }
         module.debug(
             "adjacent item inserted tile=%s item=%s amount=%d inserted=%d",
             connected.tile,
@@ -462,48 +496,19 @@ class AdjacentInventoryHandler {
             return 0;
         }
         int inserted = handler.fill(getFluidInsertionOrientation(connected), fluid.makeFluidStack(), true);
+        if (inserted > 0) {
+            invalidateContentCache();
+        }
         module.debug("adjacent fluid inserted tile=%s fluid=%s inserted=%d", connected.tile, fluid, inserted);
         return inserted;
     }
 
     private ForgeDirection getFluidInsertionOrientation(AdjacentTile connected) {
-        if (module.getUpgradeManager().hasSneakyUpgrade()) {
-            return module.getUpgradeManager().getSneakyOrientation();
+        ISlotUpgradeManager upgradeManager = module.getUpgradeManager();
+        if (upgradeManager != null && upgradeManager.hasSneakyUpgrade()) {
+            return upgradeManager.getSneakyOrientation();
         }
         return connected.orientation.getOpposite();
-    }
-
-    /**
-     * Counts matching items currently held by the connected inventory.
-     * <p>
-     * Blocking mode uses this to avoid inserting more than the selected pattern still lacks while another craft is
-     * active in the adjacent target.
-     */
-    private int amountOf(ItemIdentifier item) {
-        AdjacentTile connected = getConnected();
-        if (connected == null) {
-            return 0;
-        }
-        IInventory inventory = (IInventory) connected.tile;
-        int amount = 0;
-        for (int i = 0; i < inventory.getSizeInventory(); i++) {
-            ItemStack stack = inventory.getStackInSlot(i);
-            if (stack == null) {
-                continue;
-            }
-            ItemIdentifier identifier = ItemIdentifier.get(stack);
-            if (identifier == null) {
-                continue;
-            }
-            if (identifier.equalsForCrafting(item)) {
-                amount += stack.stackSize;
-            }
-        }
-        return amount;
-    }
-
-    private int missingFor(ItemStack pattern, ItemIdentifier item) {
-        return Math.max(0, module.localIngredientAmount(pattern, item) - amountOf(item));
     }
 
     boolean isEmpty(AdjacentTile connected) {
@@ -511,6 +516,16 @@ class AdjacentInventoryHandler {
             || (!(connected.tile instanceof IInventory) && !(connected.tile instanceof IFluidHandler))) {
             return true;
         }
+        refreshContentCache(connected);
+        if (emptyCached) {
+            return cachedEmpty;
+        }
+        cachedEmpty = calculateEmpty(connected);
+        emptyCached = true;
+        return cachedEmpty;
+    }
+
+    private boolean calculateEmpty(AdjacentTile connected) {
         if (connected.tile instanceof PatternLogisticsCraftingTableTileEntity) {
             return ((PatternLogisticsCraftingTableTileEntity) connected.tile).isIdle();
         }
@@ -549,6 +564,9 @@ class AdjacentInventoryHandler {
                 return null;
             }
             ItemStack extracted = ((PatternLogisticsCraftingTableTileEntity) tile.tile).extractOutput(wanted, count);
+            if (extracted != null && extracted.stackSize > 0) {
+                invalidateContentCache();
+            }
             module.debug(
                 "adjacent extracted from pattern table wanted=%s count=%d extracted=%s",
                 wanted,
@@ -571,6 +589,9 @@ class AdjacentInventoryHandler {
             return null;
         }
         ItemStack extracted = util.getMultipleItems(item, Math.min(count, available));
+        if (extracted != null && extracted.stackSize > 0) {
+            invalidateContentCache();
+        }
         module.debug(
             "adjacent extracted item=%s available=%d count=%d extracted=%s",
             item,
@@ -605,6 +626,9 @@ class AdjacentInventoryHandler {
             return null;
         }
         FluidStack drained = handler.drain(side, Math.min(amount, simulated.amount), true);
+        if (drained != null && drained.amount > 0) {
+            invalidateContentCache();
+        }
         module.debug("adjacent extracted fluid wanted=%s amount=%d drained=%s", wanted, amount, drained);
         return drained;
     }
@@ -642,6 +666,28 @@ class AdjacentInventoryHandler {
         }
 
         return null;
+    }
+
+    private void refreshContentCache(AdjacentTile connected) {
+        long tick = module.currentWorldTick();
+        net.minecraft.tileentity.TileEntity tile = connected == null ? null : connected.tile;
+        ForgeDirection orientation = connected == null ? ForgeDirection.UNKNOWN : connected.orientation;
+        if (contentCacheTick == tick && contentCacheTile == tile && contentCacheOrientation == orientation) {
+            return;
+        }
+        contentCacheTick = tick;
+        contentCacheTile = tile;
+        contentCacheOrientation = orientation;
+        clearContentCacheValues();
+    }
+
+    private void invalidateContentCache() {
+        clearContentCacheValues();
+    }
+
+    private void clearContentCacheValues() {
+        patternSetCapacity.clear();
+        emptyCached = false;
     }
 
 }

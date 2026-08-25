@@ -1,8 +1,13 @@
 package logisticspipes.recipes;
 
-import static net.minecraftforge.oredict.RecipeSorter.Category.SHAPED;
-import static net.minecraftforge.oredict.RecipeSorter.Category.SHAPELESS;
-
+import logisticspipes.LogisticsPipes;
+import logisticspipes.blocks.LogisticsSolidBlock;
+import logisticspipes.config.Configs;
+import logisticspipes.items.ItemModule;
+import logisticspipes.items.ItemPipeComponents;
+import logisticspipes.items.ItemUpgrade;
+import logisticspipes.items.RemoteOrderer;
+import logisticspipes.proxy.interfaces.ICraftingParts;
 import net.minecraft.init.Blocks;
 import net.minecraft.init.Items;
 import net.minecraft.inventory.InventoryCrafting;
@@ -12,14 +17,8 @@ import net.minecraft.item.crafting.CraftingManager;
 import net.minecraftforge.oredict.RecipeSorter;
 import net.minecraftforge.oredict.ShapelessOreRecipe;
 
-import logisticspipes.LogisticsPipes;
-import logisticspipes.blocks.LogisticsSolidBlock;
-import logisticspipes.config.Configs;
-import logisticspipes.items.ItemModule;
-import logisticspipes.items.ItemPipeComponents;
-import logisticspipes.items.ItemUpgrade;
-import logisticspipes.items.RemoteOrderer;
-import logisticspipes.proxy.interfaces.ICraftingParts;
+import static net.minecraftforge.oredict.RecipeSorter.Category.SHAPED;
+import static net.minecraftforge.oredict.RecipeSorter.Category.SHAPELESS;
 
 // @formatter:off
 // CHECKSTYLE:OFF
@@ -35,7 +34,7 @@ public class RecipeManager {
         }
 
         public void addOrdererRecipe(ItemStack stack, String dye, ItemStack orderer) {
-            			craftingManager.getRecipeList().add(new ShapelessOrdererRecipe(stack, new Object[] {dye, orderer}));
+            			craftingManager.getRecipeList().add(new ShapelessOrdererRecipe(stack, dye, orderer));
         }
 
         public void addShapelessRecipe(ItemStack stack, CraftingDependency dependent, Object... objects) {
@@ -1101,6 +1100,44 @@ public class RecipeManager {
                     Items.iron_ingot);
 
             RecipeManager.craftingManager.addRecipe(
+                    new ItemStack(
+                            LogisticsPipes.LogisticsSolidBlock, 1, LogisticsSolidBlock.LOGISTICS_CRAFTING_MONITOR),
+                    CraftingDependency.Advanced_Information,
+                    "iDi",
+                    "rSr",
+                    "iBi",
+                    'D',
+                    parts.getGearTear3(),
+                    'r',
+                    Items.redstone,
+                    'S',
+                    new ItemStack(
+                            LogisticsPipes.LogisticsSolidBlock, 1, LogisticsSolidBlock.LOGISTICS_STATISTICS_TABLE),
+                    'B',
+                    LogisticsPipes.LogisticsPatternCraftingPipe,
+                    'i',
+                    Items.iron_ingot);
+
+            RecipeManager.craftingManager.addRecipe(
+                    new ItemStack(
+                            LogisticsPipes.LogisticsSolidBlock, 1, LogisticsSolidBlock.LOGISTICS_CRAFTING_MONITOR),
+                    CraftingDependency.Advanced_Information,
+                    "iDi",
+                    "rSr",
+                    "iBi",
+                    'D',
+                    parts.getChipTear3(),
+                    'r',
+                    Items.redstone,
+                    'S',
+                    new ItemStack(
+                            LogisticsPipes.LogisticsSolidBlock, 1, LogisticsSolidBlock.LOGISTICS_STATISTICS_TABLE),
+                    'B',
+                    LogisticsPipes.LogisticsPatternCraftingPipe,
+                    'i',
+                    Items.iron_ingot);
+
+            RecipeManager.craftingManager.addRecipe(
                     new ItemStack(LogisticsPipes.UpgradeItem, 1, 0),
                     CraftingDependency.Upgrades,
                     false,
@@ -1235,6 +1272,20 @@ public class RecipeManager {
                     parts.getChipTear2(),
                     'r',
                     Items.iron_ingot,
+                    'P',
+                    Items.paper);
+
+            RecipeManager.craftingManager.addRecipe(
+                    new ItemStack(LogisticsPipes.UpgradeItem, 1, ItemUpgrade.INSTANT_SATELLITE),
+                    CraftingDependency.Upgrades,
+                    false,
+                    "PeP",
+                    "eCe",
+                    "PeP",
+                    'C',
+                    parts.getChipTear3(),
+                    'e',
+                    Items.ender_pearl,
                     'P',
                     Items.paper);
 
@@ -2497,6 +2548,20 @@ public class RecipeManager {
                     expand,
                     'r',
                     Items.iron_ingot,
+                    'P',
+                    Items.paper);
+
+            RecipeManager.craftingManager.addRecipe(
+                    new ItemStack(LogisticsPipes.UpgradeItem, 1, ItemUpgrade.INSTANT_SATELLITE),
+                    CraftingDependency.Upgrades,
+                    false,
+                    "PeP",
+                    "eCe",
+                    "PeP",
+                    'C',
+                    expand,
+                    'e',
+                    Items.ender_pearl,
                     'P',
                     Items.paper);
 

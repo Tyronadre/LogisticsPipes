@@ -23,6 +23,7 @@ public class PatternCraftingPipeGuiProvider extends ModuleCoordinatesGuiProvider
 
     private int blockingMode;
     private int selectedPatternSlot;
+    private boolean advancedSatelliteUpgrade;
     private List<PatternSatelliteInfo> satellites = new ArrayList<>();
     private PatternCraftingHudState hudState = PatternCraftingHudState.empty();
 
@@ -45,7 +46,8 @@ public class PatternCraftingPipeGuiProvider extends ModuleCoordinatesGuiProvider
                 .values();
         pipe.setBlockingMode(values[Math.max(0, Math.min(values.length - 1, blockingMode))]);
         pipe.setHudState(hudState);
-        return new PatternCraftingPipeGui(player, pipe, selectedPatternSlot, satellites);
+        return new PatternCraftingPipeGui(
+            player, pipe, selectedPatternSlot, satellites, advancedSatelliteUpgrade);
     }
 
     @Override
@@ -55,8 +57,13 @@ public class PatternCraftingPipeGuiProvider extends ModuleCoordinatesGuiProvider
             return null;
         }
         selectedPatternSlot = findInitialPatternSlot(pipe, selectedPatternSlot);
-        satellites = PipeItemsPatternSatelliteLogistics.getKnownSatellitesFor(player);
-        satellites.addAll(PipeFluidPatternSatelliteLogistics.getKnownSatellitesFor(player));
+        advancedSatelliteUpgrade = pipe.hasAdvancedSatelliteUpgrade();
+        if (advancedSatelliteUpgrade) {
+            satellites = PipeItemsPatternSatelliteLogistics.getKnownSatellitesFor(player);
+            satellites.addAll(PipeFluidPatternSatelliteLogistics.getKnownSatellitesFor(player));
+        } else {
+            satellites = new ArrayList<>();
+        }
         hudState = pipe.getPatternModule().getHudState();
         PatternContainer dummy = new PatternContainer(
                 player.inventory,
@@ -124,6 +131,7 @@ public class PatternCraftingPipeGuiProvider extends ModuleCoordinatesGuiProvider
         super.writeData(data);
         data.writeInt(blockingMode);
         data.writeInt(selectedPatternSlot);
+        data.writeBoolean(advancedSatelliteUpgrade);
         data.writeList(satellites, (stream, satellite) -> satellite.writeData(stream));
         hudState.writeData(data);
     }
@@ -133,6 +141,7 @@ public class PatternCraftingPipeGuiProvider extends ModuleCoordinatesGuiProvider
         super.readData(data);
         blockingMode = data.readInt();
         selectedPatternSlot = data.readInt();
+        advancedSatelliteUpgrade = data.readBoolean();
         satellites = data.readList(PatternSatelliteInfo::readData);
         hudState = PatternCraftingHudState.readData(data);
     }

@@ -62,15 +62,17 @@ public class PatternCraftingPipeGui extends LogisticsBaseGuiScreen {
     private final PipeItemsPatternCraftingLogistics pipe;
     private final PipePatternInventory editedPatternInventory;
     private final List<PatternSatelliteInfo> satellites;
+    private final boolean advancedSatelliteUpgrade;
     private int selectedPatternSlot;
     private boolean watching;
 
     public PatternCraftingPipeGui(EntityPlayer player, PipeItemsPatternCraftingLogistics pipe, int selectedPatternSlot,
-            List<PatternSatelliteInfo> satellites) {
+                                  List<PatternSatelliteInfo> satellites, boolean advancedSatelliteUpgrade) {
         super(238, 238, 0, 0);
         this.pipe = pipe;
         this.selectedPatternSlot = Math.max(0, Math.min(8, selectedPatternSlot));
         this.satellites = satellites == null ? Collections.emptyList() : new ArrayList<>(satellites);
+        this.advancedSatelliteUpgrade = advancedSatelliteUpgrade;
         editedPatternInventory = new PipePatternInventory(pipe, this.selectedPatternSlot);
         PatternContainer dummy = new PatternContainer(player.inventory, editedPatternInventory);
         PatternGuiProvider.addPatternSlots(
@@ -206,8 +208,8 @@ public class PatternCraftingPipeGui extends LogisticsBaseGuiScreen {
     @Override
     protected void mouseClicked(int mouseX, int mouseY, int mouseButton) {
         if (!hasSubGui()) {
-            int satelliteSlot = getSatelliteHotspotSlot(mouseX, mouseY);
-            if (mouseButton == 0 && satelliteSlot >= 0) {
+            SatelliteSlot satelliteSlot = getSatelliteHotspotSlot(mouseX, mouseY);
+            if (mouseButton == 0 && advancedSatelliteUpgrade && satelliteSlot != null) {
                 openSatelliteSelector(satelliteSlot);
                 return;
             }
@@ -243,38 +245,45 @@ public class PatternCraftingPipeGui extends LogisticsBaseGuiScreen {
                         .setTilePos(pipe.container));
     }
 
-    private void openSatelliteSelector(int inputSlot) {
+    private void openSatelliteSelector(SatelliteSlot target) {
         AbstractPattern pattern = currentPattern();
-        boolean fluidTarget = isFluidSatelliteSlot(inputSlot);
+        boolean fluidTarget = isFluidSatelliteSlot(target);
         setSubGui(
                 new PatternSatelliteSelectorGui(
-                        inputSlot,
-                    getSatelliteId(pattern, inputSlot, fluidTarget),
-                    getSatelliteUuid(pattern, inputSlot, fluidTarget),
+                    target.slot,
+                    target.output,
+                    getSatelliteId(pattern, target, fluidTarget),
+                    getSatelliteUuid(pattern, target, fluidTarget),
                     fluidTarget ? PatternSatelliteInfo.SatelliteType.FLUID
                         : PatternSatelliteInfo.SatelliteType.ITEM,
                         satellites,
-                    (satelliteId, satelliteUuid) -> setSatelliteForInputSlot(
-                        inputSlot,
+                    (satelliteId, satelliteUuid) -> setSatelliteForSlot(
+                        target,
                         satelliteId,
                         satelliteUuid,
                         fluidTarget)));
     }
 
-    private void setSatelliteForInputSlot(int inputSlot, int satelliteId, String satelliteUuid, boolean fluidTarget) {
-        if (fluidTarget) {
-            currentPattern().setFluidSatelliteTargetForInputSlot(inputSlot, satelliteId, satelliteUuid);
+    private void setSatelliteForSlot(SatelliteSlot target, int satelliteId, String satelliteUuid,
+                                     boolean fluidTarget) {
+        if (target.output && fluidTarget) {
+            currentPattern().setFluidByproductSatelliteTargetForOutputSlot(target.slot, satelliteId, satelliteUuid);
+        } else if (target.output) {
+            currentPattern().setByproductSatelliteTargetForOutputSlot(target.slot, satelliteId, satelliteUuid);
+        } else if (fluidTarget) {
+            currentPattern().setFluidSatelliteTargetForInputSlot(target.slot, satelliteId, satelliteUuid);
         } else {
-            currentPattern().setSatelliteTargetForInputSlot(inputSlot, satelliteId, satelliteUuid);
+            currentPattern().setSatelliteTargetForInputSlot(target.slot, satelliteId, satelliteUuid);
         }
         PatternPipeSatelliteAssignmentPacket packet = PacketHandler
             .getPacket(PatternPipeSatelliteAssignmentPacket.class);
         packet.setTilePos(pipe.container);
         packet.setPatternSlot(selectedPatternSlot);
-        packet.setInputSlot(inputSlot);
+        packet.setInputSlot(target.slot);
         packet.setSatelliteId(satelliteId);
         packet.setSatelliteUuid(satelliteUuid);
         packet.setFluidTarget(fluidTarget);
+        packet.setOutputTarget(target.output);
         MainProxy.sendPacketToServer(packet);
     }
 
@@ -349,34 +358,58 @@ public class PatternCraftingPipeGui extends LogisticsBaseGuiScreen {
         AbstractPattern pattern = currentPattern();
         PatternSlotLayout layout = layout(pattern);
         for (int inputSlot = 0; inputSlot < pattern.getIngredientSlotCount(); inputSlot++) {
-            boolean fluidTarget = isFluidSatelliteSlot(inputSlot);
-            int satelliteId = getSatelliteId(pattern, inputSlot, fluidTarget);
-            String satelliteUuid = getSatelliteUuid(pattern, inputSlot, fluidTarget);
-            int x = guiLeft + layout.inputX(inputSlot);
-            int y = guiTop + layout.inputY(inputSlot);
-            boolean assigned = satelliteId > 0 || !satelliteUuid.isEmpty();
-            Gui.drawRect(
-                x,
-                y,
-                x + SATELLITE_ICON_SIZE,
-                y + SATELLITE_ICON_SIZE,
-                assigned ? (fluidTarget ? 0xff00a8cc : 0xff2b6ee8) : 0xff777777);
-            mc.fontRenderer.drawString(assigned ? (fluidTarget ? "F" : "S") : "+", x + 1, y, 0xffffff);
+            drawSatelliteIcon(
+                new SatelliteSlot(inputSlot, false),
+                layout.inputX(inputSlot),
+                layout.inputY(inputSlot));
+        }
+        for (int outputSlot = 0; outputSlot < pattern.getResultSlotCount(); outputSlot++) {
+            drawSatelliteIcon(
+                new SatelliteSlot(outputSlot, true),
+                layout.outputX(outputSlot),
+                layout.outputY(outputSlot));
         }
     }
 
+    private void drawSatelliteIcon(SatelliteSlot target, int relativeX, int relativeY) {
+        AbstractPattern pattern = currentPattern();
+        boolean fluidTarget = isFluidSatelliteSlot(target);
+        int satelliteId = getSatelliteId(pattern, target, fluidTarget);
+        String satelliteUuid = getSatelliteUuid(pattern, target, fluidTarget);
+        int x = guiLeft + relativeX;
+        int y = guiTop + relativeY;
+        if (!advancedSatelliteUpgrade) {
+            Gui.drawRect(x, y, x + SATELLITE_ICON_SIZE, y + SATELLITE_ICON_SIZE, 0xff555555);
+            mc.fontRenderer.drawString("-", x + 2, y, 0xffbbbbbb);
+            return;
+        }
+        boolean assigned = satelliteId > 0 || !satelliteUuid.isEmpty();
+        int color = target.output ? (fluidTarget ? 0xffb05bd8 : 0xffd87928)
+            : (fluidTarget ? 0xff00a8cc : 0xff2b6ee8);
+        Gui.drawRect(x, y, x + SATELLITE_ICON_SIZE, y + SATELLITE_ICON_SIZE,
+            assigned ? color : 0xff777777);
+        mc.fontRenderer.drawString(assigned ? (target.output ? (fluidTarget ? "F" : "B")
+            : (fluidTarget ? "F" : "S")) : "+", x + 1, y, 0xffffff);
+    }
+
     private void drawSatelliteTooltip(int mouseX, int mouseY) {
-        int inputSlot = getSatelliteHotspotSlot(mouseX, mouseY);
-        if (inputSlot < 0) {
+        SatelliteSlot target = getSatelliteHotspotSlot(mouseX, mouseY);
+        if (target == null) {
             return;
         }
         AbstractPattern pattern = currentPattern();
-        boolean fluidTarget = isFluidSatelliteSlot(inputSlot);
-        int satelliteId = getSatelliteId(pattern, inputSlot, fluidTarget);
-        String satelliteUuid = getSatelliteUuid(pattern, inputSlot, fluidTarget);
+        boolean fluidTarget = isFluidSatelliteSlot(target);
+        int satelliteId = getSatelliteId(pattern, target, fluidTarget);
+        String satelliteUuid = getSatelliteUuid(pattern, target, fluidTarget);
         List<String> tooltip = new ArrayList<>();
+        if (!advancedSatelliteUpgrade) {
+            tooltip.add("Advanced Satellite Upgrade required");
+            tooltip.add("Uses the connected inventory");
+            GuiGraphics.drawToolTip(mouseX, mouseY, tooltip, EnumChatFormatting.WHITE);
+            return;
+        }
         if (satelliteId <= 0 && satelliteUuid.isEmpty()) {
-            tooltip.add("Local inventory");
+            tooltip.add(target.output ? "Extract byproduct locally" : "Local inventory");
         } else {
             PatternSatelliteInfo satellite = getSatelliteInfo(satelliteId, satelliteUuid, fluidTarget);
             tooltip.add(
@@ -391,6 +424,9 @@ public class PatternCraftingPipeGui extends LogisticsBaseGuiScreen {
                     tooltip.add("Stored on memory chip");
                 }
             }
+        }
+        if (target.output) {
+            tooltip.add("Requires a byproduct extraction upgrade");
         }
         GuiGraphics.drawToolTip(mouseX, mouseY, tooltip, EnumChatFormatting.WHITE);
     }
@@ -439,17 +475,24 @@ public class PatternCraftingPipeGui extends LogisticsBaseGuiScreen {
         return null;
     }
 
-    private int getSatelliteHotspotSlot(int mouseX, int mouseY) {
+    private SatelliteSlot getSatelliteHotspotSlot(int mouseX, int mouseY) {
         AbstractPattern pattern = currentPattern();
         PatternSlotLayout layout = layout(pattern);
         for (int inputSlot = 0; inputSlot < pattern.getIngredientSlotCount(); inputSlot++) {
             int x = guiLeft + layout.inputX(inputSlot);
             int y = guiTop + layout.inputY(inputSlot);
             if (mouseX >= x && mouseX < x + SATELLITE_ICON_SIZE && mouseY >= y && mouseY < y + SATELLITE_ICON_SIZE) {
-                return inputSlot;
+                return new SatelliteSlot(inputSlot, false);
             }
         }
-        return -1;
+        for (int outputSlot = 0; outputSlot < pattern.getResultSlotCount(); outputSlot++) {
+            int x = guiLeft + layout.outputX(outputSlot);
+            int y = guiTop + layout.outputY(outputSlot);
+            if (mouseX >= x && mouseX < x + SATELLITE_ICON_SIZE && mouseY >= y && mouseY < y + SATELLITE_ICON_SIZE) {
+                return new SatelliteSlot(outputSlot, true);
+            }
+        }
+        return null;
     }
 
     private int getTabSlot(int mouseX, int mouseY) {
@@ -491,19 +534,40 @@ public class PatternCraftingPipeGui extends LogisticsBaseGuiScreen {
         }
     }
 
-    private boolean isFluidSatelliteSlot(int inputSlot) {
-        IPatternStack stack = currentPattern().getPatternStackInSlot(inputSlot);
+    private boolean isFluidSatelliteSlot(SatelliteSlot target) {
+        AbstractPattern pattern = currentPattern();
+        int patternSlot = target.output ? pattern.getResultSlotStart() + target.slot : target.slot;
+        IPatternStack stack = pattern.getPatternStackInSlot(patternSlot);
         return PatternStackHelper.isFluid(stack);
     }
 
-    private int getSatelliteId(AbstractPattern pattern, int inputSlot, boolean fluidTarget) {
-        return fluidTarget ? pattern.getFluidSatelliteIdForInputSlot(inputSlot)
-            : pattern.getSatelliteIdForInputSlot(inputSlot);
+    private int getSatelliteId(AbstractPattern pattern, SatelliteSlot target, boolean fluidTarget) {
+        if (target.output) {
+            return fluidTarget ? pattern.getFluidByproductSatelliteIdForOutputSlot(target.slot)
+                : pattern.getByproductSatelliteIdForOutputSlot(target.slot);
+        }
+        return fluidTarget ? pattern.getFluidSatelliteIdForInputSlot(target.slot)
+            : pattern.getSatelliteIdForInputSlot(target.slot);
     }
 
-    private String getSatelliteUuid(AbstractPattern pattern, int inputSlot, boolean fluidTarget) {
-        return fluidTarget ? pattern.getFluidSatelliteUuidForInputSlot(inputSlot)
-            : pattern.getSatelliteUuidForInputSlot(inputSlot);
+    private String getSatelliteUuid(AbstractPattern pattern, SatelliteSlot target, boolean fluidTarget) {
+        if (target.output) {
+            return fluidTarget ? pattern.getFluidByproductSatelliteUuidForOutputSlot(target.slot)
+                : pattern.getByproductSatelliteUuidForOutputSlot(target.slot);
+        }
+        return fluidTarget ? pattern.getFluidSatelliteUuidForInputSlot(target.slot)
+            : pattern.getSatelliteUuidForInputSlot(target.slot);
+    }
+
+    private static final class SatelliteSlot {
+
+        private final int slot;
+        private final boolean output;
+
+        private SatelliteSlot(int slot, boolean output) {
+            this.slot = slot;
+            this.output = output;
+        }
     }
 
     private String typeLabel() {

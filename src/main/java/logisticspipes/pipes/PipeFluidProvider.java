@@ -1,19 +1,5 @@
 package logisticspipes.pipes;
 
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Map.Entry;
-import java.util.Set;
-import java.util.TreeSet;
-
-import net.minecraft.item.Item;
-import net.minecraft.tileentity.TileEntity;
-import net.minecraftforge.common.util.ForgeDirection;
-import net.minecraftforge.fluids.FluidStack;
-import net.minecraftforge.fluids.FluidTankInfo;
-import net.minecraftforge.fluids.IFluidHandler;
-
 import logisticspipes.config.Configs;
 import logisticspipes.interfaces.ISpecialTankAccessHandler;
 import logisticspipes.interfaces.ISpecialTankHandler;
@@ -38,6 +24,19 @@ import logisticspipes.utils.FluidIdentifier;
 import logisticspipes.utils.item.ItemIdentifier;
 import logisticspipes.utils.item.ItemIdentifierStack;
 import logisticspipes.utils.tuples.Pair;
+import net.minecraft.item.Item;
+import net.minecraft.tileentity.TileEntity;
+import net.minecraftforge.common.util.ForgeDirection;
+import net.minecraftforge.fluids.FluidStack;
+import net.minecraftforge.fluids.FluidTankInfo;
+import net.minecraftforge.fluids.IFluidHandler;
+
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
+import java.util.Set;
+import java.util.TreeSet;
 
 public class PipeFluidProvider extends FluidRoutedPipe implements IProvideFluids {
 
@@ -79,6 +78,7 @@ public class PipeFluidProvider extends FluidRoutedPipe implements IProvideFluids
                         IRoutedItem item = SimpleServiceLocator.routedItemHelper.createNewTravelItem(stack);
                         item.setDestination(order.getRouter().getSimpleID());
                         item.setTransportMode(TransportMode.Active);
+                        item.setAdditionalTargetInformation(order.getInformation());
                         this.queueRoutedItem(item, pair.getValue2());
                         getFluidOrderManager().sendSuccessfull(amount, false, item);
                         if (amountToSend <= 0) {
@@ -127,6 +127,7 @@ public class PipeFluidProvider extends FluidRoutedPipe implements IProvideFluids
                                     IRoutedItem item = SimpleServiceLocator.routedItemHelper.createNewTravelItem(stack);
                                     item.setDestination(order.getRouter().getSimpleID());
                                     item.setTransportMode(TransportMode.Active);
+                                    item.setAdditionalTargetInformation(order.getInformation());
                                     this.queueRoutedItem(item, pair.getValue2());
                                     getFluidOrderManager().sendSuccessfull(amount, false, item);
                                     if (amountToSend <= 0) {

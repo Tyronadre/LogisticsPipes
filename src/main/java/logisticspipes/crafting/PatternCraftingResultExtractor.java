@@ -11,6 +11,7 @@ import logisticspipes.proxy.SimpleServiceLocator;
 import logisticspipes.routing.order.IOrderInfoProvider.ResourceType;
 import logisticspipes.routing.order.LogisticsFluidOrder;
 import logisticspipes.routing.order.LogisticsItemOrder;
+import logisticspipes.routing.order.LogisticsOrder;
 import logisticspipes.utils.AdjacentTile;
 import logisticspipes.utils.CacheHolder.CacheTypes;
 import logisticspipes.utils.item.ItemIdentifier;
@@ -36,6 +37,7 @@ class PatternCraftingResultExtractor {
     private final ModulePatternCrafting module;
     private final PipeItemsPatternCraftingLogistics pipe;
     private final AdjacentInventoryHandler adjacentInventory;
+    private final PatternByproductExtractionTargetCache remoteByproducts;
 
     /**
      * Creates an extractor for one pattern crafting module and its selected adjacent handlers.
@@ -45,6 +47,7 @@ class PatternCraftingResultExtractor {
         this.module = module;
         this.pipe = pipe;
         this.adjacentInventory = adjacentInventory;
+        remoteByproducts = new PatternByproductExtractionTargetCache(pipe);
     }
 
     /**
@@ -67,18 +70,6 @@ class PatternCraftingResultExtractor {
         if (!orderManager.hasOrders(ResourceType.CRAFTING, ResourceType.EXTRA)) {
             return;
         }
-
-        if (!adjacentInventory.hasConnectedTE()) {
-            module.debugEventThrottled("FLOW", "extract items failed: no connected tile entity");
-            return;
-        }
-        List<ItemStack> extractableItems = adjacentInventory.getExtractableItems();
-        if (extractableItems == null || extractableItems.isEmpty()) {
-            module.debugEventThrottled("FLOW", "extract items skipped: no extractable items");
-            return;
-        }
-
-        pipe.spawnParticle(Particles.VioletParticle, 2);
 
         int itemsLeft = MAX_EXTRACTED_ITEMS_PER_TICK;
         int stacksLeft = MAX_EXTRACTED_STACKS_PER_TICK;
@@ -123,7 +114,44 @@ class PatternCraftingResultExtractor {
                 continue;
             }
 
-            ItemStack extracted = adjacentInventory.extract(order.getResource(), maxToSend);
+            PatternByproductTarget remoteTarget = remoteByproductTarget(order, false);
+            if (remoteTarget != null) {
+                PatternByproductExtractionResult remoteExtraction = remoteByproducts.extractItem(
+                    remoteTarget,
+                    order.getResource().getItem(),
+                    maxToSend,
+                    remoteDestination(order),
+                    order.getInformation());
+                if (remoteExtraction.amount() > 0) {
+                    module.debugEvent(
+                        "FLOW",
+                        "extract item byproduct success order=%s extracted=%d source=pattern-satellite outputSlot=%d",
+                        order.getResource().getItem(),
+                        remoteExtraction.amount(),
+                        remoteTarget.getOutputSlot());
+                    extractedAny = true;
+                    itemsLeft -= remoteExtraction.amount();
+                    stacksLeft--;
+                    orderManager.sendSuccessfull(
+                        remoteExtraction.amount(), false, remoteExtraction.routedItem());
+                    ordersLeftToTry = orderManager.getAllOrders().size();
+                    continue;
+                }
+                module.debugEventThrottled(
+                    "FLOW",
+                    60,
+                    "extract item byproduct deferred order=%s amount=%d satellite=%s",
+                    order.getResource().getItem(),
+                    maxToSend,
+                    remoteTarget.getSatelliteUuid());
+                orderManager.deferSend();
+                ordersLeftToTry--;
+                continue;
+            }
+
+            ItemStack extracted = adjacentInventory.hasConnectedTE()
+                ? adjacentInventory.extract(order.getResource(), maxToSend)
+                : null;
             if (extracted == null || extracted.stackSize <= 0) {
                 module.debugEventThrottled(
                     "FLOW",
@@ -149,6 +177,7 @@ class PatternCraftingResultExtractor {
             itemsLeft -= extracted.stackSize;
             stacksLeft--;
 
+            pipe.spawnParticle(Particles.VioletParticle, 2);
             pipe.getCacheHolder().trigger(CacheTypes.Inventory);
             sendExtracted(order, extracted, adjacentInventory.getConnected().orientation);
             ordersLeftToTry = orderManager.getAllOrders().size();
@@ -262,16 +291,19 @@ class PatternCraftingResultExtractor {
             || !pipe.getPatternFluidOrderManager().hasOrders(ResourceType.CRAFTING, ResourceType.EXTRA)) {
             return;
         }
-        List<AdjacentTile> handlers = adjacentInventory.locateFluidHandlers();
-        if (handlers.isEmpty()) {
-            module.debugEventThrottled("FLOW", "extract fluids failed: no adjacent fluid handlers");
-            pipe.getPatternFluidOrderManager().sendFailed();
-            return;
-        }
         LogisticsFluidOrder order = pipe.getPatternFluidOrderManager()
             .peekAtTopRequest(ResourceType.CRAFTING, ResourceType.EXTRA);
         if (order == null) {
             module.debugEventThrottled("FLOW", "extract fluids skipped: no top fluid order");
+            return;
+        }
+        PatternByproductTarget remoteTarget = remoteByproductTarget(order, true);
+        List<AdjacentTile> handlers = remoteTarget == null
+            ? adjacentInventory.locateFluidHandlers()
+            : java.util.Collections.emptyList();
+        if (handlers.isEmpty() && remoteTarget == null) {
+            module.debugEventThrottled("FLOW", "extract fluids failed: no adjacent fluid handlers");
+            pipe.getPatternFluidOrderManager().sendFailed();
             return;
         }
 
@@ -300,6 +332,35 @@ class PatternCraftingResultExtractor {
                 order.getDestination(),
                 order.getInformation(),
                 samePipeRequested);
+            pipe.getPatternFluidOrderManager().deferSend();
+            return;
+        }
+        if (remoteTarget != null) {
+            PatternByproductExtractionResult remoteExtraction = remoteByproducts.extractFluid(
+                remoteTarget,
+                order.getFluid(),
+                amountToDrain,
+                remoteDestination(order),
+                order.getInformation());
+            if (remoteExtraction.amount() > 0) {
+                module.debugEvent(
+                    "FLOW",
+                    "extract fluid byproduct success fluid=%s amount=%d source=pattern-satellite outputSlot=%d",
+                    order.getFluid(),
+                    remoteExtraction.amount(),
+                    remoteTarget.getOutputSlot());
+                pipe.getPatternFluidOrderManager().sendSuccessfull(
+                    remoteExtraction.amount(), false, remoteExtraction.routedItem());
+                module.requestIngredientsForStagedCrafts();
+                return;
+            }
+            module.debugEventThrottled(
+                "FLOW",
+                60,
+                "extract fluid byproduct deferred fluid=%s amount=%d satellite=%s",
+                order.getFluid(),
+                amountToDrain,
+                remoteTarget.getSatelliteUuid());
             pipe.getPatternFluidOrderManager().deferSend();
             return;
         }
@@ -422,5 +483,17 @@ class PatternCraftingResultExtractor {
             order.getAmount(),
             requestedBefore,
             order.getInformation());
+    }
+
+    private PatternByproductTarget remoteByproductTarget(LogisticsOrder order, boolean fluid) {
+        if (!module.hasAdvancedSatelliteUpgrade()) {
+            return null;
+        }
+        PatternByproductTarget target = order.getByproductTarget();
+        return target != null && target.isConfigured() && target.isFluid() == fluid ? target : null;
+    }
+
+    private int remoteDestination(LogisticsOrder order) {
+        return order.getRouter() == null ? -1 : order.getRouter().getSimpleID();
     }
 }

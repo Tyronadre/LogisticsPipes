@@ -1,8 +1,6 @@
 package logisticspipes.crafting;
 
 import logisticspipes.crafting.patternStack.IPatternStack;
-import logisticspipes.crafting.patternStack.PatternFluidStack;
-import logisticspipes.crafting.patternStack.PatternItemStack;
 import logisticspipes.crafting.patternStack.PatternStackHelper;
 import logisticspipes.interfaces.routing.IRequestFluid;
 import logisticspipes.interfaces.routing.IRequestItems;
@@ -25,18 +23,10 @@ class PatternCraftingOrder {
     private static final String PRE_REQUESTED_INGREDIENTS_TAG = "preRequestedIngredients";
     private static final String PRE_INPUT_SLOT_TAG = "inputSlot";
     private static final String PRE_AMOUNT_TAG = "amount";
-    private static final String SATELLITE_DELIVERIES_TAG = "satelliteDeliveries";
-    private static final String DELIVERY_PATTERN_SLOT_TAG = "patternSlot";
-    private static final String DELIVERY_INPUT_SLOT_TAG = "inputSlot";
-    private static final String DELIVERY_STACK_TAG = "stack";
-    private static final String DELIVERY_TARGET_TYPE_TAG = "targetType";
-    private static final String DELIVERY_TARGET_ITEM = "item";
-    private static final String DELIVERY_TARGET_FLUID = "fluid";
-    private static final String DELIVERY_SATELLITE_ID_TAG = "satelliteId";
-    private static final String DELIVERY_SATELLITE_UUID_TAG = "satelliteUuid";
     private static final int TAG_COMPOUND = 10;
 
     final int patternSlot;
+    private final PatternCraftingReference reference;
     final int resultAmountPerSet;
     final List<PatternCraftingBranch> ingredientBranches;
     int remainingSets;
@@ -45,13 +35,15 @@ class PatternCraftingOrder {
     private final ModulePatternCrafting module;
     private final PatternStackRequestHandler requestedIngredient;
     private final Map<Integer, Integer> preRequestedIngredients = new HashMap<>();
-    private final List<SatelliteIngredientDelivery> satelliteDeliveries = new ArrayList<>();
 
-    PatternCraftingOrder(int patternSlot, int resultAmountPerSet, PatternCraftingBranch branch,
+    PatternCraftingOrder(PatternCraftingReference reference, int patternSlot, int resultAmountPerSet,
+                         PatternCraftingBranch branch,
                          IOrderInfoProvider outputOrder, ModulePatternCrafting module,
             PatternStackRequestHandler requestedIngredient) {
+        this.reference = reference;
         this.patternSlot = patternSlot;
         this.resultAmountPerSet = Math.max(1, resultAmountPerSet);
+        branch.bindToInstance(reference);
         branch.attachDebugModule(module);
         this.ingredientBranches = new ArrayList<>(branch.getSubRequests());
         this.outputOrder = outputOrder;
@@ -70,14 +62,16 @@ class PatternCraftingOrder {
                 ingredientBranches.size());
     }
 
-    PatternCraftingOrder(int patternSlot, int resultAmountPerSet, int remainingSets,
+    PatternCraftingOrder(PatternCraftingReference reference, int patternSlot, int resultAmountPerSet, int remainingSets,
             List<PatternCraftingBranch> ingredientBranches, IOrderInfoProvider outputOrder,
                          ModulePatternCrafting module,
                          PatternStackRequestHandler requestedIngredient) {
+        this.reference = reference;
         this.patternSlot = patternSlot;
         this.resultAmountPerSet = Math.max(1, resultAmountPerSet);
         this.ingredientBranches = new ArrayList<>(ingredientBranches);
         for (PatternCraftingBranch branch : this.ingredientBranches) {
+            branch.bindToInstance(reference);
             branch.attachDebugModule(module);
         }
         this.outputOrder = outputOrder;
@@ -193,7 +187,8 @@ class PatternCraftingOrder {
                 continue;
             }
             requestedIngredient
-                .add(patternSlot, PatternStackHelper.copyWithAmount(requested.ingredient.stack(), requested.amount));
+                .add(reference, patternSlot,
+                    PatternStackHelper.copyWithAmount(requested.ingredient.stack(), requested.amount));
             module.debugEvent(
                 "BUFFER",
                 "order reserved requested ingredient slot=%d inputSlot=%d ingredient=%s requested=%d satellite=%s",
@@ -230,30 +225,12 @@ class PatternCraftingOrder {
         }
     }
 
-    /**
-     * Returns child staged orders that this order launched through its ingredient branches.
-     */
-    List<PatternCraftingOrder> getChildStagedOrders() {
-        List<PatternCraftingOrder> result = new ArrayList<>();
-        for (PatternCraftingBranch branch : ingredientBranches) {
-            collectChildStagedOrders(branch, result);
-        }
-        return result;
+    PatternCraftingReference reference() {
+        return reference;
     }
 
-    /**
-     * Retrieves satellite deliveries that were requested for this order but are no longer needed.
-     */
-    boolean retrieveSatelliteDeliveries() {
-        boolean retrieved = false;
-        for (SatelliteIngredientDelivery delivery : new ArrayList<>(satelliteDeliveries)) {
-            retrieved |= delivery.retrieve(module);
-        }
-        if (!satelliteDeliveries.isEmpty()) {
-            satelliteDeliveries.clear();
-            retrieved = true;
-        }
-        return retrieved;
+    ModulePatternCrafting module() {
+        return module;
     }
 
     /**
@@ -274,15 +251,6 @@ class PatternCraftingOrder {
             tag.setTag(PRE_REQUESTED_INGREDIENTS_TAG, preRequested);
         }
 
-        NBTTagList deliveries = new NBTTagList();
-        for (SatelliteIngredientDelivery delivery : satelliteDeliveries) {
-            NBTTagCompound deliveryTag = new NBTTagCompound();
-            delivery.writeToNBT(deliveryTag);
-            deliveries.appendTag(deliveryTag);
-        }
-        if (deliveries.tagCount() > 0) {
-            tag.setTag(SATELLITE_DELIVERIES_TAG, deliveries);
-        }
     }
 
     /**
@@ -299,30 +267,19 @@ class PatternCraftingOrder {
             }
         }
 
-        satelliteDeliveries.clear();
-        NBTTagList deliveries = tag.getTagList(SATELLITE_DELIVERIES_TAG, TAG_COMPOUND);
-        for (int i = 0; i < deliveries.tagCount(); i++) {
-            SatelliteIngredientDelivery delivery = SatelliteIngredientDelivery.readFromNBT(
-                deliveries.getCompoundTagAt(i));
-            if (delivery != null) {
-                satelliteDeliveries.add(delivery);
-            }
-        }
     }
 
     /**
      * Appends this staged order and its ingredient branches to the crafting request debug dump.
      */
     void appendDebugState(StringBuilder out, String prefix) {
-        out.append(prefix).append("- Pattern slot ").append(patternSlot).append(" remainingSets=").append(remainingSets)
+        out.append(prefix).append("- Pattern slot ").append(patternSlot).append(" reference=").append(reference)
+            .append(" remainingSets=").append(remainingSets)
                 .append(" resultAmountPerSet=").append(resultAmountPerSet).append(" outputOrder=")
                 .append(outputOrder == null ? "<none>" : outputOrder.getAsDisplayItem()).append(" branches=")
                 .append(ingredientBranches.size()).append("\n");
         if (!preRequestedIngredients.isEmpty()) {
             out.append(prefix).append("  preRequested=").append(preRequestedIngredients).append("\n");
-        }
-        if (!satelliteDeliveries.isEmpty()) {
-            out.append(prefix).append("  satelliteDeliveries=").append(satelliteDeliveries.size()).append("\n");
         }
         for (PatternCraftingBranch branch : ingredientBranches) {
             branch.appendDebugState(out, prefix + "  ");
@@ -345,6 +302,12 @@ class PatternCraftingOrder {
             node.addChild(branch.toMonitorNode(visitedOrders));
         }
         return node;
+    }
+
+    void collectNestedCraftingOrders(Set<PatternCraftingOrder> nestedOrders) {
+        for (PatternCraftingBranch branch : ingredientBranches) {
+            branch.collectNestedCraftingOrders(nestedOrders);
+        }
     }
 
     /**
@@ -386,25 +349,12 @@ class PatternCraftingOrder {
         }
     }
 
-    private void collectChildStagedOrders(PatternCraftingBranch branch, List<PatternCraftingOrder> result) {
-        for (IOrderInfoProvider order : branch.liveOrdersFrom(0)) {
-            PatternCraftingOrder stagedOrder = PatternCraftingMonitorRegistry.find(order);
-            if (stagedOrder != null && stagedOrder != this && !result.contains(stagedOrder)) {
-                result.add(stagedOrder);
-            }
-        }
-        for (PatternCraftingBranch child : branch.getSubRequests()) {
-            collectChildStagedOrders(child, result);
-        }
-    }
-
     /**
      * Places provider or staged crafting orders for an ingredient, consuming the matching branch state as it goes.
      */
     private BranchRequest requestFromBranches(IPatternStack ingredient, int amount, int inputSlot,
                                     IRequestItems itemTargetOverride, IRequestFluid fluidTargetOverride) {
         int requested = 0;
-        List<IOrderInfoProvider> newOrders = new ArrayList<>();
         for (PatternCraftingBranch branch : ingredientBranches) {
             if (requested >= amount) {
                 break;
@@ -413,12 +363,13 @@ class PatternCraftingOrder {
                 continue;
             }
             int before = branch.getRemainingAmount();
-            int orderCursor = branch.liveOrderCount();
             if (PatternStackHelper.isFluid(ingredient)) {
+                PatternTargetInformation target = new PatternTargetInformation(
+                    patternSlot, inputSlot, reference, null);
                 int branchRequested = branch.request(
                     amount - requested,
                     fluidTargetOverride,
-                    new PatternTargetInformation(patternSlot, inputSlot));
+                    target);
                 requested += branchRequested;
                 module.debugEvent(
                         "REQUEST",
@@ -433,10 +384,12 @@ class PatternCraftingOrder {
                         requested,
                         amount);
             } else {
+                PatternTargetInformation target = new PatternTargetInformation(
+                    patternSlot, inputSlot, reference, null);
                 int branchRequested = branch.request(
                         amount - requested,
                     itemTargetOverride,
-                    new PatternTargetInformation(patternSlot, inputSlot));
+                    target);
                 requested += branchRequested;
                 module.debugEvent(
                         "REQUEST",
@@ -451,9 +404,8 @@ class PatternCraftingOrder {
                         requested,
                         amount);
             }
-            newOrders.addAll(branch.liveOrdersFrom(orderCursor));
         }
-        return new BranchRequest(requested, newOrders);
+        return new BranchRequest(requested);
     }
 
     /**
@@ -486,15 +438,13 @@ class PatternCraftingOrder {
     private static class BranchRequest {
 
         private final int amount;
-        private final List<IOrderInfoProvider> orders;
 
-        private BranchRequest(int amount, List<IOrderInfoProvider> orders) {
+        private BranchRequest(int amount) {
             this.amount = amount;
-            this.orders = orders;
         }
 
         private static BranchRequest empty() {
-            return new BranchRequest(0, new ArrayList<>());
+            return new BranchRequest(0);
         }
     }
 
@@ -509,149 +459,4 @@ class PatternCraftingOrder {
         }
     }
 
-    private static class SatelliteIngredientDelivery {
-
-        private final int inputSlot;
-        private final int patternSlot;
-        private final IPatternStack stack;
-        private final int satelliteId;
-        private final String satelliteUuid;
-        private final boolean fluidTarget;
-        private final transient IOrderInfoProvider liveOrder;
-
-        private SatelliteIngredientDelivery(int patternSlot, int inputSlot, IPatternStack stack, int satelliteId,
-                                            String satelliteUuid, boolean fluidTarget,
-                                            IOrderInfoProvider liveOrder) {
-            this.patternSlot = patternSlot;
-            this.inputSlot = inputSlot;
-            this.stack = stack;
-            this.satelliteId = satelliteId;
-            this.satelliteUuid = satelliteUuid == null ? "" : satelliteUuid;
-            this.fluidTarget = fluidTarget;
-            this.liveOrder = liveOrder;
-        }
-
-        private static SatelliteIngredientDelivery item(int patternSlot, int inputSlot, ItemIdentifierStack stack,
-                                                        PipeItemsPatternSatelliteLogistics satellite, IOrderInfoProvider liveOrder) {
-            return new SatelliteIngredientDelivery(
-                patternSlot,
-                inputSlot,
-                new PatternItemStack(stack.clone()),
-                satellite.satelliteId,
-                satellite.getSatelliteUuid(),
-                false,
-                liveOrder);
-        }
-
-        private static SatelliteIngredientDelivery fluid(int patternSlot, int inputSlot, FluidIdentifier fluid, int amount,
-                                                         PipeFluidPatternSatelliteLogistics satellite, IOrderInfoProvider liveOrder) {
-            return new SatelliteIngredientDelivery(
-                patternSlot,
-                inputSlot,
-                new PatternFluidStack(fluid, amount),
-                satellite.satelliteId,
-                satellite.getSatelliteUuid(),
-                true,
-                liveOrder);
-        }
-
-        private static SatelliteIngredientDelivery readFromNBT(NBTTagCompound tag) {
-            IPatternStack stack = IPatternStack.readFromNBT(tag.getCompoundTag(DELIVERY_STACK_TAG));
-            if (stack == null) {
-                return null;
-            }
-            String targetType = tag.getString(DELIVERY_TARGET_TYPE_TAG);
-            boolean fluidTarget = DELIVERY_TARGET_FLUID.equals(targetType) || PatternStackHelper.isFluid(stack);
-            return new SatelliteIngredientDelivery(
-                tag.hasKey(DELIVERY_PATTERN_SLOT_TAG) ? tag.getInteger(DELIVERY_PATTERN_SLOT_TAG) : -1,
-                tag.getInteger(DELIVERY_INPUT_SLOT_TAG),
-                stack,
-                tag.getInteger(DELIVERY_SATELLITE_ID_TAG),
-                tag.getString(DELIVERY_SATELLITE_UUID_TAG),
-                fluidTarget,
-                null);
-        }
-
-        private boolean retrieve(ModulePatternCrafting module) {
-            if (stack == null || stack.getAmount() <= 0) {
-                return false;
-            }
-            if (fluidTarget) {
-                return retrieveFluid(module);
-            }
-            return retrieveItem(module);
-        }
-
-        private boolean retrieveItem(ModulePatternCrafting module) {
-            ItemIdentifierStack item = PatternStackHelper.asSolidStack(stack);
-            PipeItemsPatternSatelliteLogistics satellite = findItemSatellite();
-            if (item == null || satellite == null) {
-                module.debugEvent(
-                    "CANCEL",
-                    "satellite item delivery retrieval skipped inputSlot=%d item=%s satelliteId=%d uuid=%s",
-                    inputSlot,
-                    item,
-                    satelliteId,
-                    satelliteUuid);
-                return false;
-            }
-            boolean interceptMissing = liveOrder != null;
-            int retrieved = satellite.retrieveOrCancelToStorage(item.clone(), interceptMissing, patternSlot, inputSlot);
-            module.debugEvent(
-                "CANCEL",
-                "retrieved satellite item delivery inputSlot=%d item=%s retrieved=%d interceptMissing=%s satellite=%s",
-                inputSlot,
-                item,
-                retrieved,
-                interceptMissing,
-                satellite.getDisplayName());
-            return retrieved > 0 || interceptMissing;
-        }
-
-        private boolean retrieveFluid(ModulePatternCrafting module) {
-            FluidIdentifier fluid = PatternStackHelper.asFluid(stack);
-            PipeFluidPatternSatelliteLogistics satellite = findFluidSatellite();
-            if (fluid == null || satellite == null) {
-                module.debugEvent(
-                    "CANCEL",
-                    "satellite fluid delivery retrieval skipped inputSlot=%d fluid=%s satelliteId=%d uuid=%s",
-                    inputSlot,
-                    fluid,
-                    satelliteId,
-                    satelliteUuid);
-                return false;
-            }
-            int retrieved = satellite.retrieveFluidToStorage(fluid, stack.getAmount());
-            module.debugEvent(
-                "CANCEL",
-                "retrieved satellite fluid delivery inputSlot=%d fluid=%s amount=%d retrieved=%d satellite=%s",
-                inputSlot,
-                fluid,
-                stack.getAmount(),
-                retrieved,
-                satellite.getDisplayName());
-            return retrieved > 0;
-        }
-
-        private PipeItemsPatternSatelliteLogistics findItemSatellite() {
-            PipeItemsPatternSatelliteLogistics satellite = PipeItemsPatternSatelliteLogistics.findByUuid(satelliteUuid);
-            return satellite != null ? satellite : PipeItemsPatternSatelliteLogistics.findById(satelliteId);
-        }
-
-        private PipeFluidPatternSatelliteLogistics findFluidSatellite() {
-            PipeFluidPatternSatelliteLogistics satellite = PipeFluidPatternSatelliteLogistics.findByUuid(satelliteUuid);
-            return satellite != null ? satellite : PipeFluidPatternSatelliteLogistics.findById(satelliteId);
-        }
-
-        private void writeToNBT(NBTTagCompound tag) {
-            tag.setInteger(DELIVERY_INPUT_SLOT_TAG, inputSlot);
-            tag.setInteger(DELIVERY_PATTERN_SLOT_TAG, patternSlot);
-            tag.setString(DELIVERY_TARGET_TYPE_TAG, fluidTarget ? DELIVERY_TARGET_FLUID : DELIVERY_TARGET_ITEM);
-            tag.setInteger(DELIVERY_SATELLITE_ID_TAG, satelliteId);
-            tag.setString(DELIVERY_SATELLITE_UUID_TAG, satelliteUuid);
-            NBTTagCompound stackTag = new NBTTagCompound();
-            stack.writeToNBT(stackTag);
-            tag.setTag(DELIVERY_STACK_TAG, stackTag);
-        }
-    }
 }

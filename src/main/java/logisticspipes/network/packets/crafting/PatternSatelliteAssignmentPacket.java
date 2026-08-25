@@ -1,6 +1,7 @@
 package logisticspipes.network.packets.crafting;
 
 import logisticspipes.LogisticsPipes;
+import logisticspipes.crafting.pattern.AbstractPattern;
 import logisticspipes.crafting.pattern.ItemPattern;
 import logisticspipes.network.LPDataInputStream;
 import logisticspipes.network.LPDataOutputStream;
@@ -23,6 +24,7 @@ public class PatternSatelliteAssignmentPacket extends ModernPacket {
     private int satelliteId;
     private String satelliteUuid = "";
     private boolean fluidTarget;
+    private boolean outputTarget;
 
     public PatternSatelliteAssignmentPacket(int id) {
         super(id);
@@ -35,6 +37,7 @@ public class PatternSatelliteAssignmentPacket extends ModernPacket {
         satelliteId = data.readInt();
         satelliteUuid = data.readUTF();
         fluidTarget = data.readBoolean();
+        outputTarget = data.readBoolean();
     }
 
     @Override
@@ -46,10 +49,15 @@ public class PatternSatelliteAssignmentPacket extends ModernPacket {
         if (pattern == null || pattern.getItem() != LogisticsPipes.LogisticsPattern) {
             return;
         }
-        if (fluidTarget) {
-            ItemPattern.fromStack(pattern).setFluidSatelliteTargetForInputSlot(inputSlot, satelliteId, satelliteUuid);
+        AbstractPattern itemPattern = ItemPattern.fromStack(pattern);
+        if (outputTarget && fluidTarget) {
+            itemPattern.setFluidByproductSatelliteTargetForOutputSlot(inputSlot, satelliteId, satelliteUuid);
+        } else if (outputTarget) {
+            itemPattern.setByproductSatelliteTargetForOutputSlot(inputSlot, satelliteId, satelliteUuid);
+        } else if (fluidTarget) {
+            itemPattern.setFluidSatelliteTargetForInputSlot(inputSlot, satelliteId, satelliteUuid);
         } else {
-            ItemPattern.fromStack(pattern).setSatelliteTargetForInputSlot(inputSlot, satelliteId, satelliteUuid);
+            itemPattern.setSatelliteTargetForInputSlot(inputSlot, satelliteId, satelliteUuid);
         }
         player.inventory.markDirty();
         if (player.openContainer != null) {
@@ -64,6 +72,7 @@ public class PatternSatelliteAssignmentPacket extends ModernPacket {
         data.writeInt(satelliteId);
         data.writeUTF(satelliteUuid == null ? "" : satelliteUuid);
         data.writeBoolean(fluidTarget);
+        data.writeBoolean(outputTarget);
     }
 
     @Override

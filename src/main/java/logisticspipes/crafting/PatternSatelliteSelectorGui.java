@@ -27,6 +27,7 @@ public class PatternSatelliteSelectorGui extends SubGuiScreen {
     private static final int VISIBLE_ROWS = 8;
 
     private final int inputSlot;
+    private final boolean outputTarget;
     private final int currentSatelliteId;
     private final String currentSatelliteUuid;
     private final PatternSatelliteInfo.SatelliteType satelliteType;
@@ -37,14 +38,16 @@ public class PatternSatelliteSelectorGui extends SubGuiScreen {
 
     public PatternSatelliteSelectorGui(int inputSlot, int currentSatelliteId, List<PatternSatelliteInfo> satellites,
             SelectionHandler handler) {
-        this(inputSlot, currentSatelliteId, "", PatternSatelliteInfo.SatelliteType.ITEM, satellites, handler);
+        this(inputSlot, false, currentSatelliteId, "", PatternSatelliteInfo.SatelliteType.ITEM, satellites, handler);
     }
 
-    public PatternSatelliteSelectorGui(int inputSlot, int currentSatelliteId, String currentSatelliteUuid,
+    public PatternSatelliteSelectorGui(int inputSlot, boolean outputTarget, int currentSatelliteId,
+                                       String currentSatelliteUuid,
                                        PatternSatelliteInfo.SatelliteType satelliteType, List<PatternSatelliteInfo> satellites,
                                        SelectionHandler handler) {
         super(228, 178, 0, 0);
         this.inputSlot = inputSlot;
+        this.outputTarget = outputTarget;
         this.currentSatelliteId = currentSatelliteId;
         this.currentSatelliteUuid = currentSatelliteUuid == null ? "" : currentSatelliteUuid;
         this.satelliteType = satelliteType == null ? PatternSatelliteInfo.SatelliteType.ITEM : satelliteType;
@@ -76,7 +79,8 @@ public class PatternSatelliteSelectorGui extends SubGuiScreen {
     protected void renderGuiBackground(int mouseX, int mouseY) {
         GuiGraphics.drawGuiBackGround(mc, guiLeft, guiTop, right, bottom, zLevel, true);
         fontRendererObj.drawString(
-            "Input " + (inputSlot + 1) + " " + satelliteType.name().toLowerCase(Locale.ROOT) + " satellite",
+            (outputTarget ? "Byproduct " : "Input ") + (inputSlot + 1) + " "
+                + satelliteType.name().toLowerCase(Locale.ROOT) + " satellite",
             guiLeft + 10,
             guiTop + 8,
             0x404040);

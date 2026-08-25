@@ -1,18 +1,5 @@
 package logisticspipes.network.packets.crafting.requesttable;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.TreeSet;
-
-import net.minecraft.entity.player.EntityPlayer;
-import net.minecraft.item.ItemStack;
-import net.minecraftforge.fluids.FluidStack;
-
 import logisticspipes.crafting.requesttable.RequestTableNetworkEntry;
 import logisticspipes.crafting.requesttable.RequestTablePipe;
 import logisticspipes.network.PacketHandler;
@@ -25,6 +12,17 @@ import logisticspipes.utils.FluidIdentifier;
 import logisticspipes.utils.item.ItemIdentifier;
 import logisticspipes.utils.item.ItemIdentifierStack;
 import logisticspipes.utils.tuples.Pair;
+import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.item.ItemStack;
+import net.minecraftforge.fluids.FluidStack;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.TreeSet;
 
 /**
  * Requests a fresh combined network list for the new request table GUI.
@@ -40,21 +38,6 @@ public class RequestTableRefreshPacket extends IntegerCoordinatesPacket {
         return new RequestTableRefreshPacket(getId());
     }
 
-    @Override
-    public void processPacket(EntityPlayer player) {
-        LogisticsTileGenericPipe tile = MainProxy.proxy
-                .getPipeInDimensionAt(getInteger(), getPosX(), getPosY(), getPosZ(), player);
-        if (tile == null || !(tile.pipe instanceof RequestTablePipe)) {
-            return;
-        }
-        RequestTablePipe table = (RequestTablePipe) tile.pipe;
-        List<RequestTableNetworkEntry> entries = buildEntries(table);
-        MainProxy.sendPacketToPlayer(
-                PacketHandler.getPacket(RequestTableContentPacket.class).setEntries(entries)
-                        .setTilePos(table.container),
-                player);
-    }
-
     /**
      * Builds the combined network/internal request-table entry list.
      */
@@ -64,12 +47,17 @@ public class RequestTableRefreshPacket extends IntegerCoordinatesPacket {
         Map<ItemIdentifier, Integer> availableItems = SimpleServiceLocator.logisticsManager
                 .getAvailableItems(table.getRouter().getIRoutersByCost());
         Map<ItemIdentifier, Integer> internalItems = getInternalItems(table);
-        LinkedList<ItemIdentifier> craftableItems = SimpleServiceLocator.logisticsManager
-                .getCraftableItems(table.getRouter().getIRoutersByCost());
+        Set<ItemIdentifier> craftableItems = new HashSet<>(
+            SimpleServiceLocator.logisticsManager.getCraftableItems(table.getRouter().getIRoutersByCost()));
 
         Set<ItemIdentifier> itemIds = new HashSet<>();
         itemIds.addAll(availableItems.keySet());
         itemIds.addAll(internalItems.keySet());
+        for (ItemIdentifier craftable : craftableItems) {
+            if (!craftable.isFluidContainer()) {
+                itemIds.add(craftable);
+            }
+        }
         for (ItemIdentifier item : itemIds) {
             if (item.isFluidContainer()) {
                 continue;
@@ -81,26 +69,25 @@ public class RequestTableRefreshPacket extends IntegerCoordinatesPacket {
                             item.makeStack(networkAmount + internalAmount),
                             false,
                             networkAmount,
-                            internalAmount));
-        }
-        for (ItemIdentifier item : craftableItems) {
-            if (!itemIds.contains(item) && !item.isFluidContainer()) {
-                entries.add(new RequestTableNetworkEntry(item.makeStack(0), false, 0, 0));
-            }
+                        internalAmount,
+                        craftableItems.contains(item)));
         }
 
         TreeSet<ItemIdentifierStack> availableFluids = SimpleServiceLocator.logisticsFluidManager
                 .getAvailableFluid(table.getRouter().getIRoutersByCost());
         Map<ItemIdentifier, Integer> networkFluids = new HashMap<>();
-        Set<ItemIdentifier> availableFluidIds = new HashSet<>();
         for (ItemIdentifierStack fluid : availableFluids) {
-            availableFluidIds.add(fluid.getItem());
             networkFluids.put(fluid.getItem(), fluid.getStackSize());
         }
         Map<ItemIdentifier, Integer> internalFluids = getInternalFluids(table);
         Set<ItemIdentifier> fluidIds = new HashSet<>();
         fluidIds.addAll(networkFluids.keySet());
         fluidIds.addAll(internalFluids.keySet());
+        for (ItemIdentifier craftable : craftableItems) {
+            if (craftable.isFluidContainer()) {
+                fluidIds.add(craftable);
+            }
+        }
         for (ItemIdentifier fluid : fluidIds) {
             int networkAmount = getAmount(networkFluids, fluid);
             int internalAmount = getAmount(internalFluids, fluid);
@@ -109,14 +96,24 @@ public class RequestTableRefreshPacket extends IntegerCoordinatesPacket {
                             fluid.makeStack(networkAmount + internalAmount),
                             true,
                             networkAmount,
-                            internalAmount));
-        }
-        for (ItemIdentifier item : craftableItems) {
-            if (item.isFluidContainer() && !availableFluidIds.contains(item) && !internalFluids.containsKey(item)) {
-                entries.add(new RequestTableNetworkEntry(item.makeStack(0), true, 0, 0));
-            }
+                        internalAmount,
+                        craftableItems.contains(fluid)));
         }
         return entries;
+    }
+
+    @Override
+    public void processPacket(EntityPlayer player) {
+        LogisticsTileGenericPipe tile = MainProxy.proxy
+                .getPipeInDimensionAt(getInteger(), getPosX(), getPosY(), getPosZ(), player);
+        if (tile == null || !(tile.pipe instanceof RequestTablePipe table)) {
+            return;
+        }
+        List<RequestTableNetworkEntry> entries = buildEntries(table);
+        MainProxy.sendPacketToPlayer(
+                PacketHandler.getPacket(RequestTableContentPacket.class).setEntries(entries)
+                    .setDisplaySettings(table.getDisplaySettings(player)).setTilePos(table.container),
+                player);
     }
 
     private static Map<ItemIdentifier, Integer> getInternalItems(RequestTablePipe table) {

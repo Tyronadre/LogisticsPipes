@@ -26,6 +26,7 @@ import logisticspipes.commands.chathelper.LPChatListener;
 import logisticspipes.config.Configs;
 import logisticspipes.config.PlayerConfig;
 import logisticspipes.crafting.ItemMemoryChip;
+import logisticspipes.crafting.PatternCraftingMonitorRegistry;
 import logisticspipes.crafting.PipeFluidPatternSatelliteLogistics;
 import logisticspipes.crafting.PipeItemsPatternSatelliteLogistics;
 import logisticspipes.crafting.pattern.ItemPattern;
@@ -606,6 +607,7 @@ public class LogisticsPipes {
         PipeItemsSatelliteLogistics.cleanup();
         PipeItemsPatternSatelliteLogistics.cleanup();
         PipeFluidPatternSatelliteLogistics.cleanup();
+        PatternCraftingMonitorRegistry.clear();
         PipeFluidSatellite.cleanup();
         ServerRouter.cleanup();
         if (event.getSide().equals(Side.CLIENT)) {

@@ -1,7 +1,9 @@
 package logisticspipes.items;
 
-import java.util.List;
-
+import logisticspipes.LogisticsPipes;
+import logisticspipes.blocks.LogisticsSolidBlock;
+import logisticspipes.proxy.SimpleServiceLocator;
+import logisticspipes.utils.string.StringUtils;
 import net.minecraft.block.Block;
 import net.minecraft.client.renderer.texture.IIconRegister;
 import net.minecraft.creativetab.CreativeTabs;
@@ -9,10 +11,7 @@ import net.minecraft.item.Item;
 import net.minecraft.item.ItemBlock;
 import net.minecraft.item.ItemStack;
 
-import logisticspipes.LogisticsPipes;
-import logisticspipes.blocks.LogisticsSolidBlock;
-import logisticspipes.proxy.SimpleServiceLocator;
-import logisticspipes.utils.string.StringUtils;
+import java.util.List;
 
 public class LogisticsSolidBlockItem extends ItemBlock {
 
@@ -39,6 +38,8 @@ public class LogisticsSolidBlockItem extends ItemBlock {
                 return "tile.logisticsstatisticstable";
             case LogisticsSolidBlock.LOGISTICS_PATTERN_CRAFTING_TABLE:
                 return "tile.logisticspatterncraftingtable";
+            case LogisticsSolidBlock.LOGISTICS_CRAFTING_MONITOR:
+                return "tile.logisticscraftingmonitor";
             case LogisticsSolidBlock.LOGISTICS_RF_POWERPROVIDER:
                 return "tile.logisticstepowerprovider";
             case LogisticsSolidBlock.LOGISTICS_IC2_POWERPROVIDER:
@@ -70,6 +71,7 @@ public class LogisticsSolidBlockItem extends ItemBlock {
         par3List.add(new ItemStack(this, 1, LogisticsSolidBlock.LOGISTICS_AUTOCRAFTING_TABLE));
         par3List.add(new ItemStack(this, 1, LogisticsSolidBlock.LOGISTICS_FUZZYCRAFTING_TABLE));
         par3List.add(new ItemStack(this, 1, LogisticsSolidBlock.LOGISTICS_PATTERN_CRAFTING_TABLE));
+        par3List.add(new ItemStack(this, 1, LogisticsSolidBlock.LOGISTICS_CRAFTING_MONITOR));
         par3List.add(new ItemStack(this, 1, LogisticsSolidBlock.LOGISTICS_STATISTICS_TABLE));
         if (SimpleServiceLocator.cofhPowerProxy.isAvailable()) {
             par3List.add(new ItemStack(this, 1, LogisticsSolidBlock.LOGISTICS_RF_POWERPROVIDER));

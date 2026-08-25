@@ -1,8 +1,27 @@
 package logisticspipes.proxy.side;
 
-import java.io.File;
-import java.util.List;
-
+import cpw.mods.fml.common.registry.GameRegistry;
+import cpw.mods.fml.server.FMLServerHandler;
+import logisticspipes.LogisticsPipes;
+import logisticspipes.blocks.LogisticsSecurityTileEntity;
+import logisticspipes.blocks.LogisticsSolderingTileEntity;
+import logisticspipes.blocks.crafting.LogisticsCraftingTableTileEntity;
+import logisticspipes.blocks.powertile.LogisticsIC2PowerProviderTileEntity;
+import logisticspipes.blocks.powertile.LogisticsPowerJunctionTileEntity;
+import logisticspipes.blocks.powertile.LogisticsRFPowerProviderTileEntity;
+import logisticspipes.blocks.stats.LogisticsStatisticsTileEntity;
+import logisticspipes.crafting.CraftingMonitorTileEntity;
+import logisticspipes.crafting.PatternLogisticsCraftingTableTileEntity;
+import logisticspipes.items.ItemLogisticsPipe;
+import logisticspipes.modules.abstractmodules.LogisticsModule;
+import logisticspipes.network.PacketHandler;
+import logisticspipes.network.packets.UpdateName;
+import logisticspipes.pipes.basic.CoreUnroutedPipe;
+import logisticspipes.pipes.basic.LogisticsTileGenericPipe;
+import logisticspipes.proxy.MainProxy;
+import logisticspipes.proxy.SimpleServiceLocator;
+import logisticspipes.proxy.interfaces.IProxy;
+import logisticspipes.utils.item.ItemIdentifier;
 import net.minecraft.client.multiplayer.WorldClient;
 import net.minecraft.client.renderer.texture.IIconRegister;
 import net.minecraft.entity.player.EntityPlayer;
@@ -19,27 +38,8 @@ import net.minecraftforge.client.IItemRenderer;
 import net.minecraftforge.common.DimensionManager;
 import net.minecraftforge.common.config.Configuration;
 
-import cpw.mods.fml.common.registry.GameRegistry;
-import cpw.mods.fml.server.FMLServerHandler;
-import logisticspipes.LogisticsPipes;
-import logisticspipes.blocks.LogisticsSecurityTileEntity;
-import logisticspipes.blocks.LogisticsSolderingTileEntity;
-import logisticspipes.blocks.crafting.LogisticsCraftingTableTileEntity;
-import logisticspipes.blocks.powertile.LogisticsIC2PowerProviderTileEntity;
-import logisticspipes.blocks.powertile.LogisticsPowerJunctionTileEntity;
-import logisticspipes.blocks.powertile.LogisticsRFPowerProviderTileEntity;
-import logisticspipes.blocks.stats.LogisticsStatisticsTileEntity;
-import logisticspipes.crafting.PatternLogisticsCraftingTableTileEntity;
-import logisticspipes.items.ItemLogisticsPipe;
-import logisticspipes.modules.abstractmodules.LogisticsModule;
-import logisticspipes.network.PacketHandler;
-import logisticspipes.network.packets.UpdateName;
-import logisticspipes.pipes.basic.CoreUnroutedPipe;
-import logisticspipes.pipes.basic.LogisticsTileGenericPipe;
-import logisticspipes.proxy.MainProxy;
-import logisticspipes.proxy.SimpleServiceLocator;
-import logisticspipes.proxy.interfaces.IProxy;
-import logisticspipes.utils.item.ItemIdentifier;
+import java.io.File;
+import java.util.List;
 
 public class ServerProxy implements IProxy {
 
@@ -83,6 +83,9 @@ public class ServerProxy implements IProxy {
         GameRegistry.registerTileEntity(
                 PatternLogisticsCraftingTableTileEntity.class,
                 "logisticspipes.crafting.PatternLogisticsCraftingTableTileEntity");
+        GameRegistry.registerTileEntity(
+            CraftingMonitorTileEntity.class,
+            "logisticspipes.crafting.CraftingMonitorTileEntity");
         GameRegistry.registerTileEntity(LogisticsTileGenericPipe.class, LogisticsPipes.logisticsTileGenericPipeMapping);
         GameRegistry.registerTileEntity(
                 LogisticsStatisticsTileEntity.class,

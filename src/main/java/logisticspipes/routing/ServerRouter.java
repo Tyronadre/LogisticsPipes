@@ -4,30 +4,6 @@
  */
 package logisticspipes.routing;
 
-import java.lang.ref.WeakReference;
-import java.util.ArrayList;
-import java.util.BitSet;
-import java.util.Collections;
-import java.util.EnumMap;
-import java.util.EnumSet;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
-import java.util.Map.Entry;
-import java.util.PriorityQueue;
-import java.util.Set;
-import java.util.TreeSet;
-import java.util.UUID;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
-
-import net.minecraft.tileentity.TileEntity;
-import net.minecraft.world.World;
-import net.minecraftforge.common.DimensionManager;
-import net.minecraftforge.common.util.ForgeDirection;
-
 import logisticspipes.LPConstants;
 import logisticspipes.api.ILogisticsPowerProvider;
 import logisticspipes.asm.te.ILPTEInformation;
@@ -61,6 +37,29 @@ import logisticspipes.utils.tuples.Quartet;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.Setter;
+import net.minecraft.tileentity.TileEntity;
+import net.minecraft.world.World;
+import net.minecraftforge.common.DimensionManager;
+import net.minecraftforge.common.util.ForgeDirection;
+
+import java.lang.ref.WeakReference;
+import java.util.ArrayList;
+import java.util.BitSet;
+import java.util.Collections;
+import java.util.EnumMap;
+import java.util.EnumSet;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
+import java.util.PriorityQueue;
+import java.util.Set;
+import java.util.TreeSet;
+import java.util.UUID;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 public class ServerRouter implements IRouter, Comparable<ServerRouter> {
 
@@ -373,10 +372,9 @@ public class ServerRouter implements IRouter, Comparable<ServerRouter> {
         }
         TileEntity tile = worldObj.getTileEntity(_xCoord, _yCoord, _zCoord);
 
-        if (!(tile instanceof LogisticsTileGenericPipe)) {
+        if (!(tile instanceof LogisticsTileGenericPipe pipe)) {
             return null;
         }
-        LogisticsTileGenericPipe pipe = (LogisticsTileGenericPipe) tile;
         if (!(pipe.pipe instanceof CoreRoutedPipe)) {
             return null;
         }
@@ -1393,22 +1391,24 @@ public class ServerRouter implements IRouter, Comparable<ServerRouter> {
         } else {
             removeGenericInterest();
         }
-        Set<ItemIdentifier> newInterests = pipe.getSpecificInterests();
-        if (newInterests == null) {
-            newInterests = new TreeSet<>();
+        Set<ItemIdentifier> declaredInterests = pipe.getSpecificInterests();
+        if (declaredInterests == null) {
+            declaredInterests = Collections.emptySet();
         }
-        if (!newInterests.equals(_hasInterestIn)) {
+        if (!declaredInterests.equals(_hasInterestIn)) {
             for (ItemIdentifier i : _hasInterestIn) {
-                if (!newInterests.contains(i)) {
+                if (!declaredInterests.contains(i)) {
                     removeInterest(i);
                 }
             }
-            for (ItemIdentifier i : newInterests) {
+            for (ItemIdentifier i : declaredInterests) {
                 if (!_hasInterestIn.contains(i)) {
                     addInterest(i);
                 }
             }
-            _hasInterestIn = newInterests;
+            // Router state must never alias a collection owned by a pipe. Pipes may expose cached or immutable sets.
+            _hasInterestIn.clear();
+            _hasInterestIn.addAll(declaredInterests);
         }
     }
 
@@ -1500,8 +1500,7 @@ public class ServerRouter implements IRouter, Comparable<ServerRouter> {
             return ServerRouter.getRoutersInterestedIn(((ItemResource) item).getItem());
         } else if (item instanceof FluidResource) {
             return ServerRouter.getRoutersInterestedIn(((FluidResource) item).getFluid().getItemIdentifier());
-        } else if (item instanceof DictResource) {
-            DictResource dict = (DictResource) item;
+        } else if (item instanceof DictResource dict) {
             BitSet s = new BitSet(ServerRouter.getBiggestSimpleID() + 1);
             if (ServerRouter._genericInterests != null) {
                 for (IRouter r : ServerRouter._genericInterests) {
