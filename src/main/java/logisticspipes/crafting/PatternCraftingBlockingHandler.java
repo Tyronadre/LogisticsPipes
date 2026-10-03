@@ -113,17 +113,18 @@ final class PatternCraftingBlockingHandler {
         return isRunningCraftLocked() && runningCraft != patternSlot;
     }
 
-    void markDispatched(int patternSlot, PatternCraftingReference reference, SatelliteBatch satelliteBatch) {
+    void markDispatched(int patternSlot, PatternCraftingReference reference, SatelliteBatch satelliteBatch,
+            boolean usesLocalInventory) {
         if (module.getEffectiveBlockingMode() == PipeItemsPatternCraftingLogistics.BlockingMode.OFF) {
             return;
         }
         if (satelliteBatch != null) {
             satelliteBatches.add(satelliteBatch);
-            setRunningCraft(patternSlot, reference, true);
+            setRunningCraft(patternSlot, reference, usesLocalInventory);
             module.markHudStateDirty();
             return;
         }
-        setRunningCraft(patternSlot, reference, true);
+        setRunningCraft(patternSlot, reference, usesLocalInventory);
     }
 
     boolean isRunningCraftLocked() {
@@ -158,6 +159,7 @@ final class PatternCraftingBlockingHandler {
             setRunningCraft(runningCraft, runningCraftReference, false);
         }
         if (runningCraft >= 0 && !runningCraftInAdjacent
+                && !hasSatelliteBatchForWithoutRefresh(runningCraft)
                 && module.completeBufferedSets(runningCraftReference, runningCraft) <= 0) {
             module.debugEvent("BUFFER", "running craft released slot=%d: no arrived ingredients remain", runningCraft);
             setRunningCraft(-1, null, false);

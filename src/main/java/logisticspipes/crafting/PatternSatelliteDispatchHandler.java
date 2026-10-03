@@ -245,6 +245,7 @@ final class PatternSatelliteDispatchHandler {
         private final List<PatternIngredientAssignment> localAssignments = new ArrayList<>();
         private final List<ItemSatelliteAssignment> itemSatelliteAssignments = new ArrayList<>();
         private final List<FluidSatelliteAssignment> fluidSatelliteAssignments = new ArrayList<>();
+        private boolean usesLocalInventory;
         private boolean started;
 
         private DispatchPlan(PatternCraftingReference ownerReference, int patternSlot, ItemStack pattern,
@@ -269,7 +270,12 @@ final class PatternSatelliteDispatchHandler {
         }
 
         private void addLocal(PatternIngredientAssignment assignment) {
+            usesLocalInventory = true;
             localAssignments.add(assignment);
+        }
+
+        boolean usesLocalInventory() {
+            return usesLocalInventory;
         }
 
         private void addItemSatellite(PipeItemsPatternSatelliteLogistics satellite, ItemIdentifierStack stack,
@@ -294,6 +300,11 @@ final class PatternSatelliteDispatchHandler {
 
         boolean canDispatch() {
             if (hasSatellites() && !pipe.hasAdvancedSatelliteUpgrade()) {
+                return false;
+            }
+            if (usesLocalInventory
+                    && module.getEffectiveBlockingMode() != PipeItemsPatternCraftingLogistics.BlockingMode.OFF
+                    && !adjacentInventory.isEmpty(adjacentInventory.getConnected())) {
                 return false;
             }
             if (!localAssignments.isEmpty()

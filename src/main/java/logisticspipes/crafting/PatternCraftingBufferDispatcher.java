@@ -92,18 +92,12 @@ final class PatternCraftingBufferDispatcher {
             ingredientBuffer.removeAll(patternSlot);
             return;
         }
-        PipeItemsPatternCraftingLogistics.BlockingMode mode = module.getEffectiveBlockingMode();
         if (blockingHandler.shouldSkipPushFor(patternSlot)) {
             module.debugEventThrottled(
                     "BUFFER",
                     "push slot=%d skipped: running craft locked by slot=%d",
                     patternSlot,
                     blockingHandler.runningCraft());
-            return;
-        }
-        AdjacentTile connected = adjacentInventory.getConnected();
-        if (mode != PipeItemsPatternCraftingLogistics.BlockingMode.OFF && !adjacentInventory.isEmpty(connected)) {
-            module.debugEventThrottled("BUFFER", "push slot=%d skipped: blocking target is not ready", patternSlot);
             return;
         }
         int bufferedSets = completeBufferedSets(ownerReference, patternSlot);
@@ -155,7 +149,7 @@ final class PatternCraftingBufferDispatcher {
         int insertedSets = satelliteDispatchHandler
                 .insertedSetsFromPlan(module.getPatternStack(patternSlot), plan.assignments());
         module.debugEvent("BUFFER", "push slot=%d inserted sets=%d", patternSlot, insertedSets);
-        blockingHandler.markDispatched(patternSlot, ownerReference, plan.satelliteBatch());
+        blockingHandler.markDispatched(patternSlot, ownerReference, plan.satelliteBatch(), plan.usesLocalInventory());
         PatternCraftingOrder order = PatternCraftingInstanceRegistry.find(ownerReference);
         if (order != null) {
             order.ingredientsDispatched(insertedSets);
