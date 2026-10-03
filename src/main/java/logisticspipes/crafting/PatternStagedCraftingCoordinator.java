@@ -388,7 +388,8 @@ class PatternStagedCraftingCoordinator {
             Map<PatternCraftingReference, NBTTagCompound> records) {
         NBTTagList list = new NBTTagList();
         for (PatternCraftingOrder order : outputOrders) {
-            if (order.outputOrder == null || (order.outputOrder.isFinished() && !stagedCrafts.contains(order))) {
+            if (order.outputOrder == null
+                    || (order.outputOrder.isFinished() && !stagedCrafts.contains(order) && order.isFullyDispatched())) {
                 continue;
             }
             NBTTagCompound orderTag = new NBTTagCompound();
@@ -563,16 +564,16 @@ class PatternStagedCraftingCoordinator {
     }
 
     /**
-     * Drops completed tracking records only after the scheduler has decided that no staged ingredient work remains.
+     * Drops completed tracking records only after their ingredient work has reached the machine.
      * <p>
      * A same-pipe output can be satisfied by surplus already present in the shared crafting target. Such an order is
-     * deliberately kept in {@code stagedCrafts} until its own ingredient branch has been requested, because that branch
-     * produces the surplus needed by later sibling orders.
+     * kept until its own ingredient branch has been requested and dispatched, because that branch produces the surplus
+     * needed by later sibling orders and registers its byproducts at dispatch time.
      */
     private void cleanupCompletedOutputOrders() {
         boolean changed = false;
         for (PatternCraftingOrder order : new ArrayList<>(outputOrders)) {
-            if (!order.outputOrder.isFinished() || stagedCrafts.contains(order)) {
+            if (!order.outputOrder.isFinished() || stagedCrafts.contains(order) || !order.isFullyDispatched()) {
                 continue;
             }
             outputOrders.remove(order);

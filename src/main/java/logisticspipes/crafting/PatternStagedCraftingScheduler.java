@@ -84,7 +84,7 @@ class PatternStagedCraftingScheduler {
             if (removeOrderWithoutPattern(order, pattern) || removeFullyRequestedOrder(order)) {
                 continue;
             }
-            if (isBlockedByAnotherRunningCraft(order)) {
+            if (!isSamePipeOutput(order) && isBlockedByAnotherRunningCraft(order)) {
                 continue;
             }
 
@@ -235,7 +235,9 @@ class PatternStagedCraftingScheduler {
      * freed capacity.
      */
     private int orderableSetsForPattern(PatternCraftingOrder order, ItemStack pattern, int branchSets) {
-        if (!module.canReceiveForPattern(order.patternSlot)) {
+        boolean samePipe = isSamePipeOutput(order);
+        if (!module.isPatternCraftingSupported(pattern)
+                || (!samePipe && !module.canReceiveForPattern(order.patternSlot))) {
             module.debugEventThrottled("SCHED", "orderable sets slot=%d result=0 cannot receive", order.patternSlot);
             return 0;
         }
@@ -245,6 +247,10 @@ class PatternStagedCraftingScheduler {
         }
         int maxWantedSets = Math.min(order.remainingSets, branchSets);
         int targetSets = module.maxDispatchablePatternSets(order.reference(), pattern, maxWantedSets);
+        if (samePipe && maxWantedSets > 0) {
+            // Queue one intermediate set even while the target is busy, so its orders can drain the previous surplus.
+            targetSets = Math.max(1, targetSets);
+        }
         if (targetSets <= 0) {
             module.debugEventThrottled(
                     "SCHED",

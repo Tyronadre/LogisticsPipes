@@ -189,12 +189,16 @@ class PatternCraftingResultExtractor {
     private int maxExtractableItemAmount(LogisticsItemOrder order, int itemsLeft) {
         int maxToSend = Math.min(itemsLeft, order.getAmount());
         maxToSend = Math.min(maxToSend, order.getResource().getItem().getMaxStackSize());
+        boolean samePipe = module.isOrderDestinationThisModule(order)
+                && order.getInformation() instanceof PatternTargetInformation;
         PatternCraftingOrder source = PatternCraftingInstanceRegistry.find(order);
-        if (source != null) {
+        if (source != null && !samePipe) {
             // Drain dispatched sets while the rest is still being requested; their output can block further inputs.
             maxToSend = Math.min(maxToSend, source.extractableOutputAmount());
         }
-        if (module.isOrderDestinationThisModule(order) && order.getInformation() instanceof PatternTargetInformation) {
+        if (samePipe) {
+            // Split recursive orders share the target's surplus. Their own ingredient work is retained by the
+            // scheduler.
             int requested = module.requestedSamePipeItemAmount(order);
             if (requested > 0) {
                 maxToSend = Math.min(maxToSend, requested);
@@ -385,12 +389,14 @@ class PatternCraftingResultExtractor {
 
     private int maxExtractableFluidAmount(LogisticsFluidOrder order) {
         int amountToDrain = Math.min(order.getAmount(), Configs.MAX_LOGISTICS_FLUID_TRANSPORT_INNER_CAPACITY / 2);
+        boolean samePipe = module.isOrderDestinationThisModule(order)
+                && order.getInformation() instanceof PatternTargetInformation;
         PatternCraftingOrder source = PatternCraftingInstanceRegistry.find(order);
-        if (source != null) {
+        if (source != null && !samePipe) {
             // The same rule applies to fluid intermediates from partially dispatched recursive crafts.
             amountToDrain = Math.min(amountToDrain, source.extractableOutputAmount());
         }
-        if (module.isOrderDestinationThisModule(order) && order.getInformation() instanceof PatternTargetInformation) {
+        if (samePipe) {
             int requested = module.requestedSamePipeFluidAmount(order);
             if (requested > 0) {
                 amountToDrain = Math.min(amountToDrain, requested);

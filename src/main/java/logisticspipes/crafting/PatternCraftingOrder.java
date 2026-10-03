@@ -158,6 +158,19 @@ class PatternCraftingOrder {
         return remainingSets <= 0 || ingredientBranches.isEmpty();
     }
 
+    /** Keeps a satisfied output's dispatch and byproduct tracking alive until its inputs reach the machine. */
+    boolean isFullyDispatched() {
+        if (!isFullyRequested()) {
+            return false;
+        }
+        if (!tracksDispatch) {
+            return true;
+        }
+        int outputToCraft = Math.max(0, originalOutputAmount - inheritedOutputAmount);
+        int requiredSets = outputToCraft <= 0 ? 0 : 1 + (outputToCraft - 1) / resultAmountPerSet;
+        return dispatchedSets >= requiredSets;
+    }
+
     /**
      * Counts the recipe sets that still need ingredient requests for this staged slice.
      * <p>
