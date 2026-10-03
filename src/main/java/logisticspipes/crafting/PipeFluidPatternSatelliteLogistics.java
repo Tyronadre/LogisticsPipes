@@ -12,6 +12,7 @@ import java.util.WeakHashMap;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.item.Item;
 import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.nbt.NBTTagList;
 import net.minecraft.tileentity.TileEntity;
 import net.minecraftforge.common.util.ForgeDirection;
 import net.minecraftforge.fluids.FluidStack;
@@ -43,7 +44,7 @@ public class PipeFluidPatternSatelliteLogistics extends logisticspipes.pipes.Pip
     private String satelliteName = "";
     private final Map<FluidIdentifier, Integer> reservationBaseline = new HashMap<>();
     private final PatternSatelliteByproductExtractor byproductExtractor = new PatternSatelliteByproductExtractor(this);
-    private int reservedOwnerRouter = -1;
+    private UUID reservedOwnerRouter;
     private PatternCraftingReference reservedReference;
 
     public PipeFluidPatternSatelliteLogistics(Item item) {
@@ -186,10 +187,10 @@ public class PipeFluidPatternSatelliteLogistics extends logisticspipes.pipes.Pip
      * Returns true when this fluid satellite is unlocked or only pre-reserved by the same crafting pipe.
      */
     public boolean canReserveFor(PipeItemsPatternCraftingLogistics owner, PatternCraftingReference reference) {
-        int ownerRouter = ownerRouterId(owner);
-        return ownerRouter >= 0 && reference != null
-                && (reservedOwnerRouter < 0
-                        || (reservedOwnerRouter == ownerRouter && reference.equals(reservedReference)
+        UUID ownerRouter = ownerRouterId(owner);
+        return ownerRouter != null && reference != null
+                && (reservedOwnerRouter == null
+                        || (reservedOwnerRouter.equals(ownerRouter) && reference.equals(reservedReference)
                                 && reservationBaseline.isEmpty()));
     }
 
@@ -202,6 +203,7 @@ public class PipeFluidPatternSatelliteLogistics extends logisticspipes.pipes.Pip
         }
         reservedOwnerRouter = ownerRouterId(owner);
         reservedReference = reference;
+        markReservationDirty();
         return true;
     }
 
@@ -209,22 +211,23 @@ public class PipeFluidPatternSatelliteLogistics extends logisticspipes.pipes.Pip
      * Releases the reservation held by the owner pipe.
      */
     public void releaseReservation(PipeItemsPatternCraftingLogistics owner, PatternCraftingReference reference) {
-        int ownerRouter = ownerRouterId(owner);
-        if (ownerRouter >= 0
-                && (reservedOwnerRouter != ownerRouter || !java.util.Objects.equals(reservedReference, reference))) {
+        UUID ownerRouter = ownerRouterId(owner);
+        if (ownerRouter != null && (!ownerRouter.equals(reservedOwnerRouter)
+                || !java.util.Objects.equals(reservedReference, reference))) {
             return;
         }
-        reservedOwnerRouter = -1;
+        reservedOwnerRouter = null;
         reservedReference = null;
         reservationBaseline.clear();
+        markReservationDirty();
     }
 
     /**
      * Returns true once all fluid inserted during the current reservation has been consumed.
      */
     public boolean isReservationConsumed(PipeItemsPatternCraftingLogistics owner, PatternCraftingReference reference) {
-        int ownerRouter = ownerRouterId(owner);
-        if (ownerRouter < 0 || reservedOwnerRouter != ownerRouter
+        UUID ownerRouter = ownerRouterId(owner);
+        if (ownerRouter == null || !ownerRouter.equals(reservedOwnerRouter)
                 || !java.util.Objects.equals(reservedReference, reference)) {
             return true;
         }
@@ -295,6 +298,7 @@ public class PipeFluidPatternSatelliteLogistics extends logisticspipes.pipes.Pip
         int inserted = fillPatternInput(fluid, amount, true);
         if (inserted > 0 && trackReservation) {
             reservationBaseline.putIfAbsent(fluid, before);
+            markReservationDirty();
         }
         return inserted;
     }
@@ -395,8 +399,12 @@ public class PipeFluidPatternSatelliteLogistics extends logisticspipes.pipes.Pip
         return amount;
     }
 
-    private int ownerRouterId(PipeItemsPatternCraftingLogistics owner) {
-        return owner == null || owner.getRouter() == null ? -1 : owner.getRouter().getSimpleID();
+    private UUID ownerRouterId(PipeItemsPatternCraftingLogistics owner) {
+        return owner == null || owner.getRouter() == null ? null : owner.getRouter().getId();
+    }
+
+    private void markReservationDirty() {
+        if (container != null) container.markDirty();
     }
 
     @Override
@@ -442,6 +450,18 @@ public class PipeFluidPatternSatelliteLogistics extends logisticspipes.pipes.Pip
         satelliteUuid = nbttagcompound.hasKey(UUID_TAG) ? nbttagcompound.getString(UUID_TAG)
                 : UUID.randomUUID().toString();
         satelliteName = nbttagcompound.getString(NAME_TAG);
+        reservedReference = PatternCraftingReference.readFromNBT(nbttagcompound, "reservation");
+        String owner = nbttagcompound.getString("reservationOwner");
+        reservedOwnerRouter = reservedReference == null || owner.isEmpty() ? null : UUID.fromString(owner);
+        reservationBaseline.clear();
+        NBTTagList inputs = nbttagcompound.getTagList("reservationInputs", 10);
+        for (int i = 0; i < inputs.tagCount(); i++) {
+            NBTTagCompound entry = inputs.getCompoundTagAt(i);
+            PatternFluidStack fluid = PatternFluidStack.readFromNBT(entry);
+            if (fluid != null && reservedOwnerRouter != null) {
+                reservationBaseline.put(fluid.getFluid(), Math.max(0, entry.getInteger("baseline")));
+            }
+        }
         ensureAllSatelliteStatus();
     }
 
@@ -450,6 +470,19 @@ public class PipeFluidPatternSatelliteLogistics extends logisticspipes.pipes.Pip
         super.writeToNBT(nbttagcompound);
         nbttagcompound.setString(UUID_TAG, satelliteUuid);
         nbttagcompound.setString(NAME_TAG, satelliteName == null ? "" : satelliteName);
+        if (reservedOwnerRouter != null && reservedReference != null) {
+            nbttagcompound.setString("reservationOwner", reservedOwnerRouter.toString());
+            reservedReference.writeToNBT(nbttagcompound, "reservation");
+        } else {
+            nbttagcompound.removeTag("reservationOwner");
+        }
+        NBTTagList inputs = new NBTTagList();
+        for (Map.Entry<FluidIdentifier, Integer> baseline : reservationBaseline.entrySet()) {
+            NBTTagCompound entry = new PatternFluidStack(baseline.getKey(), 1).writeToNBT();
+            entry.setInteger("baseline", baseline.getValue());
+            inputs.appendTag(entry);
+        }
+        nbttagcompound.setTag("reservationInputs", inputs);
     }
 
     @Override

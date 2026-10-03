@@ -112,7 +112,7 @@ class PatternStagedCraftingScheduler {
                 order.remainingSets);
         order.releaseReservations();
         stagedCrafts.remove(order);
-        module.markHudStateDirty();
+        module.markCraftingStateDirty();
         return true;
     }
 
@@ -138,7 +138,7 @@ class PatternStagedCraftingScheduler {
                 order.patternSlot);
         order.releaseReservations();
         stagedCrafts.remove(order);
-        module.markHudStateDirty();
+        module.markCraftingStateDirty();
         return true;
     }
 
@@ -153,7 +153,7 @@ class PatternStagedCraftingScheduler {
                 order.remainingSets);
         order.releaseReservations();
         stagedCrafts.remove(order);
-        module.markHudStateDirty();
+        module.markCraftingStateDirty();
         return true;
     }
 
@@ -217,7 +217,7 @@ class PatternStagedCraftingScheduler {
                 requestedSets,
                 order.remainingSets);
         pipe.getCacheHolder().trigger(CacheTypes.Inventory);
-        module.markHudStateDirty();
+        module.markCraftingStateDirty();
         if (order.isFullyRequested()) {
             module.debugEvent(
                     "REQUEST",
@@ -225,7 +225,7 @@ class PatternStagedCraftingScheduler {
                     order.patternSlot);
             order.releaseReservations();
             stagedCrafts.remove(order);
-            module.markHudStateDirty();
+            module.markCraftingStateDirty();
         }
     }
 

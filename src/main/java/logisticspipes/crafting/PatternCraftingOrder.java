@@ -37,6 +37,7 @@ class PatternCraftingOrder {
     private final PatternCraftingReference reference;
     final int resultAmountPerSet;
     final List<PatternCraftingBranch> ingredientBranches;
+    final PatternCraftingBranch branch;
     int remainingSets;
     private final List<IExtraPromise> pendingByproducts = new ArrayList<>();
     private int byproductSets;
@@ -56,6 +57,7 @@ class PatternCraftingOrder {
         this.reference = reference;
         this.patternSlot = patternSlot;
         this.resultAmountPerSet = Math.max(1, resultAmountPerSet);
+        this.branch = branch;
         branch.bindToInstance(reference);
         branch.attachDebugModule(module);
         this.ingredientBranches = new ArrayList<>(branch.getSubRequests());
@@ -86,14 +88,20 @@ class PatternCraftingOrder {
     }
 
     PatternCraftingOrder(PatternCraftingReference reference, int patternSlot, int resultAmountPerSet, int remainingSets,
-            List<PatternCraftingBranch> ingredientBranches, IOrderInfoProvider outputOrder,
-            ModulePatternCrafting module, PatternStackRequestHandler requestedIngredient) {
+            PatternCraftingBranch rootBranch, List<PatternCraftingBranch> ingredientBranches,
+            IOrderInfoProvider outputOrder, ModulePatternCrafting module,
+            PatternStackRequestHandler requestedIngredient) {
         this.reference = reference;
         this.patternSlot = patternSlot;
         this.resultAmountPerSet = Math.max(1, resultAmountPerSet);
+        this.branch = rootBranch;
+        if (rootBranch != null) {
+            rootBranch.bindToInstance(reference);
+            rootBranch.attachDebugModule(module);
+        }
         this.ingredientBranches = new ArrayList<>(ingredientBranches);
         for (PatternCraftingBranch branch : this.ingredientBranches) {
-            branch.bindToInstance(reference);
+            branch.bindToInstance(branch.reference() == null ? reference.createChild() : branch.reference());
             branch.attachDebugModule(module);
         }
         this.outputOrder = outputOrder;

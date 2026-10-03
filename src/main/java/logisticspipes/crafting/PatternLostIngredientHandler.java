@@ -52,6 +52,7 @@ final class PatternLostIngredientHandler {
             return;
         }
         lostIngredients.add(new DelayedGeneric<>(new Pair<>(stack, target), delay));
+        module.markCraftingStateDirty();
     }
 
     boolean clear() {
@@ -59,15 +60,18 @@ final class PatternLostIngredientHandler {
             return false;
         }
         lostIngredients.clear();
+        module.markCraftingStateDirty();
         return true;
     }
 
     boolean removeInstance(UUID instanceId) {
-        return lostIngredients.removeIf(queued -> {
+        boolean changed = lostIngredients.removeIf(queued -> {
             IAdditionalTargetInformation info = queued.get().getValue2();
             return info instanceof PatternTargetInformation target && target.orderReference() != null
                     && instanceId.equals(target.orderReference().instanceId());
         });
+        if (changed) module.markCraftingStateDirty();
+        return changed;
     }
 
     void fluidSendFailed(FluidIdentifier fluid, Integer amount) {
@@ -110,6 +114,7 @@ final class PatternLostIngredientHandler {
             }
             rerequested++;
         }
+        if (rerequested > 0) module.markCraftingStateDirty();
     }
 
     void readFromNBT(NBTTagCompound tag) {
@@ -149,22 +154,24 @@ final class PatternLostIngredientHandler {
         ItemIdentifierStack item = PatternStackHelper.asSolidStack(stack);
         int outstandingAmount = item == null ? requestedIngredient.amount(target.orderReference(), stack)
                 : module.requestedItemAmount(target.orderReference(), target.patternSlot(), item.getItem());
-        IPatternStack outstanding = PatternStackHelper
-                .copyWithAmount(stack, Math.min(originalAmount, outstandingAmount));
-        if (outstanding == null || outstanding.getAmount() <= 0) {
-            return originalAmount;
+        int noLongerNeeded = originalAmount - Math.min(originalAmount, outstandingAmount);
+        long incoming = 0;
+        for (ModulePatternCrafting provider : PatternCraftingMonitorRegistry.networkPatternModules(pipe.getRouter())) {
+            incoming += provider.incomingCraftingAmount(target.orderReference(), stack);
         }
-        PatternTargetInformation retryTarget = PatternTargetInformation
-                .delivery(target.patternSlot(), target.inputSlot(), target.orderReference());
+        int uncovered = (int) Math.max(0, (long) outstandingAmount - incoming);
+        IPatternStack outstanding = PatternStackHelper.copyWithAmount(stack, Math.min(originalAmount, uncovered));
+        if (outstanding == null || outstanding.getAmount() <= 0) {
+            return noLongerNeeded;
+        }
         item = PatternStackHelper.asSolidStack(outstanding);
         if (item != null) {
-            return originalAmount - outstanding.getAmount()
-                    + RequestTree.requestPartial(item.clone(), pipe, retryTarget);
+            return noLongerNeeded + RequestTree.requestPartial(item.clone(), pipe, target);
         }
         FluidIdentifier fluid = PatternStackHelper.asFluid(outstanding);
         if (fluid != null) {
-            return originalAmount - outstanding.getAmount()
-                    + RequestTree.requestFluidPartial(fluid, outstanding.getAmount(), module, null, retryTarget);
+            return noLongerNeeded
+                    + RequestTree.requestFluidPartial(fluid, outstanding.getAmount(), module, null, target);
         }
         return 0;
     }

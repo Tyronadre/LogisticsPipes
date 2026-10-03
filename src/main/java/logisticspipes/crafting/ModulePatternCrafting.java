@@ -72,8 +72,6 @@ public class ModulePatternCrafting extends LogisticsModule
     private static final String STAGED_CRAFTING_RESTORE_ATTEMPTS_TAG = "patternStagedCraftingRestoreAttempts";
     private static final int RESTORED_REQUESTED_RETRY_DELAY = 8000;
     private static final int RESTORE_DEBUG_INTERVAL = 40;
-    // One retry runs per server tick, so this allows roughly one minute for the routing graph to become available.
-    private static final int MAX_STAGED_CRAFTING_RESTORE_ATTEMPTS = 1200;
     private static final int DEFAULT_THROTTLE_TICKS = 40;
 
     private final PipeItemsPatternCraftingLogistics pipe;
@@ -111,8 +109,8 @@ public class ModulePatternCrafting extends LogisticsModule
         this.pipe = pipe;
         patternHandler = new PatternHandler(patternInventory);
         adjacentInventory = new AdjacentInventoryHandler(this, pipe);
-        ingredientBuffer = new PatternStackBufferHandler(this::markHudStateDirty);
-        requestedIngredient = new PatternStackRequestHandler(requestedIngredients, this::markHudStateDirty);
+        ingredientBuffer = new PatternStackBufferHandler(this::markCraftingStateDirty);
+        requestedIngredient = new PatternStackRequestHandler(requestedIngredients, this::markCraftingStateDirty);
         upgradeCache = new PatternCraftingUpgradeCache(this);
         ingredientPlanner = new PatternCraftingIngredientPlanner(
                 this,
@@ -338,6 +336,8 @@ public class ModulePatternCrafting extends LogisticsModule
     @Override
     public void tick() {
         restoreStagedCraftingIfNeeded();
+        bufferDispatcher.retryDeferredCleanup();
+        if (pendingStagedCrafting != null) return;
         cancelUnsupportedFluidPatternCrafts();
         scheduleRequestedIngredientRestoreRetriesIfReady();
         lostIngredientHandler.retryLostItems();
@@ -444,6 +444,8 @@ public class ModulePatternCrafting extends LogisticsModule
         ingredientBuffer.readFromNBT(tag);
         requestedIngredient.readFromNBT(tag);
         lostIngredientHandler.readFromNBT(tag);
+        bufferDispatcher.readFromNBT(tag);
+        blockingHandler.readFromNBT(tag, satelliteDispatchHandler);
         NBTTagCompound restoredStagedCrafting = tag.hasKey(STAGED_CRAFTING_TAG)
                 ? (NBTTagCompound) tag.getCompoundTag(STAGED_CRAFTING_TAG).copy()
                 : null;
@@ -480,6 +482,8 @@ public class ModulePatternCrafting extends LogisticsModule
         ingredientBuffer.writeToNBT(tag);
         requestedIngredient.writeToNBT(tag);
         lostIngredientHandler.writeToNBT(tag);
+        bufferDispatcher.writeToNBT(tag);
+        blockingHandler.writeToNBT(tag);
         if (pendingStagedCrafting != null) {
             tag.setTag(STAGED_CRAFTING_TAG, pendingStagedCrafting.copy());
             tag.setInteger(STAGED_CRAFTING_RESTORE_ATTEMPTS_TAG, stagedCraftingRestoreAttempts);
@@ -598,43 +602,19 @@ public class ModulePatternCrafting extends LogisticsModule
             markPersistentStateDirty();
             return;
         }
-        stagedCraftingRestoreAttempts++;
-        if (stagedCraftingRestoreAttempts >= MAX_STAGED_CRAFTING_RESTORE_ATTEMPTS) {
-            expirePendingStagedCrafting();
-            return;
-        }
+        if (stagedCraftingRestoreAttempts < Integer.MAX_VALUE) stagedCraftingRestoreAttempts++;
         if (stagedCraftingRestoreAttempts % RESTORE_DEBUG_INTERVAL == 0) {
             debugEvent("STAGED", "waiting to restore staged crafting state attempts=%d", stagedCraftingRestoreAttempts);
             markPersistentStateDirty();
         }
     }
 
-    private void expirePendingStagedCrafting() {
-        Set<UUID> instances = PatternStagedCraftingCoordinator.pendingInstanceIds(pendingStagedCrafting);
-        for (UUID instanceId : instances) {
-            PatternCraftingInstanceRegistry.recordCancellation(instanceId);
-            cancelHandler.cancelPendingInstance(instanceId);
-        }
-        debugEvent(
-                "STAGED",
-                "discarded staged crafting state after restore timeout attempts=%d instances=%s",
-                stagedCraftingRestoreAttempts,
-                instances);
-        pendingStagedCrafting = null;
-        pendingRequestedIngredientRestoreRetries = false;
-        stagedCraftingRestoreAttempts = 0;
-        markHudStateDirty();
-        markPersistentStateDirty();
-    }
-
     List<PatternCraftingMonitorEntry> getPendingRestoreEntries() {
         if (pendingStagedCrafting == null) {
             return Collections.emptyList();
         }
-        return PatternStagedCraftingCoordinator.pendingMonitorEntries(
-                pendingStagedCrafting,
-                stagedCraftingRestoreAttempts,
-                MAX_STAGED_CRAFTING_RESTORE_ATTEMPTS);
+        return PatternStagedCraftingCoordinator
+                .pendingMonitorEntries(pendingStagedCrafting, stagedCraftingRestoreAttempts, 0);
     }
 
     List<PatternCraftingMonitorEntry> getStandaloneOrderEntries() {
@@ -748,6 +728,36 @@ public class ModulePatternCrafting extends LogisticsModule
         if (pipe.container != null) {
             pipe.container.markDirty();
         }
+    }
+
+    void markCraftingStateDirty() {
+        markHudStateDirty();
+        markPersistentStateDirty();
+    }
+
+    /** Counts saved output orders already supplying this ingredient, including orders still waiting to restore. */
+    int incomingCraftingAmount(PatternCraftingReference owner, IPatternStack ingredient) {
+        if (pendingStagedCrafting != null) {
+            return PatternStagedCraftingCoordinator.incomingAmount(pendingStagedCrafting, owner, ingredient);
+        }
+        long amount = 0;
+        for (LogisticsItemOrder order : pipe.getItemOrderManager())
+            amount += incomingOrderAmount(order, owner, ingredient);
+        for (LogisticsFluidOrder order : pipe.getPatternFluidOrderManager())
+            amount += incomingOrderAmount(order, owner, ingredient);
+        return (int) Math.min(Integer.MAX_VALUE, amount);
+    }
+
+    private int incomingOrderAmount(LogisticsOrder order, PatternCraftingReference owner, IPatternStack ingredient) {
+        if (order.isFinished() || !(order.getInformation() instanceof PatternTargetInformation target)
+                || !owner.equals(target.orderReference())
+                || !PatternStackHelper.matches(ingredient, order.getAsDisplayItem().getItem()))
+            return 0;
+        return Math.max(0, order.getAmount());
+    }
+
+    void deferDispatchCleanup(PatternSatelliteDispatchHandler.DispatchPlan plan, boolean returnToStorage) {
+        bufferDispatcher.deferCleanup(plan, returnToStorage);
     }
 
     private void scheduleRequestedIngredientRestoreRetriesIfReady() {
@@ -930,6 +940,7 @@ public class ModulePatternCrafting extends LogisticsModule
     @Override
     public IOrderInfoProvider fullFillStagedCrafting(IPromise promise, IResource requestType,
             IAdditionalTargetInformation info, PatternCraftingBranch branch) {
+        if (pendingStagedCrafting != null) return null;
         return stagedCrafting.fulfill(promise, requestType, info, branch);
     }
 
@@ -1056,6 +1067,7 @@ public class ModulePatternCrafting extends LogisticsModule
      */
     @Override
     public ICraftingTemplate addCrafting(IResource toCraft) {
+        if (pendingStagedCrafting != null) return null;
         return templateBuilder.addCrafting(toCraft);
     }
 
@@ -1182,6 +1194,7 @@ public class ModulePatternCrafting extends LogisticsModule
      * Blocking modes restrict buffering to the active craft or to an empty connected inventory.
      */
     boolean canReceiveForPattern(int patternSlot) {
+        if (pendingStagedCrafting != null) return false;
         if (!isPatternCraftingSupported(patternHandler.getConfiguredPatternStack(patternSlot))) {
             return false;
         }
@@ -1299,6 +1312,7 @@ public class ModulePatternCrafting extends LogisticsModule
      * Pushes complete buffered sets for one pattern slot into the connected crafting target.
      */
     void pushBufferedIngredientsFor(int patternSlot) {
+        if (pendingStagedCrafting != null) return;
         bufferDispatcher.pushBufferedIngredientsFor(patternSlot);
     }
 
@@ -1318,6 +1332,7 @@ public class ModulePatternCrafting extends LogisticsModule
      * inventory.
      */
     void requestIngredientsForStagedCrafts() {
+        if (pendingStagedCrafting != null) return;
         debugEventThrottled(
                 "SCHED",
                 20,
@@ -1552,8 +1567,8 @@ public class ModulePatternCrafting extends LogisticsModule
     private void appendStagedCraftDebug(StringBuilder out) {
         out.append("  staged crafts:\n");
         if (pendingStagedCrafting != null) {
-            out.append("    pending restore attempts=").append(stagedCraftingRestoreAttempts).append("/")
-                    .append(MAX_STAGED_CRAFTING_RESTORE_ATTEMPTS).append(" instances=")
+            out.append("    pending restore attempts=").append(stagedCraftingRestoreAttempts).append(" ")
+                    .append("waiting for dependencies").append(" instances=")
                     .append(PatternStagedCraftingCoordinator.pendingInstanceIds(pendingStagedCrafting)).append("\n");
         }
         stagedCrafting.appendDebugState(out, "    ");

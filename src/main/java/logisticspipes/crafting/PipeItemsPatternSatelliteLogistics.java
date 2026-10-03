@@ -5,6 +5,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -18,10 +19,12 @@ import net.minecraft.inventory.ISidedInventory;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.nbt.NBTTagList;
 import net.minecraft.util.ChatComponentText;
 import net.minecraftforge.common.util.ForgeDirection;
 
 import logisticspipes.LogisticsPipes;
+import logisticspipes.crafting.patternStack.PatternItemStack;
 import logisticspipes.interfaces.IInventoryUtil;
 import logisticspipes.interfaces.routing.IAdditionalTargetInformation;
 import logisticspipes.logisticspipes.IRoutedItem;
@@ -30,6 +33,7 @@ import logisticspipes.pipes.PipeItemsPatternCraftingLogistics;
 import logisticspipes.pipes.PipeItemsSatelliteLogistics;
 import logisticspipes.proxy.MainProxy;
 import logisticspipes.proxy.SimpleServiceLocator;
+import logisticspipes.request.RequestTree;
 import logisticspipes.routing.IRouter;
 import logisticspipes.security.SecuritySettings;
 import logisticspipes.utils.AdjacentTile;
@@ -50,6 +54,7 @@ public class PipeItemsPatternSatelliteLogistics extends PipeItemsSatelliteLogist
     private static final String UUID_TAG = "patternSatelliteUuid";
     private static final String NAME_TAG = "patternSatelliteName";
     private static final int CANCELLED_ARRIVAL_TIMEOUT = 640;
+    private static final int COMPLETED_DELIVERY_LIMIT = 4096;
 
     @Getter
     private String satelliteUuid = UUID.randomUUID().toString();
@@ -57,8 +62,10 @@ public class PipeItemsPatternSatelliteLogistics extends PipeItemsSatelliteLogist
     private final List<PendingCancelledArrival> pendingCancelledArrivals = new ArrayList<>();
     private final Map<ItemIdentifier, Integer> reservationBaseline = new HashMap<>();
     private final Map<ItemIdentifier, Integer> reservationExpected = new HashMap<>();
+    private final Map<PatternCraftingReference, ItemIdentifierStack> expectedDeliveries = new LinkedHashMap<>();
+    private final Map<PatternCraftingReference, Integer> lostDeliveries = new HashMap<>();
     private final PatternSatelliteByproductExtractor byproductExtractor = new PatternSatelliteByproductExtractor(this);
-    private int reservedOwnerRouter = -1;
+    private UUID reservedOwnerRouter;
     private PatternCraftingReference reservedReference;
 
     public PipeItemsPatternSatelliteLogistics(Item item) {
@@ -234,7 +241,7 @@ public class PipeItemsPatternSatelliteLogistics extends PipeItemsSatelliteLogist
      */
     @Override
     public boolean isLockedExit(ForgeDirection orientation) {
-        if (reservedOwnerRouter < 0) {
+        if (reservedOwnerRouter == null) {
             return super.isLockedExit(orientation);
         }
         AdjacentTile target = getPatternTargetInventory();
@@ -263,10 +270,10 @@ public class PipeItemsPatternSatelliteLogistics extends PipeItemsSatelliteLogist
      * Returns true when this satellite is unlocked or only pre-reserved by the same crafting pipe.
      */
     public boolean canReserveFor(PipeItemsPatternCraftingLogistics owner, PatternCraftingReference reference) {
-        int ownerRouter = ownerRouterId(owner);
-        return ownerRouter >= 0 && reference != null
-                && (reservedOwnerRouter < 0
-                        || (reservedOwnerRouter == ownerRouter && reference.equals(reservedReference)
+        UUID ownerRouter = ownerRouterId(owner);
+        return ownerRouter != null && reference != null
+                && (reservedOwnerRouter == null
+                        || (reservedOwnerRouter.equals(ownerRouter) && reference.equals(reservedReference)
                                 && !hasActivePatternInputReservation()));
     }
 
@@ -279,6 +286,7 @@ public class PipeItemsPatternSatelliteLogistics extends PipeItemsSatelliteLogist
         }
         reservedOwnerRouter = ownerRouterId(owner);
         reservedReference = reference;
+        markReservationDirty();
         return true;
     }
 
@@ -286,23 +294,24 @@ public class PipeItemsPatternSatelliteLogistics extends PipeItemsSatelliteLogist
      * Releases the reservation held by the owner pipe.
      */
     public void releaseReservation(PipeItemsPatternCraftingLogistics owner, PatternCraftingReference reference) {
-        int ownerRouter = ownerRouterId(owner);
-        if (ownerRouter >= 0
-                && (reservedOwnerRouter != ownerRouter || !java.util.Objects.equals(reservedReference, reference))) {
+        UUID ownerRouter = ownerRouterId(owner);
+        if (ownerRouter != null && (!ownerRouter.equals(reservedOwnerRouter)
+                || !java.util.Objects.equals(reservedReference, reference))) {
             return;
         }
-        reservedOwnerRouter = -1;
+        reservedOwnerRouter = null;
         reservedReference = null;
         reservationBaseline.clear();
         reservationExpected.clear();
+        markReservationDirty();
     }
 
     /**
      * Returns true once all items inserted during the current reservation have been consumed.
      */
     public boolean isReservationConsumed(PipeItemsPatternCraftingLogistics owner, PatternCraftingReference reference) {
-        int ownerRouter = ownerRouterId(owner);
-        if (ownerRouter < 0 || reservedOwnerRouter != ownerRouter
+        UUID ownerRouter = ownerRouterId(owner);
+        if (ownerRouter == null || !ownerRouter.equals(reservedOwnerRouter)
                 || !java.util.Objects.equals(reservedReference, reference)) {
             return true;
         }
@@ -380,12 +389,71 @@ public class PipeItemsPatternSatelliteLogistics extends PipeItemsSatelliteLogist
     /**
      * Records a routed pattern input that has been sent to this satellite but has not reached the pipe yet.
      */
-    public void expectPatternInput(ItemIdentifierStack stack) {
+    public void expectPatternInput(ItemIdentifierStack stack, PatternCraftingReference delivery,
+            boolean trackReservation) {
         if (stack == null || stack.getStackSize() <= 0) {
             return;
         }
-        reservationBaseline.putIfAbsent(stack.getItem(), countAdjacentItem(stack.getItem()));
-        reservationExpected.merge(stack.getItem(), stack.getStackSize(), Integer::sum);
+        expectedDeliveries.put(delivery, stack.clone());
+        trimCompletedDeliveries();
+        if (trackReservation) {
+            reservationBaseline.putIfAbsent(stack.getItem(), countAdjacentItem(stack.getItem()));
+            reservationExpected.merge(stack.getItem(), stack.getStackSize(), Integer::sum);
+        }
+        markReservationDirty();
+    }
+
+    @Override
+    public void itemLost(ItemIdentifierStack item, IAdditionalTargetInformation info) {
+        if (item == null || item.getStackSize() <= 0) return;
+        if (!(info instanceof PatternTargetInformation target) || !target.isTracked()) {
+            super.itemLost(item, info);
+            return;
+        }
+        ItemIdentifierStack expected = expectedDeliveries.get(target.deliveryReference());
+        if (expected == null || !expected.getItem().equals(item.getItem()) || expected.getStackSize() <= 0) {
+            return;
+        }
+        int lost = lostDeliveries.getOrDefault(target.deliveryReference(), 0);
+        lostDeliveries.put(
+                target.deliveryReference(),
+                (int) Math.min(expected.getStackSize(), (long) lost + item.getStackSize()));
+        markReservationDirty();
+    }
+
+    @Override
+    public void throttledUpdateEntity() {
+        super.throttledUpdateEntity();
+        Iterator<Map.Entry<PatternCraftingReference, Integer>> iterator = lostDeliveries.entrySet().iterator();
+        while (iterator.hasNext()) {
+            Map.Entry<PatternCraftingReference, Integer> entry = iterator.next();
+            ItemIdentifierStack expected = expectedDeliveries.get(entry.getKey());
+            int amount = expected == null ? 0 : Math.min(entry.getValue(), expected.getStackSize());
+            PatternCraftingReference batch = entry.getKey().parent();
+            if (amount <= 0 || batch == null || PatternCraftingInstanceRegistry.isCancelled(batch)) {
+                iterator.remove();
+                markReservationDirty();
+                continue;
+            }
+            PatternTargetInformation target = new PatternTargetInformation(
+                    PatternTargetInformation.NO_PATTERN_SLOT,
+                    PatternTargetInformation.NO_INPUT_SLOT,
+                    batch,
+                    entry.getKey());
+            int received = RequestTree.requestPartial(expected.getItem().makeStack(amount), this, target);
+            if (received >= amount) iterator.remove();
+            else entry.setValue(amount - received);
+            if (received > 0) markReservationDirty();
+        }
+    }
+
+    private void trimCompletedDeliveries() {
+        if (expectedDeliveries.size() <= COMPLETED_DELIVERY_LIMIT) return;
+        Iterator<Map.Entry<PatternCraftingReference, ItemIdentifierStack>> iterator = expectedDeliveries.entrySet()
+                .iterator();
+        while (expectedDeliveries.size() > COMPLETED_DELIVERY_LIMIT && iterator.hasNext()) {
+            if (iterator.next().getValue().getStackSize() == 0) iterator.remove();
+        }
     }
 
     /**
@@ -412,6 +480,7 @@ public class PipeItemsPatternSatelliteLogistics extends PipeItemsSatelliteLogist
         int amount = inserted == null ? 0 : inserted.stackSize;
         if (amount > 0 && trackReservation) {
             reservationBaseline.putIfAbsent(stack.getItem(), before);
+            markReservationDirty();
         }
         return amount;
     }
@@ -428,6 +497,10 @@ public class PipeItemsPatternSatelliteLogistics extends PipeItemsSatelliteLogist
         if (stack == null || stack.getStackSize() <= 0 || MainProxy.isClient(getWorld())) {
             return 0;
         }
+        ItemIdentifierStack expected = expectedDeliveries.get(deliveryReference);
+        if (expected != null) expected.setStackSize(0);
+        lostDeliveries.remove(deliveryReference);
+        markReservationDirty();
         int extracted = retrieveLandedItemsToStorage(stack);
         int missing = stack.getStackSize() - extracted;
         if (interceptMissing && missing > 0) {
@@ -452,7 +525,31 @@ public class PipeItemsPatternSatelliteLogistics extends PipeItemsSatelliteLogist
             queueToStorage(rerouted.makeNormalStack(), getPointedOrientation());
             item.lowerStackSize(cancelled);
         }
-        markExpectedInputArrived(item);
+        if (info instanceof PatternTargetInformation target && target.isTracked()) {
+            ItemIdentifierStack expected = expectedDeliveries.get(target.deliveryReference());
+            if (PatternCraftingInstanceRegistry.isCancelled(target.orderReference())) {
+                if (expected != null) expected.setStackSize(0);
+                lostDeliveries.remove(target.deliveryReference());
+                queueToStorage(item.makeNormalStack(), getPointedOrientation());
+                item.setStackSize(0);
+                markReservationDirty();
+                return;
+            }
+            if (expected != null) {
+                int accepted = expected.getItem().equals(item.getItem())
+                        ? Math.min(item.getStackSize(), expected.getStackSize())
+                        : 0;
+                int excess = item.getStackSize() - accepted;
+                if (excess > 0)
+                    queueToStorage(item.getItem().makeStack(excess).makeNormalStack(), getPointedOrientation());
+                item.setStackSize(accepted);
+                expected.lowerStackSize(accepted);
+                markReservationDirty();
+            }
+            if (java.util.Objects.equals(reservedReference, target.orderReference())) markExpectedInputArrived(item);
+        } else {
+            markExpectedInputArrived(item);
+        }
     }
 
     private void markExpectedInputArrived(ItemIdentifierStack item) {
@@ -469,6 +566,7 @@ public class PipeItemsPatternSatelliteLogistics extends PipeItemsSatelliteLogist
         } else {
             reservationExpected.remove(item.getItem());
         }
+        markReservationDirty();
     }
 
     private int retrieveLandedItemsToStorage(ItemIdentifierStack stack) {
@@ -562,8 +660,12 @@ public class PipeItemsPatternSatelliteLogistics extends PipeItemsSatelliteLogist
         return inventory;
     }
 
-    private int ownerRouterId(PipeItemsPatternCraftingLogistics owner) {
-        return owner == null || owner.getRouter() == null ? -1 : owner.getRouter().getSimpleID();
+    private UUID ownerRouterId(PipeItemsPatternCraftingLogistics owner) {
+        return owner == null || owner.getRouter() == null ? null : owner.getRouter().getId();
+    }
+
+    private void markReservationDirty() {
+        if (container != null) container.markDirty();
     }
 
     private void queueToStorage(ItemStack stack, ForgeDirection from) {
@@ -587,10 +689,12 @@ public class PipeItemsPatternSatelliteLogistics extends PipeItemsSatelliteLogist
             if (pending.matches(item, deliveryReference)) {
                 pending.amount += amount;
                 pending.expires = Math.max(pending.expires, expires);
+                markReservationDirty();
                 return;
             }
         }
         pendingCancelledArrivals.add(new PendingCancelledArrival(item, amount, expires, deliveryReference));
+        markReservationDirty();
     }
 
     private int removePendingCancelledArrival(ItemIdentifierStack arriving, IAdditionalTargetInformation info) {
@@ -609,6 +713,7 @@ public class PipeItemsPatternSatelliteLogistics extends PipeItemsSatelliteLogist
                 iterator.remove();
             }
         }
+        if (matched > 0) markReservationDirty();
         return matched;
     }
 
@@ -621,6 +726,7 @@ public class PipeItemsPatternSatelliteLogistics extends PipeItemsSatelliteLogist
         while (iterator.hasNext()) {
             if (iterator.next().expires <= now) {
                 iterator.remove();
+                markReservationDirty();
             }
         }
     }
@@ -746,6 +852,48 @@ public class PipeItemsPatternSatelliteLogistics extends PipeItemsSatelliteLogist
         satelliteUuid = nbttagcompound.hasKey(UUID_TAG) ? nbttagcompound.getString(UUID_TAG)
                 : UUID.randomUUID().toString();
         satelliteName = nbttagcompound.getString(NAME_TAG);
+        reservedReference = PatternCraftingReference.readFromNBT(nbttagcompound, "reservation");
+        String owner = nbttagcompound.getString("reservationOwner");
+        reservedOwnerRouter = reservedReference == null || owner.isEmpty() ? null : UUID.fromString(owner);
+        reservationBaseline.clear();
+        reservationExpected.clear();
+        NBTTagList inputs = nbttagcompound.getTagList("reservationInputs", 10);
+        for (int i = 0; i < inputs.tagCount(); i++) {
+            NBTTagCompound entry = inputs.getCompoundTagAt(i);
+            ItemIdentifierStack stack = PatternItemStack.readItem(entry);
+            if (stack == null || reservedOwnerRouter == null) continue;
+            reservationBaseline.put(stack.getItem(), Math.max(0, entry.getInteger("baseline")));
+            int expected = entry.getInteger("expected");
+            if (expected > 0) reservationExpected.put(stack.getItem(), expected);
+        }
+        expectedDeliveries.clear();
+        lostDeliveries.clear();
+        NBTTagList deliveries = nbttagcompound.getTagList("patternDeliveries", 10);
+        for (int i = 0; i < deliveries.tagCount(); i++) {
+            NBTTagCompound entry = deliveries.getCompoundTagAt(i);
+            ItemIdentifierStack stack = PatternItemStack.readItem(entry);
+            PatternCraftingReference delivery = PatternCraftingReference.readFromNBT(entry, "delivery");
+            if (stack == null || delivery == null) continue;
+            stack.setStackSize(Math.max(0, entry.getInteger("remaining")));
+            expectedDeliveries.put(delivery, stack);
+            int lost = Math.min(stack.getStackSize(), entry.getInteger("lost"));
+            if (lost > 0) lostDeliveries.put(delivery, lost);
+        }
+        pendingCancelledArrivals.clear();
+        NBTTagList cancelled = nbttagcompound.getTagList("cancelledPatternArrivals", 10);
+        for (int i = 0; i < cancelled.tagCount(); i++) {
+            NBTTagCompound entry = cancelled.getCompoundTagAt(i);
+            ItemIdentifierStack stack = PatternItemStack.readItem(entry);
+            PatternCraftingReference delivery = PatternCraftingReference.readFromNBT(entry, "delivery");
+            if (stack != null && stack.getStackSize() > 0 && delivery != null) {
+                pendingCancelledArrivals.add(
+                        new PendingCancelledArrival(
+                                stack.getItem(),
+                                stack.getStackSize(),
+                                entry.getLong("expires"),
+                                delivery));
+            }
+        }
         ensureAllSatelliteStatus();
     }
 
@@ -754,6 +902,40 @@ public class PipeItemsPatternSatelliteLogistics extends PipeItemsSatelliteLogist
         super.writeToNBT(nbttagcompound);
         nbttagcompound.setString(UUID_TAG, satelliteUuid);
         nbttagcompound.setString(NAME_TAG, satelliteName == null ? "" : satelliteName);
+        if (reservedOwnerRouter != null && reservedReference != null) {
+            nbttagcompound.setString("reservationOwner", reservedOwnerRouter.toString());
+            reservedReference.writeToNBT(nbttagcompound, "reservation");
+        } else {
+            nbttagcompound.removeTag("reservationOwner");
+        }
+        NBTTagList inputs = new NBTTagList();
+        for (Map.Entry<ItemIdentifier, Integer> baseline : reservationBaseline.entrySet()) {
+            NBTTagCompound entry = new NBTTagCompound();
+            PatternItemStack.writeItem(entry, baseline.getKey().makeStack(1));
+            entry.setInteger("baseline", baseline.getValue());
+            entry.setInteger("expected", reservationExpected.getOrDefault(baseline.getKey(), 0));
+            inputs.appendTag(entry);
+        }
+        nbttagcompound.setTag("reservationInputs", inputs);
+        NBTTagList deliveries = new NBTTagList();
+        for (Map.Entry<PatternCraftingReference, ItemIdentifierStack> delivery : expectedDeliveries.entrySet()) {
+            NBTTagCompound entry = new NBTTagCompound();
+            PatternItemStack.writeItem(entry, delivery.getValue().getItem().makeStack(1));
+            delivery.getKey().writeToNBT(entry, "delivery");
+            entry.setInteger("remaining", delivery.getValue().getStackSize());
+            entry.setInteger("lost", lostDeliveries.getOrDefault(delivery.getKey(), 0));
+            deliveries.appendTag(entry);
+        }
+        nbttagcompound.setTag("patternDeliveries", deliveries);
+        NBTTagList cancelled = new NBTTagList();
+        for (PendingCancelledArrival arrival : pendingCancelledArrivals) {
+            NBTTagCompound entry = new NBTTagCompound();
+            PatternItemStack.writeItem(entry, arrival.item.makeStack(arrival.amount));
+            if (arrival.deliveryReference != null) arrival.deliveryReference.writeToNBT(entry, "delivery");
+            entry.setLong("expires", arrival.expires);
+            cancelled.appendTag(entry);
+        }
+        nbttagcompound.setTag("cancelledPatternArrivals", cancelled);
     }
 
     @Override

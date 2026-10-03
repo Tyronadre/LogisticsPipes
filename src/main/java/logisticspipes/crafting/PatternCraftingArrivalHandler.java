@@ -68,6 +68,10 @@ final class PatternCraftingArrivalHandler {
         int original = item.getStackSize();
         int requested = ingredientPlanner.requestedItemAmount(target.orderReference(), pattern, item.getItem());
         int accepted = Math.min(original, requested);
+        if (accepted == 0) {
+            sendToStorage(target, item, null);
+            return;
+        }
         module.debugEvent(
                 "FLOW",
                 "item arrived slot=%d item=%s original=%d requested=%d space=%d accepted=%d",
@@ -98,6 +102,7 @@ final class PatternCraftingArrivalHandler {
             module.pushBufferedIngredientsFor(patternSlot);
         }
         item.setStackSize(original - accepted);
+        if (item.getStackSize() > 0) sendToStorage(target, item, null);
         if (accepted > 0) {
             pipe.getCacheHolder().trigger(CacheTypes.Inventory);
         }
@@ -121,6 +126,10 @@ final class PatternCraftingArrivalHandler {
         PatternFluidStack arriving = new PatternFluidStack(fluid, original);
         int requested = requestedIngredient.amount(target.orderReference(), arriving);
         int accepted = Math.min(original, requested);
+        if (accepted == 0) {
+            sendToStorage(target, routedStack, fluidStack);
+            return;
+        }
         module.debugEvent(
                 "FLOW",
                 "fluid arrived slot=%d fluid=%s original=%d requested=%d space=%d accepted=%d",
@@ -159,7 +168,7 @@ final class PatternCraftingArrivalHandler {
     private void sendToStorage(PatternTargetInformation target, ItemIdentifierStack item, FluidStack fluid) {
         module.debugEvent(
                 "FLOW",
-                "cancelled reference=%s slot=%d sends late ingredient to storage item=%s fluid=%s amount=%d",
+                "unneeded reference=%s slot=%d sends ingredient to storage item=%s fluid=%s amount=%d",
                 target.orderReference(),
                 target.patternSlot(),
                 item.getItem(),

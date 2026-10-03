@@ -6,6 +6,9 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.UUID;
 
+import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.nbt.NBTTagList;
+
 import logisticspipes.pipes.PipeItemsPatternCraftingLogistics;
 import logisticspipes.utils.AdjacentTile;
 
@@ -27,6 +30,22 @@ final class PatternCraftingBlockingHandler {
 
     PatternCraftingBlockingHandler(ModulePatternCrafting module) {
         this.module = module;
+    }
+
+    void readFromNBT(NBTTagCompound tag, PatternSatelliteDispatchHandler dispatcher) {
+        satelliteBatches.clear();
+        lastSatelliteRefreshTick = Long.MIN_VALUE;
+        NBTTagList batches = tag.getTagList("patternSatelliteBatches", 10);
+        for (int i = 0; i < batches.tagCount(); i++) {
+            SatelliteBatch batch = dispatcher.readFromNBT(batches.getCompoundTagAt(i)).satelliteBatch();
+            if (batch != null) satelliteBatches.add(batch);
+        }
+    }
+
+    void writeToNBT(NBTTagCompound tag) {
+        NBTTagList batches = new NBTTagList();
+        for (SatelliteBatch batch : satelliteBatches) batches.appendTag(batch.writeToNBT());
+        tag.setTag("patternSatelliteBatches", batches);
     }
 
     int runningCraft() {
@@ -73,7 +92,7 @@ final class PatternCraftingBlockingHandler {
         runningCraftReference = patternSlot >= 0 ? reference : null;
         runningCraftInAdjacent = patternSlot >= 0 && inAdjacent;
         if (changed) {
-            module.markHudStateDirty();
+            module.markCraftingStateDirty();
         }
     }
 
@@ -122,7 +141,7 @@ final class PatternCraftingBlockingHandler {
         if (satelliteBatch != null) {
             satelliteBatches.add(satelliteBatch);
             setRunningCraft(patternSlot, reference, usesLocalInventory);
-            module.markHudStateDirty();
+            module.markCraftingStateDirty();
             return;
         }
         setRunningCraft(patternSlot, reference, usesLocalInventory);
@@ -211,7 +230,7 @@ final class PatternCraftingBlockingHandler {
             changed = true;
         }
         if (changed) {
-            module.markHudStateDirty();
+            module.markCraftingStateDirty();
         }
         return changed;
     }
@@ -229,7 +248,7 @@ final class PatternCraftingBlockingHandler {
             changed = true;
         }
         if (changed) {
-            module.markHudStateDirty();
+            module.markCraftingStateDirty();
         }
         return changed;
     }
@@ -250,7 +269,7 @@ final class PatternCraftingBlockingHandler {
             batch.retrieveAndRelease();
         }
         satelliteBatches.clear();
-        module.markHudStateDirty();
+        module.markCraftingStateDirty();
         return true;
     }
 
@@ -262,7 +281,7 @@ final class PatternCraftingBlockingHandler {
             batch.release();
         }
         satelliteBatches.clear();
-        module.markHudStateDirty();
+        module.markCraftingStateDirty();
         return true;
     }
 
@@ -285,7 +304,7 @@ final class PatternCraftingBlockingHandler {
                     batch.size());
             batch.release();
             iterator.remove();
-            module.markHudStateDirty();
+            module.markCraftingStateDirty();
         }
     }
 
@@ -310,7 +329,7 @@ final class PatternCraftingBlockingHandler {
         runningCraft = patternSlot;
         runningCraftReference = patternSlot >= 0 ? reference : null;
         runningCraftInAdjacent = patternSlot >= 0 && inAdjacent;
-        module.markHudStateDirty();
+        module.markCraftingStateDirty();
     }
 
     interface SatelliteBatch {
@@ -326,5 +345,7 @@ final class PatternCraftingBlockingHandler {
         void release();
 
         void retrieveAndRelease();
+
+        NBTTagCompound writeToNBT();
     }
 }

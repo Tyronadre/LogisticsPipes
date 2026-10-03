@@ -39,6 +39,9 @@ public class PatternCraftingBranch {
     private static final String ORIGINAL_EXTRA_AMOUNT_TAG = "originalExtraAmount";
     private static final String SUB_REQUESTS_TAG = "subRequests";
     private static final String REFERENCE_PREFIX = "branch";
+    private static final String RECORD_PREFIX = "record";
+    private static final String CHILD_REFERENCES_TAG = "childReferences";
+    private static final String LIVE_ORDER_REFERENCES_TAG = "liveOrderReferences";
     private static final int TAG_COMPOUND = 10;
 
     @Getter
@@ -52,6 +55,7 @@ public class PatternCraftingBranch {
     private final List<ExtraState> byproducts;
     private final List<PatternCraftingBranch> subRequests;
     private final List<IOrderInfoProvider> liveOrders = new ArrayList<>();
+    private final Set<PatternCraftingReference> liveOrderReferences = new LinkedHashSet<>();
     @Getter
     private int remainingAmount;
     private int remainingCraftingAmount;
@@ -124,6 +128,12 @@ public class PatternCraftingBranch {
                 readExtraStates(tag.getTagList(BYPRODUCTS_TAG, TAG_COMPOUND)),
                 readSubRequests(tag.getTagList(SUB_REQUESTS_TAG, TAG_COMPOUND)));
         branch.reference = PatternCraftingReference.readFromNBT(tag, REFERENCE_PREFIX);
+        NBTTagList orders = tag.getTagList(LIVE_ORDER_REFERENCES_TAG, TAG_COMPOUND);
+        for (int i = 0; i < orders.tagCount(); i++) {
+            PatternCraftingReference order = PatternCraftingReference
+                    .readFromNBT(orders.getCompoundTagAt(i), RECORD_PREFIX);
+            if (order != null) branch.liveOrderReferences.add(order);
+        }
         return branch;
     }
 
@@ -178,7 +188,9 @@ public class PatternCraftingBranch {
             IPromise promise = PatternCraftingPersistence.readPromise(stateTag.getCompoundTag(PROMISE_TAG));
             // Provider reservation maps are runtime-only. Restored branches reserve their remaining provider promises
             // after all orders have been recreated, so this flag intentionally starts clear after loading.
-            result.add(new PromiseState(promise, stateTag.getInteger(REMAINING_AMOUNT_TAG), false));
+            PromiseState state = new PromiseState(promise, stateTag.getInteger(REMAINING_AMOUNT_TAG), false);
+            state.reference = PatternCraftingReference.readFromNBT(stateTag, RECORD_PREFIX);
+            result.add(state);
         }
         return result;
     }
@@ -188,7 +200,9 @@ public class PatternCraftingBranch {
         for (int i = 0; i < list.tagCount(); i++) {
             NBTTagCompound stateTag = list.getCompoundTagAt(i);
             IExtraPromise promise = PatternCraftingPersistence.readExtraPromise(stateTag.getCompoundTag(PROMISE_TAG));
-            result.add(new ExtraState(promise, stateTag.getInteger(ORIGINAL_EXTRA_AMOUNT_TAG)));
+            ExtraState state = new ExtraState(promise, stateTag.getInteger(ORIGINAL_EXTRA_AMOUNT_TAG));
+            state.reference = PatternCraftingReference.readFromNBT(stateTag, RECORD_PREFIX);
+            result.add(state);
         }
         return result;
     }
@@ -312,7 +326,8 @@ public class PatternCraftingBranch {
         for (ExtraState state : states) {
             ExtraState matching = null;
             for (ExtraState candidate : result) {
-                if (candidate.promise.getClass() == state.promise.getClass()
+                if (candidate.reference == null && state.reference == null
+                        && candidate.promise.getClass() == state.promise.getClass()
                         && candidate.promise.getProvider() == state.promise.getProvider()
                         && candidate.promise.getItemType().equals(state.promise.getItemType())
                         && Objects.equals(byproductTarget(candidate.promise), byproductTarget(state.promise))) {
@@ -393,14 +408,71 @@ public class PatternCraftingBranch {
             return;
         }
         if (reference == null || !reference.belongsTo(ownerReference)) {
-            reference = ownerReference.createChild();
+            reference = ownerReference;
         }
         for (PatternCraftingBranch child : subRequests) {
-            child.bindToInstance(ownerReference);
+            child.bindToInstance(
+                    child.reference == null || !child.reference.belongsTo(reference) ? reference.createChild()
+                            : child.reference);
+        }
+        for (PromiseState state : promises) {
+            if (state.reference == null || !state.reference.belongsTo(reference))
+                state.reference = reference.createChild();
+        }
+        for (ExtraState state : extraPromises) {
+            if (state.reference == null || !state.reference.belongsTo(reference))
+                state.reference = reference.createChild();
+        }
+        for (ExtraState state : byproducts) {
+            if (state.reference == null || !state.reference.belongsTo(reference))
+                state.reference = reference.createChild();
         }
     }
 
-    void writeToNBT(NBTTagCompound tag) {
+    PatternCraftingReference reference() {
+        return reference;
+    }
+
+    /** Writes each branch once; its child edges are saved as IDs. */
+    void writeGraph(Map<PatternCraftingReference, NBTTagCompound> records) {
+        if (records.containsKey(reference)) return;
+        NBTTagCompound tag = new NBTTagCompound();
+        writeRecord(tag);
+        records.put(reference, tag);
+        NBTTagList children = new NBTTagList();
+        for (PatternCraftingBranch child : subRequests) {
+            NBTTagCompound edge = new NBTTagCompound();
+            child.reference.writeToNBT(edge, REFERENCE_PREFIX);
+            children.appendTag(edge);
+            child.writeGraph(records);
+        }
+        tag.setTag(CHILD_REFERENCES_TAG, children);
+    }
+
+    /** Loads records first, then reconnects the child edges without creating new work. */
+    static Map<PatternCraftingReference, PatternCraftingBranch> readGraph(NBTTagList records) {
+        Map<PatternCraftingReference, PatternCraftingBranch> branches = new LinkedHashMap<>();
+        for (int i = 0; i < records.tagCount(); i++) {
+            PatternCraftingBranch branch = readFromNBT(records.getCompoundTagAt(i));
+            if (branch.reference == null || branches.put(branch.reference, branch) != null) {
+                throw new PatternCraftingPersistence.RestoreNotReadyException();
+            }
+        }
+        for (int i = 0; i < records.tagCount(); i++) {
+            NBTTagCompound tag = records.getCompoundTagAt(i);
+            PatternCraftingBranch branch = branches.get(PatternCraftingReference.readFromNBT(tag, REFERENCE_PREFIX));
+            NBTTagList children = tag.getTagList(CHILD_REFERENCES_TAG, TAG_COMPOUND);
+            for (int j = 0; j < children.tagCount(); j++) {
+                PatternCraftingBranch child = branches
+                        .get(PatternCraftingReference.readFromNBT(children.getCompoundTagAt(j), REFERENCE_PREFIX));
+                if (child == null) throw new PatternCraftingPersistence.RestoreNotReadyException();
+                branch.subRequests.add(child);
+            }
+        }
+        return branches;
+    }
+
+    private void writeRecord(NBTTagCompound tag) {
         NBTTagCompound resourceTag = new NBTTagCompound();
         if (PatternCraftingPersistence.writeResource(resourceTag, requestType)) {
             tag.setTag(REQUEST_TYPE_TAG, resourceTag);
@@ -416,7 +488,19 @@ public class PatternCraftingBranch {
         tag.setTag(PROMISES_TAG, writePromiseStates());
         tag.setTag(EXTRA_PROMISES_TAG, writeExtraStates(extraPromises));
         tag.setTag(BYPRODUCTS_TAG, writeExtraStates(byproducts));
-        tag.setTag(SUB_REQUESTS_TAG, writeSubRequests());
+        for (IOrderInfoProvider order : liveOrders) {
+            if (order instanceof LogisticsOrder logisticsOrder && logisticsOrder.getCraftingReference() != null
+                    && !order.isFinished()) {
+                liveOrderReferences.add(logisticsOrder.getCraftingReference());
+            }
+        }
+        NBTTagList orders = new NBTTagList();
+        for (PatternCraftingReference order : liveOrderReferences) {
+            NBTTagCompound edge = new NBTTagCompound();
+            order.writeToNBT(edge, RECORD_PREFIX);
+            orders.appendTag(edge);
+        }
+        tag.setTag(LIVE_ORDER_REFERENCES_TAG, orders);
     }
 
     /**
@@ -485,6 +569,7 @@ public class PatternCraftingBranch {
     }
 
     void collectNestedCraftingOrders(Set<PatternCraftingOrder> nestedOrders) {
+        resolveLiveOrders();
         for (PatternCraftingBranch subRequest : subRequests) {
             subRequest.collectNestedCraftingOrders(nestedOrders);
         }
@@ -649,6 +734,10 @@ public class PatternCraftingBranch {
                     promise.getType(),
                     promise.getProvider());
             liveOrders.add(result);
+            if (result instanceof LogisticsOrder order && order.getCraftingReference() == null
+                    && promiseState.reference != null) {
+                order.setCraftingReference(promiseState.reference.createChild());
+            }
             if (promise.getType() == ResourceType.CRAFTING) {
                 if (requestSubRequestsAfterOrder) {
                     requestSubRequestsFor(toRequest);
@@ -759,6 +848,7 @@ public class PatternCraftingBranch {
                 copiedExtras,
                 copiedByproducts,
                 copiedChildren);
+        if (reference != null) copy.bindToInstance(reference.createChild());
         if (debugModule != null) {
             copy.attachDebugModule(debugModule);
         }
@@ -1092,11 +1182,12 @@ public class PatternCraftingBranch {
             }
             int copied = Math.min(amountLeft, promise.remainingAmount);
             if (copied > 0) {
-                copiedPromises.add(
-                        new PromiseState(
-                                copyPromiseForAmount(promise.promise, copied),
-                                copied,
-                                promise.providerReserved));
+                PromiseState slice = new PromiseState(
+                        copyPromiseForAmount(promise.promise, copied),
+                        copied,
+                        promise.providerReserved);
+                if (promise.reference != null) slice.reference = promise.reference.createChild();
+                copiedPromises.add(slice);
                 amountLeft -= copied;
             }
         }
@@ -1209,8 +1300,8 @@ public class PatternCraftingBranch {
     }
 
     private boolean canMergeWith(PatternCraftingBranch other) {
-        return other != null && Objects.equals(info, other.info)
-                && requestType.getClass() == other.requestType.getClass()
+        if (other == null || reference != null || other.reference != null) return false;
+        return Objects.equals(info, other.info) && requestType.getClass() == other.requestType.getClass()
                 && requestType.matches(other.requestType.getAsItem(), IResource.MatchSettings.NORMAL)
                 && other.requestType.matches(requestType.getAsItem(), IResource.MatchSettings.NORMAL);
     }
@@ -1246,6 +1337,7 @@ public class PatternCraftingBranch {
             stateTag.setTag(PROMISE_TAG, promiseTag);
             stateTag.setInteger(REMAINING_AMOUNT_TAG, state.remainingAmount);
             stateTag.setBoolean(PROVIDER_RESERVED_TAG, state.providerReserved);
+            if (state.reference != null) state.reference.writeToNBT(stateTag, RECORD_PREFIX);
             list.appendTag(stateTag);
         }
         return list;
@@ -1261,17 +1353,8 @@ public class PatternCraftingBranch {
             }
             stateTag.setTag(PROMISE_TAG, promiseTag);
             stateTag.setInteger(ORIGINAL_EXTRA_AMOUNT_TAG, state.originalAmount);
+            if (state.reference != null) state.reference.writeToNBT(stateTag, RECORD_PREFIX);
             list.appendTag(stateTag);
-        }
-        return list;
-    }
-
-    private NBTTagList writeSubRequests() {
-        NBTTagList list = new NBTTagList();
-        for (PatternCraftingBranch branch : subRequests) {
-            NBTTagCompound branchTag = new NBTTagCompound();
-            branch.writeToNBT(branchTag);
-            list.appendTag(branchTag);
         }
         return list;
     }
@@ -1292,7 +1375,9 @@ public class PatternCraftingBranch {
             }
             IExtraPromise promise = state.promise.copy();
             promise.setAmount(state.originalAmount);
-            copied.add(new ExtraState(promise));
+            ExtraState slice = new ExtraState(promise);
+            if (state.reference != null) slice.reference = state.reference.createChild();
+            copied.add(slice);
         }
         return copied;
     }
@@ -1309,7 +1394,9 @@ public class PatternCraftingBranch {
             }
             IExtraPromise promise = state.promise.copy();
             promise.setAmount(extraAmount);
-            copied.add(new ExtraState(promise));
+            ExtraState slice = new ExtraState(promise);
+            if (state.reference != null) slice.reference = state.reference.createChild();
+            copied.add(slice);
         }
         return copied;
     }
@@ -1341,6 +1428,7 @@ public class PatternCraftingBranch {
     }
 
     private int getLiveOrderAmount() {
+        resolveLiveOrders();
         int amount = 0;
         for (IOrderInfoProvider order : liveOrders) {
             if (order.isFinished() || order.getAsDisplayItem() == null) {
@@ -1352,12 +1440,24 @@ public class PatternCraftingBranch {
     }
 
     private boolean hasInProgressOrders() {
+        resolveLiveOrders();
         for (IOrderInfoProvider order : liveOrders) {
             if (order.isInProgress() || !order.getProgresses().isEmpty()) {
                 return true;
             }
         }
         return false;
+    }
+
+    private void resolveLiveOrders() {
+        Iterator<PatternCraftingReference> iterator = liveOrderReferences.iterator();
+        while (iterator.hasNext()) {
+            PatternCraftingOrder order = PatternCraftingInstanceRegistry.find(iterator.next());
+            if (order != null) {
+                if (!liveOrders.contains(order.outputOrder)) liveOrders.add(order.outputOrder);
+                iterator.remove();
+            }
+        }
     }
 
     private void appendExtraStates(StringBuilder out, String prefix, String label, List<ExtraState> states) {
@@ -1387,6 +1487,7 @@ public class PatternCraftingBranch {
         private final IPromise promise;
         private int remainingAmount;
         private boolean providerReserved;
+        private PatternCraftingReference reference;
 
         private PromiseState(IPromise promise, int remainingAmount, boolean providerReserved) {
             this.promise = promise;
@@ -1399,6 +1500,7 @@ public class PatternCraftingBranch {
 
         private final IExtraPromise promise;
         private final int originalAmount;
+        private PatternCraftingReference reference;
 
         private ExtraState(IExtraPromise promise) {
             this.promise = promise;

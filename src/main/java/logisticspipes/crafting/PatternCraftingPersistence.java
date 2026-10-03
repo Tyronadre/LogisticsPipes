@@ -74,6 +74,8 @@ final class PatternCraftingPersistence {
     private static final String USE_CATEGORY_TAG = "useCategory";
     private static final String MATCH_SAME_ITEM_TAG = "matchSameItem";
     private static final String IN_PROGRESS_TAG = "inProgress";
+    private static final String FINISHED_TAG = "finished";
+    private static final String ORDER_AMOUNT_TAG = "orderAmount";
     private static final String MACHINE_PROGRESS_TAG = "machineProgress";
     private static final String WATCHED_TAG = "watched";
     private static final String BYPRODUCT_TAG = "byproduct";
@@ -306,7 +308,9 @@ final class PatternCraftingPersistence {
         if (order instanceof LogisticsItemOrder itemOrder) {
             tag.setString(KIND_TAG, ITEM_KIND);
             NBTTagCompound resourceTag = new NBTTagCompound();
-            writeDictResource(resourceTag, itemOrder.getResource());
+            writeDictResource(
+                    resourceTag,
+                    (DictResource) itemOrder.getResource().copyForDisplayWith(Math.max(1, itemOrder.getAmount())));
             tag.setTag(RESOURCE_TAG, resourceTag);
             writeItemRequester(tag, DESTINATION_TAG, itemOrder.getDestination());
             writeResourceType(tag, itemOrder.getType());
@@ -316,7 +320,7 @@ final class PatternCraftingPersistence {
         }
         if (order instanceof LogisticsFluidOrder fluidOrder) {
             tag.setString(KIND_TAG, FLUID_KIND);
-            writeFluid(tag, fluidOrder.getFluid(), fluidOrder.getAmount());
+            writeFluid(tag, fluidOrder.getFluid(), Math.max(1, fluidOrder.getAmount()));
             writeFluidRequester(tag, DESTINATION_TAG, fluidOrder.getDestination());
             writeResourceType(tag, fluidOrder.getType());
             writeTargetInfo(tag, fluidOrder.getInformation());
@@ -332,6 +336,7 @@ final class PatternCraftingPersistence {
         order.type = readResourceType(tag);
         order.info = readTargetInfo(tag.getCompoundTag(INFO_TAG));
         order.inProgress = tag.getBoolean(IN_PROGRESS_TAG);
+        order.finished = tag.getBoolean(FINISHED_TAG);
         order.machineProgress = tag.getByte(MACHINE_PROGRESS_TAG);
         order.watched = tag.getBoolean(WATCHED_TAG);
         order.byproduct = tag.getBoolean(BYPRODUCT_TAG);
@@ -339,12 +344,13 @@ final class PatternCraftingPersistence {
         order.craftingReference = PatternCraftingReference.readFromNBT(tag, CRAFTING_REFERENCE_PREFIX);
         if (ITEM_KIND.equals(kind)) {
             order.itemResource = readDictResource(tag.getCompoundTag(RESOURCE_TAG), null);
+            if (tag.hasKey(ORDER_AMOUNT_TAG)) order.itemResource.stack.setStackSize(tag.getInteger(ORDER_AMOUNT_TAG));
             order.itemDestination = readItemRequester(tag, DESTINATION_TAG);
             return order;
         }
         if (FLUID_KIND.equals(kind)) {
             order.fluid = readRequiredFluid(tag);
-            order.amount = tag.getInteger(AMOUNT_TAG);
+            order.amount = tag.getInteger(tag.hasKey(ORDER_AMOUNT_TAG) ? ORDER_AMOUNT_TAG : AMOUNT_TAG);
             order.fluidDestination = readFluidRequester(tag, DESTINATION_TAG);
             return order;
         }
@@ -411,6 +417,8 @@ final class PatternCraftingPersistence {
 
     private static void writeOrderRuntimeState(NBTTagCompound tag, IOrderInfoProvider order) {
         tag.setBoolean(IN_PROGRESS_TAG, order.isInProgress());
+        tag.setBoolean(FINISHED_TAG, order.isFinished());
+        tag.setInteger(ORDER_AMOUNT_TAG, order.getAsDisplayItem().getStackSize());
         tag.setBoolean(WATCHED_TAG, order.isWatched());
         tag.setByte(MACHINE_PROGRESS_TAG, order.getMachineProgress());
         if (order instanceof LogisticsOrder logisticsOrder && logisticsOrder.isByproduct()) {
@@ -429,6 +437,7 @@ final class PatternCraftingPersistence {
             return;
         }
         logisticsOrder.setInProgress(state.inProgress);
+        logisticsOrder.setFinished(state.finished);
         logisticsOrder.setMachineProgress(state.machineProgress);
         logisticsOrder.setByproduct(state.byproduct);
         logisticsOrder.setByproductTarget(state.byproductTarget);
@@ -663,6 +672,7 @@ final class PatternCraftingPersistence {
         private ResourceType type;
         private IAdditionalTargetInformation info;
         private boolean inProgress;
+        private boolean finished;
         private boolean watched;
         private boolean byproduct;
         private PatternByproductTarget byproductTarget;
@@ -675,7 +685,10 @@ final class PatternCraftingPersistence {
 
         IOrderInfoProvider create(PipeItemsPatternCraftingLogistics pipe, ModulePatternCrafting module) {
             IOrderInfoProvider order;
-            if (itemResource != null) {
+            if (finished) {
+                order = itemResource != null ? new LogisticsItemOrder(itemResource, itemDestination, type, info)
+                        : new LogisticsFluidOrder(fluid, amount, fluidDestination, type, info);
+            } else if (itemResource != null) {
                 if (type == ResourceType.EXTRA) {
                     order = pipe.getItemOrderManager().addExtra(itemResource);
                 } else {

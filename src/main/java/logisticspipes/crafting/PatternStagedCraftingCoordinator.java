@@ -48,6 +48,8 @@ class PatternStagedCraftingCoordinator {
     private static final String REMAINING_SETS_TAG = "remainingSets";
     private static final String OUTPUT_ORDER_TAG = "outputOrder";
     private static final String INGREDIENT_BRANCHES_TAG = "ingredientBranches";
+    private static final String BRANCH_RECORDS_TAG = "branches";
+    private static final String BRANCH_REFERENCE_PREFIX = "branch";
     private static final int TAG_COMPOUND = 10;
 
     private final ModulePatternCrafting module;
@@ -114,12 +116,16 @@ class PatternStagedCraftingCoordinator {
 
     void writeToNBT(NBTTagCompound tag) {
         Set<IOrderInfoProvider> savedOutputOrders = Collections.newSetFromMap(new IdentityHashMap<>());
-        NBTTagList stagedOrders = writeStagedOrders(savedOutputOrders);
+        Map<PatternCraftingReference, NBTTagCompound> branches = new LinkedHashMap<>();
+        NBTTagList stagedOrders = writeStagedOrders(savedOutputOrders, branches);
         NBTTagList standaloneItemOrders = writeStandaloneItemOrders(savedOutputOrders);
         NBTTagList standaloneFluidOrders = writeStandaloneFluidOrders(savedOutputOrders);
         tag.setTag(STAGED_ORDERS_TAG, stagedOrders);
         tag.setTag(STANDALONE_ITEM_ORDERS_TAG, standaloneItemOrders);
         tag.setTag(STANDALONE_FLUID_ORDERS_TAG, standaloneFluidOrders);
+        NBTTagList records = new NBTTagList();
+        for (NBTTagCompound branch : branches.values()) records.appendTag(branch);
+        tag.setTag(BRANCH_RECORDS_TAG, records);
         module.debugEvent(
                 "PERSIST",
                 "saved staged crafting state stagedOrders=%d standaloneItems=%d standaloneFluids=%d trackedOutputOrders=%d",
@@ -136,6 +142,12 @@ class PatternStagedCraftingCoordinator {
         boolean changed = removePendingOrders(tag.getTagList(STAGED_ORDERS_TAG, TAG_COMPOUND), instanceId, true);
         changed |= removePendingOrders(tag.getTagList(STANDALONE_ITEM_ORDERS_TAG, TAG_COMPOUND), instanceId, false);
         changed |= removePendingOrders(tag.getTagList(STANDALONE_FLUID_ORDERS_TAG, TAG_COMPOUND), instanceId, false);
+        NBTTagList branches = tag.getTagList(BRANCH_RECORDS_TAG, TAG_COMPOUND);
+        for (int i = branches.tagCount() - 1; i >= 0; i--) {
+            PatternCraftingReference branch = PatternCraftingReference
+                    .readFromNBT(branches.getCompoundTagAt(i), BRANCH_REFERENCE_PREFIX);
+            if (branch != null && instanceId.equals(branch.instanceId())) branches.removeTag(i);
+        }
         return changed;
     }
 
@@ -143,6 +155,35 @@ class PatternStagedCraftingCoordinator {
         return tag != null && (tag.getTagList(STAGED_ORDERS_TAG, TAG_COMPOUND).tagCount() > 0
                 || tag.getTagList(STANDALONE_ITEM_ORDERS_TAG, TAG_COMPOUND).tagCount() > 0
                 || tag.getTagList(STANDALONE_FLUID_ORDERS_TAG, TAG_COMPOUND).tagCount() > 0);
+    }
+
+    static int incomingAmount(NBTTagCompound tag, PatternCraftingReference owner, IPatternStack ingredient) {
+        long amount = 0;
+        NBTTagList staged = tag.getTagList(STAGED_ORDERS_TAG, TAG_COMPOUND);
+        for (int i = 0; i < staged.tagCount(); i++) {
+            amount += incomingOrderAmount(
+                    staged.getCompoundTagAt(i).getCompoundTag(OUTPUT_ORDER_TAG),
+                    owner,
+                    ingredient);
+        }
+        for (String key : new String[] { STANDALONE_ITEM_ORDERS_TAG, STANDALONE_FLUID_ORDERS_TAG }) {
+            NBTTagList orders = tag.getTagList(key, TAG_COMPOUND);
+            for (int i = 0; i < orders.tagCount(); i++)
+                amount += incomingOrderAmount(orders.getCompoundTagAt(i), owner, ingredient);
+        }
+        return (int) Math.min(Integer.MAX_VALUE, amount);
+    }
+
+    private static int incomingOrderAmount(NBTTagCompound tag, PatternCraftingReference owner,
+            IPatternStack ingredient) {
+        IAdditionalTargetInformation info = PatternCraftingPersistence.readTargetInfoFromParent(tag);
+        ItemIdentifierStack display = PatternCraftingPersistence.readOrderDisplayStack(tag);
+        if (tag.getBoolean("finished") || !(info instanceof PatternTargetInformation target)
+                || !owner.equals(target.orderReference())
+                || display == null
+                || !PatternStackHelper.matches(ingredient, display.getItem()))
+            return 0;
+        return Math.max(0, display.getStackSize());
     }
 
     private static void appendPendingStagedOrders(NBTTagList list,
@@ -278,8 +319,11 @@ class PatternStagedCraftingCoordinator {
             PatternCraftingReference parentReference = info instanceof PatternTargetInformation target
                     ? target.orderReference()
                     : null;
-            PatternCraftingReference reference = parentReference == null ? PatternCraftingReference.createInstance()
-                    : parentReference.createChild();
+            PatternCraftingReference reference = branch.reference();
+            if (reference == null) {
+                reference = parentReference == null ? PatternCraftingReference.createInstance()
+                        : parentReference.createChild();
+            }
             registerOrder(reference, patternSlot, resultAmountPerSet, branch, order);
         }
         return order;
@@ -340,10 +384,11 @@ class PatternStagedCraftingCoordinator {
         return Math.max(1, patternHandler.resultAmount(patternSlot, promise.getItemType()));
     }
 
-    private NBTTagList writeStagedOrders(Set<IOrderInfoProvider> savedOutputOrders) {
+    private NBTTagList writeStagedOrders(Set<IOrderInfoProvider> savedOutputOrders,
+            Map<PatternCraftingReference, NBTTagCompound> records) {
         NBTTagList list = new NBTTagList();
         for (PatternCraftingOrder order : outputOrders) {
-            if (order.outputOrder == null || order.outputOrder.isFinished()) {
+            if (order.outputOrder == null || (order.outputOrder.isFinished() && !stagedCrafts.contains(order))) {
                 continue;
             }
             NBTTagCompound orderTag = new NBTTagCompound();
@@ -355,10 +400,15 @@ class PatternStagedCraftingCoordinator {
                 continue;
             }
             orderTag.setTag(OUTPUT_ORDER_TAG, outputTag);
+            if (order.branch != null) {
+                order.branch.writeGraph(records);
+                order.branch.reference().writeToNBT(orderTag, BRANCH_REFERENCE_PREFIX);
+            }
             NBTTagList branches = new NBTTagList();
             for (PatternCraftingBranch branch : order.ingredientBranches) {
                 NBTTagCompound branchTag = new NBTTagCompound();
-                branch.writeToNBT(branchTag);
+                branch.writeGraph(records);
+                branch.reference().writeToNBT(branchTag, BRANCH_REFERENCE_PREFIX);
                 branches.appendTag(branchTag);
             }
             orderTag.setTag(INGREDIENT_BRANCHES_TAG, branches);
@@ -371,8 +421,12 @@ class PatternStagedCraftingCoordinator {
 
     boolean restoreFromNBT(NBTTagCompound tag) {
         try {
+            Map<PatternCraftingReference, PatternCraftingBranch> branches = tag.hasKey(BRANCH_RECORDS_TAG)
+                    ? PatternCraftingBranch.readGraph(tag.getTagList(BRANCH_RECORDS_TAG, TAG_COMPOUND))
+                    : null;
             List<RestoredStagedOrder> restoredStagedOrders = readStagedOrders(
-                    tag.getTagList(STAGED_ORDERS_TAG, TAG_COMPOUND));
+                    tag.getTagList(STAGED_ORDERS_TAG, TAG_COMPOUND),
+                    branches);
             List<PatternCraftingPersistence.RestoredOrder> standaloneItemOrders = readOrders(
                     tag.getTagList(STANDALONE_ITEM_ORDERS_TAG, TAG_COMPOUND));
             List<PatternCraftingPersistence.RestoredOrder> standaloneFluidOrders = readOrders(
@@ -405,6 +459,7 @@ class PatternStagedCraftingCoordinator {
                         restored.patternSlot,
                         restored.resultAmountPerSet,
                         restored.remainingSets,
+                        restored.branch,
                         restored.ingredientBranches,
                         outputOrder,
                         module,
@@ -413,7 +468,7 @@ class PatternStagedCraftingCoordinator {
                     order.readRuntimeState(restored.runtimeState);
                 }
                 outputOrders.add(order);
-                if (!order.isFullyRequested() && !outputOrder.isFinished()) {
+                if (!order.isFullyRequested()) {
                     stagedCrafts.add(order);
                     for (PatternCraftingBranch branch : order.ingredientBranches) {
                         branch.reserveProviderPromises();
@@ -428,7 +483,7 @@ class PatternStagedCraftingCoordinator {
                         order.ingredientBranches.size(),
                         outputOrder.getAsDisplayItem());
             }
-            module.markHudStateDirty();
+            module.markCraftingStateDirty();
             return true;
         } catch (PatternCraftingPersistence.RestoreNotReadyException ignored) {
             module.debugEventThrottled("PERSIST", "restore staged crafting state postponed: routers not ready");
@@ -465,7 +520,8 @@ class PatternStagedCraftingCoordinator {
         return amount;
     }
 
-    private List<RestoredStagedOrder> readStagedOrders(NBTTagList list) {
+    private List<RestoredStagedOrder> readStagedOrders(NBTTagList list,
+            Map<PatternCraftingReference, PatternCraftingBranch> records) {
         List<RestoredStagedOrder> result = new ArrayList<>();
         for (int i = 0; i < list.tagCount(); i++) {
             NBTTagCompound orderTag = list.getCompoundTagAt(i);
@@ -475,13 +531,27 @@ class PatternStagedCraftingCoordinator {
             order.remainingSets = orderTag.getInteger(REMAINING_SETS_TAG);
             order.outputOrder = PatternCraftingPersistence.readOrder(orderTag.getCompoundTag(OUTPUT_ORDER_TAG));
             order.runtimeState = orderTag;
+            PatternCraftingReference root = PatternCraftingReference.readFromNBT(orderTag, BRANCH_REFERENCE_PREFIX);
+            if (root != null && records != null) order.branch = resolveBranch(records, root);
             NBTTagList branches = orderTag.getTagList(INGREDIENT_BRANCHES_TAG, TAG_COMPOUND);
             for (int branch = 0; branch < branches.tagCount(); branch++) {
-                order.ingredientBranches.add(PatternCraftingBranch.readFromNBT(branches.getCompoundTagAt(branch)));
+                NBTTagCompound branchTag = branches.getCompoundTagAt(branch);
+                order.ingredientBranches.add(
+                        records == null ? PatternCraftingBranch.readFromNBT(branchTag)
+                                : resolveBranch(
+                                        records,
+                                        PatternCraftingReference.readFromNBT(branchTag, BRANCH_REFERENCE_PREFIX)));
             }
             result.add(order);
         }
         return result;
+    }
+
+    private static PatternCraftingBranch resolveBranch(Map<PatternCraftingReference, PatternCraftingBranch> records,
+            PatternCraftingReference reference) {
+        PatternCraftingBranch branch = records.get(reference);
+        if (branch == null) throw new PatternCraftingPersistence.RestoreNotReadyException();
+        return branch;
     }
 
     private List<PatternCraftingPersistence.RestoredOrder> readOrders(NBTTagList list) {
@@ -510,7 +580,7 @@ class PatternStagedCraftingCoordinator {
             changed = true;
         }
         if (changed) {
-            module.markHudStateDirty();
+            module.markCraftingStateDirty();
         }
     }
 
@@ -526,7 +596,7 @@ class PatternStagedCraftingCoordinator {
         }
         stagedCrafts.clear();
         outputOrders.clear();
-        module.markHudStateDirty();
+        module.markCraftingStateDirty();
     }
 
     Set<UUID> instancesForPattern(int patternSlot) {
@@ -554,7 +624,7 @@ class PatternStagedCraftingCoordinator {
         PatternCraftingInstanceRegistry.unregister(order);
         stagedCrafts.remove(order);
         outputOrders.remove(order);
-        module.markHudStateDirty();
+        module.markCraftingStateDirty();
         return true;
     }
 
@@ -571,7 +641,7 @@ class PatternStagedCraftingCoordinator {
         stagedCrafts.add(stagedOrder);
         outputOrders.add(stagedOrder);
         PatternCraftingInstanceRegistry.register(order, stagedOrder);
-        module.markHudStateDirty();
+        module.markCraftingStateDirty();
         module.debugEvent(
                 "STAGED",
                 "staged craft registered reference=%s slot=%d remainingSets=%d ingredientBranches=%d output=%s branch=%s branchRemaining=%d",
@@ -634,6 +704,7 @@ class PatternStagedCraftingCoordinator {
         private int remainingSets;
         private PatternCraftingPersistence.RestoredOrder outputOrder;
         private NBTTagCompound runtimeState;
+        private PatternCraftingBranch branch;
         private final List<PatternCraftingBranch> ingredientBranches = new ArrayList<>();
     }
 }

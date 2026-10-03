@@ -185,7 +185,8 @@ public final class PatternCraftingMonitorRegistry {
                         || !networkRouter.getDistanceTo(craftingRouter).isEmpty());
     }
 
-    private static List<ModulePatternCrafting> networkPatternModules(IRouter networkRouter) {
+    static List<ModulePatternCrafting> networkPatternModules(IRouter networkRouter) {
+        if (networkRouter == null) return Collections.emptyList();
         List<ModulePatternCrafting> result = new ArrayList<>();
         Set<LogisticsModule> seen = Collections.newSetFromMap(new java.util.IdentityHashMap<>());
         appendPatternModule(networkRouter, seen, result);

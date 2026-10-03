@@ -198,10 +198,10 @@ public class CraftingMonitorGui extends LogisticsBaseGuiScreen {
                 String status;
                 int statusColor;
                 if (entry.isRestoring()) {
-                    status = StringUtils.translate(PREFIX + "restoring") + " "
-                            + entry.getRestoreAttempts()
-                            + "/"
-                            + entry.getMaxRestoreAttempts();
+                    status = StringUtils.translate(PREFIX + "restoring");
+                    if (entry.getMaxRestoreAttempts() > 0) {
+                        status += " " + entry.getRestoreAttempts() + "/" + entry.getMaxRestoreAttempts();
+                    }
                     statusColor = 0xa04020;
                 } else if (entry.isInProgress()) {
                     status = StringUtils.translate(PREFIX + "active");

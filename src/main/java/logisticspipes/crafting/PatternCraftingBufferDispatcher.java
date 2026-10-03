@@ -1,8 +1,13 @@
 package logisticspipes.crafting;
 
 import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
 import net.minecraft.item.ItemStack;
+import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.nbt.NBTTagList;
 
 import logisticspipes.pipes.PipeItemsPatternCraftingLogistics;
 import logisticspipes.utils.AdjacentTile;
@@ -18,9 +23,10 @@ final class PatternCraftingBufferDispatcher {
     private final PatternCraftingIngredientPlanner ingredientPlanner;
     /**
      * A set that only partly went into the target (or its satellites). It is finished before anything else is pushed,
-     * so the target never keeps half a set. Not persisted, like the satellite batches (C9).
+     * so the target never keeps half a set. Its exact progress is saved with its owning branch.
      */
     private PatternSatelliteDispatchHandler.DispatchPlan pendingDispatch;
+    private final Map<PatternSatelliteDispatchHandler.DispatchPlan, Boolean> deferredCleanup = new LinkedHashMap<>();
 
     PatternCraftingBufferDispatcher(ModulePatternCrafting module, PatternStackBufferHandler ingredientBuffer,
             AdjacentInventoryHandler adjacentInventory, PatternCraftingBlockingHandler blockingHandler,
@@ -36,6 +42,53 @@ final class PatternCraftingBufferDispatcher {
 
     void refreshSatelliteBatches() {
         blockingHandler.hasSatelliteBatches();
+    }
+
+    void readFromNBT(NBTTagCompound tag) {
+        pendingDispatch = tag.hasKey("patternPendingDispatch")
+                ? satelliteDispatchHandler.readFromNBT(tag.getCompoundTag("patternPendingDispatch"))
+                : null;
+        deferredCleanup.clear();
+        NBTTagList cleanups = tag.getTagList("patternDispatchCleanup", 10);
+        for (int i = 0; i < cleanups.tagCount(); i++) {
+            NBTTagCompound entry = cleanups.getCompoundTagAt(i);
+            PatternSatelliteDispatchHandler.DispatchPlan plan = satelliteDispatchHandler.readFromNBT(entry);
+            boolean returnToStorage = entry.getBoolean("returnToStorage");
+            deferredCleanup.put(plan, returnToStorage);
+            if (returnToStorage) PatternCraftingInstanceRegistry.recordCancellation(plan.ownerReference().instanceId());
+        }
+    }
+
+    void writeToNBT(NBTTagCompound tag) {
+        if (pendingDispatch != null) {
+            tag.setTag("patternPendingDispatch", pendingDispatch.writeToNBT());
+        } else {
+            tag.removeTag("patternPendingDispatch");
+        }
+        NBTTagList cleanups = new NBTTagList();
+        for (Map.Entry<PatternSatelliteDispatchHandler.DispatchPlan, Boolean> cleanup : deferredCleanup.entrySet()) {
+            NBTTagCompound entry = cleanup.getKey().writeToNBT();
+            entry.setBoolean("returnToStorage", cleanup.getValue());
+            cleanups.appendTag(entry);
+        }
+        tag.setTag("patternDispatchCleanup", cleanups);
+    }
+
+    void deferCleanup(PatternSatelliteDispatchHandler.DispatchPlan plan, boolean returnToStorage) {
+        deferredCleanup.put(plan, returnToStorage);
+        module.markCraftingStateDirty();
+    }
+
+    void retryDeferredCleanup() {
+        Iterator<Map.Entry<PatternSatelliteDispatchHandler.DispatchPlan, Boolean>> iterator = deferredCleanup.entrySet()
+                .iterator();
+        while (iterator.hasNext()) {
+            Map.Entry<PatternSatelliteDispatchHandler.DispatchPlan, Boolean> cleanup = iterator.next();
+            if (cleanup.getValue() ? cleanup.getKey().abandon() : cleanup.getKey().release()) {
+                iterator.remove();
+                module.markCraftingStateDirty();
+            }
+        }
     }
 
     void pushBufferedIngredients() {
@@ -113,7 +166,7 @@ final class PatternCraftingBufferDispatcher {
         if (result == PatternSatelliteDispatchHandler.DispatchResult.PARTIAL) {
             pendingDispatch = plan;
             module.debugEvent("BUFFER", "push slot=%d partly inserted, finishing the set later", patternSlot);
-            module.markHudStateDirty();
+            module.markCraftingStateDirty();
             return;
         }
         finishDispatch(plan);
@@ -146,8 +199,7 @@ final class PatternCraftingBufferDispatcher {
     private void finishDispatch(PatternSatelliteDispatchHandler.DispatchPlan plan) {
         int patternSlot = plan.patternSlot();
         PatternCraftingReference ownerReference = plan.ownerReference();
-        int insertedSets = satelliteDispatchHandler
-                .insertedSetsFromPlan(module.getPatternStack(patternSlot), plan.assignments());
+        int insertedSets = plan.sets();
         module.debugEvent("BUFFER", "push slot=%d inserted sets=%d", patternSlot, insertedSets);
         blockingHandler.markDispatched(patternSlot, ownerReference, plan.satelliteBatch(), plan.usesLocalInventory());
         PatternCraftingOrder order = PatternCraftingInstanceRegistry.find(ownerReference);
@@ -162,6 +214,7 @@ final class PatternCraftingBufferDispatcher {
                 blockingHandler.runningCraft(),
                 blockingHandler.runningCraftInAdjacent());
         module.requestIngredientsForStagedCrafts();
+        module.markCraftingStateDirty();
     }
 
     /**
@@ -187,9 +240,9 @@ final class PatternCraftingBufferDispatcher {
     }
 
     private boolean abandonPendingDispatch() {
-        pendingDispatch.abandon();
+        if (!pendingDispatch.abandon()) deferCleanup(pendingDispatch, true);
         pendingDispatch = null;
-        module.markHudStateDirty();
+        module.markCraftingStateDirty();
         return true;
     }
 
