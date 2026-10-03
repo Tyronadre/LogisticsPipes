@@ -94,9 +94,10 @@ final class PatternLostIngredientHandler {
     }
 
     void retryLostItems() {
-        DelayedGeneric<Pair<IPatternStack, IAdditionalTargetInformation>> lost = lostIngredients.poll();
         int rerequested = 0;
-        while (lost != null && rerequested < 100) {
+        while (rerequested < 100) {
+            DelayedGeneric<Pair<IPatternStack, IAdditionalTargetInformation>> lost = lostIngredients.poll();
+            if (lost == null) break;
             Pair<IPatternStack, IAdditionalTargetInformation> pair = lost.get();
             PatternTargetInformation target = (PatternTargetInformation) pair.getValue2();
             if (!PatternCraftingInstanceRegistry.isCancelled(target.orderReference())) {
@@ -108,7 +109,6 @@ final class PatternLostIngredientHandler {
                 }
             }
             rerequested++;
-            lost = lostIngredients.poll();
         }
     }
 

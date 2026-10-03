@@ -87,7 +87,7 @@ final class PatternSatelliteDispatchHandler {
         int low = 0;
         int high = maxSets;
         while (low < high) {
-            int mid = low + (high - low + 1) / 2;
+            int mid = low + (int) (((long) high - low + 1) / 2);
             List<PatternIngredientAssignment> assignments = buildPatternAssignments(pattern, mid);
             DispatchPlan plan = assignments == null ? null
                     : buildDispatchPlan(ownerReference, PatternTargetInformation.NO_PATTERN_SLOT, pattern, assignments);
@@ -134,6 +134,8 @@ final class PatternSatelliteDispatchHandler {
         if (configuredPattern == null) {
             return null;
         }
+        boolean useSatellites = module.hasAdvancedSatelliteUpgrade()
+                && !adjacentInventory.isConnectedToPatternCraftingTable();
         for (PatternIngredientAssignment assignment : assignments) {
             IPatternStack configuredStack = configuredPattern.getInput(assignment.inputSlot());
             ItemIdentifierStack item = PatternStackHelper.asSolidStack(assignment.stack());
@@ -144,6 +146,10 @@ final class PatternSatelliteDispatchHandler {
                 if (target instanceof PipeItemsPatternSatelliteLogistics satellite) {
                     plan.addItemSatellite(satellite, item.clone(), assignment.inputSlot());
                 } else {
+                    if (useSatellites && (configuredPattern.getItemSatelliteId(assignment.inputSlot()) > 0
+                            || !configuredPattern.getItemSatelliteUuid(assignment.inputSlot()).isEmpty())) {
+                        return null;
+                    }
                     plan.addLocal(assignment);
                 }
                 continue;
@@ -154,8 +160,14 @@ final class PatternSatelliteDispatchHandler {
                         .getFluidSatelliteTargetForInputSlot(configuredPattern.getPattern(), assignment.inputSlot())
                         : null;
                 if (target instanceof PipeFluidPatternSatelliteLogistics satellite) {
-                    plan.addFluidSatellite(satellite, fluid, assignment.stack().getAmount());
+                    if (!plan.addFluidSatellite(satellite, fluid, assignment.stack().getAmount())) {
+                        return null;
+                    }
                 } else {
+                    if (useSatellites && (configuredPattern.getFluidSatelliteId(assignment.inputSlot()) > 0
+                            || !configuredPattern.getFluidSatelliteUuid(assignment.inputSlot()).isEmpty())) {
+                        return null;
+                    }
                     plan.addLocal(assignment);
                 }
             }
@@ -286,16 +298,20 @@ final class PatternSatelliteDispatchHandler {
         /**
          * Amounts of the same fluid for the same satellite are merged, so the room check covers all of them together.
          */
-        private void addFluidSatellite(PipeFluidPatternSatelliteLogistics satellite, FluidIdentifier fluid,
+        private boolean addFluidSatellite(PipeFluidPatternSatelliteLogistics satellite, FluidIdentifier fluid,
                 int amount) {
             for (FluidSatelliteAssignment existing : fluidSatelliteAssignments) {
                 if (existing.satellite == satellite && existing.fluid.equals(fluid)) {
+                    if ((long) existing.amount + amount > Integer.MAX_VALUE) {
+                        return false;
+                    }
                     existing.amount += amount;
                     existing.remaining += amount;
-                    return;
+                    return true;
                 }
             }
             fluidSatelliteAssignments.add(new FluidSatelliteAssignment(satellite, fluid, amount));
+            return true;
         }
 
         boolean canDispatch() {
@@ -316,15 +332,35 @@ final class PatternSatelliteDispatchHandler {
             for (ItemSatelliteAssignment assignment : itemSatelliteAssignments) {
                 if ((reserveSatellites && !assignment.satellite.canReserveFor(pipe, batchReference))
                         || (reserveSatellites && !assignment.satellite.isPatternTargetEmpty())
-                        || !assignment.satellite.canAcceptPatternInput(assignment.stack)
                         || (!instantItems && !canRouteToItemSatellite(assignment))) {
                     return false;
                 }
             }
             for (FluidSatelliteAssignment assignment : fluidSatelliteAssignments) {
                 if ((reserveSatellites && !assignment.satellite.canReserveFor(pipe, batchReference))
-                        || (reserveSatellites && !assignment.satellite.isPatternTargetEmpty())
-                        || !assignment.satellite.canAcceptPatternInput(assignment.fluid, assignment.amount)) {
+                        || (reserveSatellites && !assignment.satellite.isPatternTargetEmpty())) {
+                    return false;
+                }
+            }
+            for (PipeItemsPatternSatelliteLogistics satellite : uniqueItemSatellites(itemSatelliteAssignments)) {
+                List<ItemIdentifierStack> stacks = new ArrayList<>();
+                for (ItemSatelliteAssignment assignment : itemSatelliteAssignments) {
+                    if (assignment.satellite == satellite) {
+                        stacks.add(assignment.stack);
+                    }
+                }
+                if (!satellite.canAcceptPatternInputs(stacks)) {
+                    return false;
+                }
+            }
+            for (PipeFluidPatternSatelliteLogistics satellite : uniqueFluidSatellites(fluidSatelliteAssignments)) {
+                List<PatternFluidStack> fluids = new ArrayList<>();
+                for (FluidSatelliteAssignment assignment : fluidSatelliteAssignments) {
+                    if (assignment.satellite == satellite) {
+                        fluids.add(new PatternFluidStack(assignment.fluid, assignment.amount));
+                    }
+                }
+                if (!satellite.canAcceptPatternInputs(fluids)) {
                     return false;
                 }
             }

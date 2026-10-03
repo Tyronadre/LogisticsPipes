@@ -334,22 +334,16 @@ public class PipeItemsPatternCraftingLogistics extends FluidRoutedPipe
 
     private PipeItemsPatternSatelliteLogistics findPatternSatellite(String satelliteUuid, int satelliteId) {
         if (satelliteUuid != null && !satelliteUuid.isEmpty()) {
-            PipeItemsPatternSatelliteLogistics satellite = PipeItemsPatternSatelliteLogistics.findByUuid(satelliteUuid);
-            if (satellite != null) {
-                return satellite;
-            }
+            return PipeItemsPatternSatelliteLogistics.findByUuid(satelliteUuid);
         }
-        return satelliteId > 0 ? PipeItemsPatternSatelliteLogistics.findById(satelliteId) : null;
+        return PipeItemsPatternSatelliteLogistics.findById(satelliteId, getRouter());
     }
 
     private PipeFluidPatternSatelliteLogistics findPatternFluidSatellite(String satelliteUuid, int satelliteId) {
         if (satelliteUuid != null && !satelliteUuid.isEmpty()) {
-            PipeFluidPatternSatelliteLogistics satellite = PipeFluidPatternSatelliteLogistics.findByUuid(satelliteUuid);
-            if (satellite != null) {
-                return satellite;
-            }
+            return PipeFluidPatternSatelliteLogistics.findByUuid(satelliteUuid);
         }
-        return satelliteId > 0 ? PipeFluidPatternSatelliteLogistics.findById(satelliteId) : null;
+        return PipeFluidPatternSatelliteLogistics.findById(satelliteId, getRouter());
     }
 
     private int addLinkedPatternSatellites(List<ItemMemoryChip.StoredPatternSatellite> satellites) {

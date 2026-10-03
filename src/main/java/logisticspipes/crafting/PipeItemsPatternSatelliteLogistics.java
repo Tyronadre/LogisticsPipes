@@ -70,11 +70,16 @@ public class PipeItemsPatternSatelliteLogistics extends PipeItemsSatelliteLogist
     }
 
     public static PipeItemsPatternSatelliteLogistics findById(int satelliteId) {
+        return findById(satelliteId, null);
+    }
+
+    public static PipeItemsPatternSatelliteLogistics findById(int satelliteId, IRouter requester) {
         if (satelliteId <= 0) {
             return null;
         }
         for (PipeItemsPatternSatelliteLogistics satellite : ALL_PATTERN_SATELLITES) {
-            if (satellite != null && satellite.satelliteId == satelliteId) {
+            if (satellite != null && satellite.satelliteId == satelliteId
+                    && (requester == null || satellite.canExtractByproductsFor(requester))) {
                 return satellite;
             }
         }
@@ -331,6 +336,21 @@ public class PipeItemsPatternSatelliteLogistics extends PipeItemsSatelliteLogist
      */
     public boolean canAcceptPatternInput(ItemIdentifierStack stack) {
         return stack != null && stack.getStackSize() > 0 && roomForPatternInput(stack) >= stack.getStackSize();
+    }
+
+    /** Checks the space shared by every item in one batch without inserting anything. */
+    public boolean canAcceptPatternInputs(List<ItemIdentifierStack> stacks) {
+        AdjacentTile target = getPatternTargetInventory();
+        IInventory inventory = target == null ? null : getInsertableInventory(target);
+        if (inventory == null || stacks.isEmpty()) {
+            return false;
+        }
+        for (ItemIdentifierStack stack : stacks) {
+            if (!canAcceptPatternInput(stack)) {
+                return false;
+            }
+        }
+        return AdjacentInventoryHandler.canFitPatternSetsDisregardingSlots(inventory, stacks, 1);
     }
 
     /**

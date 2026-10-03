@@ -232,7 +232,7 @@ public class PatternCraftingBranch {
             return 0;
         }
         int resultAmountPerSet = resultAmountPerSet(promise);
-        return (amount + resultAmountPerSet - 1) / resultAmountPerSet;
+        return 1 + (amount - 1) / resultAmountPerSet;
     }
 
     private static int resultAmountPerSet(IPromise promise) {

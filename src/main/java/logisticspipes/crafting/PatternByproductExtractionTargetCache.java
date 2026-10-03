@@ -69,15 +69,13 @@ final class PatternByproductExtractionTargetCache {
 
     private PatternByproductExtractionTarget find(PatternByproductTarget configuredTarget) {
         if (configuredTarget.isFluid()) {
-            PipeFluidPatternSatelliteLogistics satellite = configuredTarget.getSatelliteUuid().isEmpty() ? null
+            return configuredTarget.getSatelliteUuid().isEmpty()
+                    ? PipeFluidPatternSatelliteLogistics.findById(configuredTarget.getSatelliteId(), pipe.getRouter())
                     : PipeFluidPatternSatelliteLogistics.findByUuid(configuredTarget.getSatelliteUuid());
-            return satellite != null || configuredTarget.getSatelliteId() <= 0 ? satellite
-                    : PipeFluidPatternSatelliteLogistics.findById(configuredTarget.getSatelliteId());
         }
-        PipeItemsPatternSatelliteLogistics satellite = configuredTarget.getSatelliteUuid().isEmpty() ? null
+        return configuredTarget.getSatelliteUuid().isEmpty()
+                ? PipeItemsPatternSatelliteLogistics.findById(configuredTarget.getSatelliteId(), pipe.getRouter())
                 : PipeItemsPatternSatelliteLogistics.findByUuid(configuredTarget.getSatelliteUuid());
-        return satellite != null || configuredTarget.getSatelliteId() <= 0 ? satellite
-                : PipeItemsPatternSatelliteLogistics.findById(configuredTarget.getSatelliteId());
     }
 
     private static final class CachedTarget {

@@ -11,7 +11,7 @@ import logisticspipes.utils.item.ItemIdentifier;
 interface PatternByproductExtractionTarget {
 
     /**
-     * Checks the upgrade, loaded state and routing connection immediately before an extraction attempt.
+     * Checks the loaded state and routing connection immediately before an extraction attempt.
      */
     boolean canExtractByproductsFor(IRouter requester);
 

@@ -188,7 +188,9 @@ public class RequestTreeNode {
     public int getPromisedByproductAmount(IProvide provider, ItemIdentifier item, PatternByproductTarget target) {
         int amount = 0;
         for (IPromise promise : promises) {
-            if (promise instanceof PatternByproductPromise byproduct && promise.getProvider() == provider
+            if (promise instanceof IExtraPromise extra && extra.isProvided()
+                    && promise instanceof PatternByproductPromise byproduct
+                    && promise.getProvider() == provider
                     && item.equals(promise.getItemType())
                     && Objects.equals(target, byproduct.getByproductTarget())) {
                 amount += promise.getAmount();

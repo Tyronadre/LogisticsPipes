@@ -158,7 +158,8 @@ class PatternCraftingOrder {
      * the staged ingredient work is capped by the branch capacity that was allocated to this slice.
      */
     private int initialRemainingSets(PatternCraftingBranch branch) {
-        int outputSets = (branch.getRequestType().getRequestedAmount() + resultAmountPerSet - 1) / resultAmountPerSet;
+        int amount = branch.getRequestType().getRequestedAmount();
+        int outputSets = amount <= 0 ? 0 : 1 + (amount - 1) / resultAmountPerSet;
         return capRemainingSets(outputSets);
     }
 

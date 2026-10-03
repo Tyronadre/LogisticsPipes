@@ -18,6 +18,7 @@ import net.minecraftforge.fluids.FluidStack;
 import net.minecraftforge.fluids.FluidTankInfo;
 import net.minecraftforge.fluids.IFluidHandler;
 
+import logisticspipes.crafting.patternStack.PatternFluidStack;
 import logisticspipes.interfaces.routing.IAdditionalTargetInformation;
 import logisticspipes.logisticspipes.IRoutedItem;
 import logisticspipes.logisticspipes.IRoutedItem.TransportMode;
@@ -54,11 +55,16 @@ public class PipeFluidPatternSatelliteLogistics extends logisticspipes.pipes.Pip
     }
 
     public static PipeFluidPatternSatelliteLogistics findById(int satelliteId) {
+        return findById(satelliteId, null);
+    }
+
+    public static PipeFluidPatternSatelliteLogistics findById(int satelliteId, IRouter requester) {
         if (satelliteId <= 0) {
             return null;
         }
         for (PipeFluidPatternSatelliteLogistics satellite : ALL_PATTERN_FLUID_SATELLITES) {
-            if (satellite != null && satellite.satelliteId == satelliteId) {
+            if (satellite != null && satellite.satelliteId == satelliteId
+                    && (requester == null || satellite.canExtractByproductsFor(requester))) {
                 return satellite;
             }
         }
@@ -235,6 +241,17 @@ public class PipeFluidPatternSatelliteLogistics extends logisticspipes.pipes.Pip
      */
     public boolean canAcceptPatternInput(FluidIdentifier fluid, int amount) {
         return fluid != null && amount > 0 && fillPatternInput(fluid, amount, false) == amount;
+    }
+
+    /** Checks all fluids against the shared tank space before starting a batch. */
+    public boolean canAcceptPatternInputs(List<PatternFluidStack> fluids) {
+        List<Pair<IFluidHandler, ForgeDirection>> handlers = new ArrayList<>();
+        for (Pair<TileEntity, ForgeDirection> pair : getAdjacentTanks(false)) {
+            if (pair.getValue1() instanceof IFluidHandler handler) {
+                handlers.add(new Pair<>(handler, pair.getValue2().getOpposite()));
+            }
+        }
+        return !fluids.isEmpty() && AdjacentInventoryHandler.canFitFluids(handlers, fluids, 1);
     }
 
     /**

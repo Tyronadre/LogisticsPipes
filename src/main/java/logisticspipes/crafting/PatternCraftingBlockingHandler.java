@@ -99,7 +99,8 @@ final class PatternCraftingBlockingHandler {
             return runningCraft == patternSlot;
         }
         AdjacentTile connected = module.getConnectedInventoryTile();
-        return connected == null || module.isInventoryEmpty(connected);
+        return module.getLocalAggregatedIngredients(module.getPatternStack(patternSlot)).isEmpty() || connected == null
+                || module.isInventoryEmpty(connected);
     }
 
     boolean shouldSkipPushFor(int patternSlot) {

@@ -120,7 +120,7 @@ final class PatternCraftingArrivalHandler {
         int original = fluidStack.amount;
         PatternFluidStack arriving = new PatternFluidStack(fluid, original);
         int requested = requestedIngredient.amount(target.orderReference(), arriving);
-        int accepted = requested >= original ? original : 0;
+        int accepted = Math.min(original, requested);
         module.debugEvent(
                 "FLOW",
                 "fluid arrived slot=%d fluid=%s original=%d requested=%d space=%d accepted=%d",
@@ -134,6 +134,12 @@ final class PatternCraftingArrivalHandler {
         int requestedAfter = requestedIngredient.amount(target.orderReference(), arriving);
         if (accepted > 0) {
             ingredientBuffer.add(target.orderReference(), patternSlot, new PatternFluidStack(fluid, accepted));
+            if (accepted < original) {
+                ItemIdentifierStack remainder = SimpleServiceLocator.logisticsFluidManager
+                        .getFluidContainer(fluid.makeFluidStack(original - accepted));
+                pipe.sendStack(remainder.makeNormalStack(), -1, CoreRoutedPipe.ItemSendMode.Normal, null);
+            }
+            routedStack.setStackSize(0);
             module.debugEvent(
                     "BUFFER",
                     "fluid buffered slot=%d fluid=%s accepted=%d requested=%d->%d buffered=%d completeSets=%d",
@@ -146,7 +152,6 @@ final class PatternCraftingArrivalHandler {
                     module.completeBufferedSets(patternSlot));
             module.activateRunningCraftFromBuffer(patternSlot, target.orderReference());
             module.pushBufferedIngredientsFor(patternSlot);
-            routedStack.setStackSize(0);
             pipe.getCacheHolder().trigger(CacheTypes.Inventory);
         }
     }

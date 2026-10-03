@@ -1,6 +1,7 @@
 package logisticspipes.crafting;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
@@ -231,7 +232,7 @@ class AdjacentInventoryHandler {
             int low = 0;
             int high = upperBound;
             while (low < high) {
-                int mid = low + (high - low + 1) / 2;
+                int mid = low + (int) (((long) high - low + 1) / 2);
                 FluidStack stack = ingredient.getFluid().makeFluidStack(ingredient.getAmount() * mid);
                 if (handler.fill(side, stack, false) == stack.amount) {
                     low = mid;
@@ -250,7 +251,7 @@ class AdjacentInventoryHandler {
             int low = 0;
             int high = sets;
             while (low < high) {
-                int mid = low + (high - low + 1) / 2;
+                int mid = low + (int) (((long) high - low + 1) / 2);
                 if (canFitFluids(handler, side, ingredients, mid)) {
                     low = mid;
                 } else {
@@ -272,46 +273,60 @@ class AdjacentInventoryHandler {
      * only accepts one fluid at a time.
      */
     private boolean canFitFluids(IFluidHandler handler, ForgeDirection side, List<PatternFluidStack> fluids, int sets) {
+        return canFitFluids(Collections.singletonList(new Pair<>(handler, side)), fluids, sets);
+    }
+
+    /** Simulates a full batch across the tanks shared by all adjacent handlers. */
+    static boolean canFitFluids(List<Pair<IFluidHandler, ForgeDirection>> handlers, List<PatternFluidStack> fluids,
+            int sets) {
         List<PatternFluidStack> merged = mergeFluids(fluids, sets);
-        for (PatternFluidStack fluid : merged) {
-            FluidStack stack = fluid.makeFluidStack();
-            if (handler.fill(side, stack, false) < stack.amount) {
-                return false;
-            }
-        }
-        if (merged.size() <= 1) {
-            return true;
-        }
-        FluidTankInfo[] tanks = handler.getTankInfo(side);
-        if (tanks == null || tanks.length == 0) {
-            return false;
-        }
-        FluidIdentifier[] contents = new FluidIdentifier[tanks.length];
-        int[] room = new int[tanks.length];
-        for (int i = 0; i < tanks.length; i++) {
-            if (tanks[i] == null) {
-                continue;
-            }
-            FluidStack held = tanks[i].fluid;
-            boolean empty = held == null || held.amount <= 0;
-            contents[i] = empty ? null : FluidIdentifier.get(held);
-            room[i] = Math.max(0, tanks[i].capacity - (empty ? 0 : held.amount));
-        }
-        for (PatternFluidStack fluid : merged) {
-            long remaining = fluid.getAmount();
-            for (int i = 0; i < tanks.length && remaining > 0; i++) {
-                if (contents[i] != null && contents[i].equals(fluid.getFluid())) {
-                    int used = (int) Math.min(remaining, room[i]);
-                    room[i] -= used;
-                    remaining -= used;
+        if (merged.size() == 1) {
+            PatternFluidStack fluid = merged.get(0);
+            int remaining = fluid.getAmount();
+            for (Pair<IFluidHandler, ForgeDirection> handler : handlers) {
+                int filled = handler.getValue1()
+                        .fill(handler.getValue2(), fluid.getFluid().makeFluidStack(remaining), false);
+                remaining -= Math.max(0, Math.min(remaining, filled));
+                if (remaining <= 0) {
+                    return true;
                 }
             }
-            for (int i = 0; i < tanks.length && remaining > 0; i++) {
-                if (tanks[i] != null && contents[i] == null && room[i] > 0) {
-                    contents[i] = fluid.getFluid();
-                    int used = (int) Math.min(remaining, room[i]);
-                    room[i] -= used;
-                    remaining -= used;
+            return false;
+        }
+        List<FluidCapacitySnapshot> snapshots = new ArrayList<>();
+        for (Pair<IFluidHandler, ForgeDirection> handler : handlers) {
+            snapshots.add(new FluidCapacitySnapshot(handler.getValue1(), handler.getValue2()));
+        }
+        for (PatternFluidStack fluid : merged) {
+            int[] accepted = new int[snapshots.size()];
+            long totalAccepted = 0;
+            for (int h = 0; h < snapshots.size(); h++) {
+                FluidCapacitySnapshot snapshot = snapshots.get(h);
+                accepted[h] = Math.max(0, snapshot.handler.fill(snapshot.side, fluid.makeFluidStack(), false));
+                totalAccepted += accepted[h];
+            }
+            if (totalAccepted < fluid.getAmount()) {
+                return false;
+            }
+            long remaining = fluid.getAmount();
+            // Use matching tanks across every handler before claiming any empty tank.
+            for (int pass = 0; pass < 2 && remaining > 0; pass++) {
+                for (int h = 0; h < snapshots.size() && remaining > 0; h++) {
+                    FluidCapacitySnapshot snapshot = snapshots.get(h);
+                    for (int i = 0; i < snapshot.room.length && remaining > 0 && accepted[h] > 0; i++) {
+                        FluidIdentifier contents = snapshot.contents[i];
+                        if (pass == 0 ? !fluid.getFluid().equals(contents) : contents != null) {
+                            continue;
+                        }
+                        int used = (int) Math.min(remaining, Math.min(snapshot.room[i], accepted[h]));
+                        if (used <= 0) {
+                            continue;
+                        }
+                        snapshot.contents[i] = fluid.getFluid();
+                        snapshot.room[i] -= used;
+                        accepted[h] -= used;
+                        remaining -= used;
+                    }
                 }
             }
             if (remaining > 0) {
@@ -319,6 +334,32 @@ class AdjacentInventoryHandler {
             }
         }
         return true;
+    }
+
+    private static final class FluidCapacitySnapshot {
+
+        private final IFluidHandler handler;
+        private final ForgeDirection side;
+        private final FluidIdentifier[] contents;
+        private final int[] room;
+
+        private FluidCapacitySnapshot(IFluidHandler handler, ForgeDirection side) {
+            this.handler = handler;
+            this.side = side;
+            FluidTankInfo[] tanks = handler.getTankInfo(side);
+            int size = tanks == null ? 0 : tanks.length;
+            contents = new FluidIdentifier[size];
+            room = new int[size];
+            for (int i = 0; i < size; i++) {
+                if (tanks[i] == null) {
+                    continue;
+                }
+                FluidStack held = tanks[i].fluid;
+                boolean empty = held == null || held.amount <= 0;
+                contents[i] = empty ? null : FluidIdentifier.get(held);
+                room[i] = Math.max(0, tanks[i].capacity - (empty ? 0 : held.amount));
+            }
+        }
     }
 
     /**
@@ -382,7 +423,7 @@ class AdjacentInventoryHandler {
         int low = 0;
         int high = upperBound;
         while (low < high) {
-            int mid = low + (high - low + 1) / 2;
+            int mid = low + (int) (((long) high - low + 1) / 2);
             if (canFitPatternSetsDisregardingSlots(inventory, ingredients, mid)) {
                 low = mid;
             } else {
@@ -407,7 +448,7 @@ class AdjacentInventoryHandler {
         return inventory;
     }
 
-    private boolean canFitPatternSetsDisregardingSlots(IInventory inventory, List<ItemIdentifierStack> ingredients,
+    static boolean canFitPatternSetsDisregardingSlots(IInventory inventory, List<ItemIdentifierStack> ingredients,
             int sets) {
         ItemStack[] snapshot = new ItemStack[inventory.getSizeInventory()];
         for (int i = 0; i < snapshot.length; i++) {
@@ -416,7 +457,11 @@ class AdjacentInventoryHandler {
         }
         for (ItemIdentifierStack ingredient : ingredients) {
             ItemStack stack = ingredient.makeNormalStack();
-            stack.stackSize = ingredient.getStackSize() * sets;
+            long amount = (long) ingredient.getStackSize() * sets;
+            if (amount <= 0 || amount > Integer.MAX_VALUE) {
+                return false;
+            }
+            stack.stackSize = (int) amount;
             if (!insertIntoSnapshot(inventory, snapshot, stack)) {
                 return false;
             }
@@ -430,7 +475,7 @@ class AdjacentInventoryHandler {
      * Existing compatible stacks are filled first, then empty slots are populated. The caller uses the result to decide
      * how many complete pattern sets can be routed before any real items are requested.
      */
-    private boolean insertIntoSnapshot(IInventory inventory, ItemStack[] snapshot, ItemStack stack) {
+    private static boolean insertIntoSnapshot(IInventory inventory, ItemStack[] snapshot, ItemStack stack) {
         ItemIdentifier stackIdentifier = ItemIdentifier.get(stack);
         if (stackIdentifier == null) {
             return false;
@@ -442,7 +487,8 @@ class AdjacentInventoryHandler {
                 continue;
             }
             ItemIdentifier existingIdentifier = ItemIdentifier.get(existing);
-            if (existingIdentifier == null || !existingIdentifier.equalsForCrafting(stackIdentifier)) {
+            if (existingIdentifier == null || !existingIdentifier.equals(stackIdentifier)
+                    || !inventory.isItemValidForSlot(i, stack)) {
                 continue;
             }
             int room = Math.min(inventory.getInventoryStackLimit(), existing.getMaxStackSize()) - existing.stackSize;

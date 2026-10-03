@@ -132,6 +132,7 @@ final class PatternCraftingPersistence {
             writeFluidProvider(tag, PROVIDER_TAG, pattern.getSender());
             tag.setInteger(PATTERN_SLOT_TAG, pattern.getPatternSlot());
             tag.setInteger(RESULT_AMOUNT_PER_SET_TAG, pattern.getResultAmountPerSet());
+            writeByproductTarget(tag, pattern.getByproductTarget());
             return true;
         }
         if (promise instanceof PatternFluidByproductPromise extra) {
@@ -162,6 +163,7 @@ final class PatternCraftingPersistence {
             writeItemProvider(tag, PROVIDER_TAG, (IProvideItems) pattern.getProvider());
             tag.setInteger(PATTERN_SLOT_TAG, pattern.getPatternSlot());
             tag.setInteger(RESULT_AMOUNT_PER_SET_TAG, pattern.getResultAmountPerSet());
+            writeByproductTarget(tag, pattern.getByproductTarget());
             return true;
         }
         if (promise instanceof LogisticsExtraDictPromise extra) {
@@ -206,12 +208,14 @@ final class PatternCraftingPersistence {
     static IPromise readPromise(NBTTagCompound tag) {
         String kind = tag.getString(KIND_TAG);
         if (PATTERN_FLUID_PROMISE_KIND.equals(kind)) {
-            return new PatternFluidCraftingPromise(
+            PatternFluidCraftingPromise promise = new PatternFluidCraftingPromise(
                     readRequiredFluid(tag),
                     tag.getInteger(AMOUNT_TAG),
                     readFluidProvider(tag, PROVIDER_TAG),
                     tag.getInteger(PATTERN_SLOT_TAG),
                     tag.getInteger(RESULT_AMOUNT_PER_SET_TAG));
+            promise.setByproductTarget(PatternByproductTarget.readFromNBT(tag, BYPRODUCT_TARGET_PREFIX));
+            return promise;
         }
         if (PATTERN_FLUID_EXTRA_PROMISE_KIND.equals(kind)) {
             return new PatternFluidByproductPromise(
@@ -237,12 +241,14 @@ final class PatternCraftingPersistence {
         }
         if (PATTERN_ITEM_PROMISE_KIND.equals(kind)) {
             ItemIdentifierStack stack = readRequiredStack(tag);
-            return new PatternCraftingPromise(
+            PatternCraftingPromise promise = new PatternCraftingPromise(
                     stack.getItem(),
                     stack.getStackSize(),
                     readItemProvider(tag, PROVIDER_TAG),
                     tag.getInteger(PATTERN_SLOT_TAG),
                     tag.getInteger(RESULT_AMOUNT_PER_SET_TAG));
+            promise.setByproductTarget(PatternByproductTarget.readFromNBT(tag, BYPRODUCT_TARGET_PREFIX));
+            return promise;
         }
         if (PATTERN_ITEM_EXTRA_PROMISE_KIND.equals(kind)) {
             ItemIdentifierStack stack = readRequiredStack(tag);

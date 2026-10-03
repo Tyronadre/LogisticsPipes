@@ -126,6 +126,16 @@ public abstract class AbstractPattern {
      * Multiplies both item stack sizes and fluid amounts stored by this pattern.
      */
     public void multiply(int factor) {
+        if (factor <= 1) {
+            return;
+        }
+        // Keep all recipe ratios intact if any amount would exceed the supported range.
+        for (int i = 0; i < getItemSlotCount(); i++) {
+            IPatternStack stack = getPatternStackInSlot(i);
+            if (stack != null && (long) stack.getAmount() * factor > Integer.MAX_VALUE) {
+                return;
+            }
+        }
         for (int i = 0; i < getItemSlotCount(); i++) {
             IPatternStack stack = getPatternStackInSlot(i);
             if (stack != null) {
