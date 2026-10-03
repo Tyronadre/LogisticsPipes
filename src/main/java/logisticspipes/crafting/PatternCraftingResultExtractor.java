@@ -191,21 +191,10 @@ class PatternCraftingResultExtractor {
         maxToSend = Math.min(maxToSend, order.getResource().getItem().getMaxStackSize());
         PatternCraftingOrder source = PatternCraftingInstanceRegistry.find(order);
         if (source != null) {
+            // Drain dispatched sets while the rest is still being requested; their output can block further inputs.
             maxToSend = Math.min(maxToSend, source.extractableOutputAmount());
         }
         if (module.isOrderDestinationThisModule(order) && order.getInformation() instanceof PatternTargetInformation) {
-            PatternCraftingOrder stagedOrder = PatternCraftingMonitorRegistry.find(order);
-            if (stagedOrder != null && !stagedOrder.isFullyRequested()) {
-                module.debugEventThrottled(
-                        "FLOW",
-                        60,
-                        "extract item deferred order=%s amount=%d: staged ingredients pending slot=%d remainingSets=%d",
-                        order.getResource().getItem(),
-                        order.getAmount(),
-                        stagedOrder.patternSlot,
-                        stagedOrder.remainingSets);
-                return 0;
-            }
             int requested = module.requestedSamePipeItemAmount(order);
             if (requested > 0) {
                 maxToSend = Math.min(maxToSend, requested);
@@ -398,21 +387,10 @@ class PatternCraftingResultExtractor {
         int amountToDrain = Math.min(order.getAmount(), Configs.MAX_LOGISTICS_FLUID_TRANSPORT_INNER_CAPACITY / 2);
         PatternCraftingOrder source = PatternCraftingInstanceRegistry.find(order);
         if (source != null) {
+            // The same rule applies to fluid intermediates from partially dispatched recursive crafts.
             amountToDrain = Math.min(amountToDrain, source.extractableOutputAmount());
         }
         if (module.isOrderDestinationThisModule(order) && order.getInformation() instanceof PatternTargetInformation) {
-            PatternCraftingOrder stagedOrder = PatternCraftingMonitorRegistry.find(order);
-            if (stagedOrder != null && !stagedOrder.isFullyRequested()) {
-                module.debugEventThrottled(
-                        "FLOW",
-                        60,
-                        "extract fluid deferred fluid=%s amount=%d: staged ingredients pending slot=%d remainingSets=%d",
-                        order.getFluid(),
-                        order.getAmount(),
-                        stagedOrder.patternSlot,
-                        stagedOrder.remainingSets);
-                return 0;
-            }
             int requested = module.requestedSamePipeFluidAmount(order);
             if (requested > 0) {
                 amountToDrain = Math.min(amountToDrain, requested);

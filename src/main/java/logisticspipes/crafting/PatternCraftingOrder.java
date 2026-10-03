@@ -354,7 +354,9 @@ class PatternCraftingOrder {
     void appendDebugState(StringBuilder out, String prefix) {
         out.append(prefix).append("- Pattern slot ").append(patternSlot).append(" reference=").append(reference)
                 .append(" remainingSets=").append(remainingSets).append(" resultAmountPerSet=")
-                .append(resultAmountPerSet).append(" outputOrder=")
+                .append(resultAmountPerSet).append(" dispatchedSets=").append(dispatchedSets)
+                .append(" inheritedOutput=").append(inheritedOutputAmount).append(" extractableOutput=")
+                .append(extractableOutputAmount()).append(" outputOrder=")
                 .append(outputOrder == null ? "<none>" : outputOrder.getAsDisplayItem()).append(" branches=")
                 .append(ingredientBranches.size()).append("\n");
         if (!preRequestedIngredients.isEmpty()) {
