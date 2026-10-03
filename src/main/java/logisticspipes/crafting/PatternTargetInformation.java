@@ -30,4 +30,17 @@ public record PatternTargetInformation(int patternSlot, int inputSlot, PatternCr
     public boolean isTracked() {
         return orderReference != null && deliveryReference != null;
     }
+
+    public static PatternTargetInformation batchOutput(int patternSlot, int outputSlot,
+            PatternCraftingReference batch) {
+        return new PatternTargetInformation(patternSlot, -2 - outputSlot, batch, batch.createChild());
+    }
+
+    public boolean isBatchOutput() {
+        return isTracked() && inputSlot <= -2;
+    }
+
+    public int outputSlot() {
+        return -2 - inputSlot;
+    }
 }

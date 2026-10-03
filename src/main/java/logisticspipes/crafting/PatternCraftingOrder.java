@@ -45,6 +45,7 @@ class PatternCraftingOrder {
     private int originalOutputAmount;
     private int inheritedOutputAmount;
     private boolean tracksDispatch;
+    private boolean batchExecution = true;
 
     final IOrderInfoProvider outputOrder;
     private final ModulePatternCrafting module;
@@ -63,6 +64,8 @@ class PatternCraftingOrder {
         this.ingredientBranches = new ArrayList<>(branch.getSubRequests());
         this.outputOrder = outputOrder;
         this.module = module;
+        for (PatternCraftingOrder parent : PatternCraftingInstanceRegistry.ordersForInstance(reference.instanceId()))
+            if (!parent.usesBatchExecution()) batchExecution = false;
         this.requestedIngredient = requestedIngredient;
         this.remainingSets = initialRemainingSets(branch);
         for (IExtraPromise promise : branch.getByproductPromises()) {
@@ -146,6 +149,10 @@ class PatternCraftingOrder {
         int consumed = originalOutputAmount - outputOrder.getAsDisplayItem().getStackSize();
         long available = inheritedOutputAmount + (long) dispatchedSets * resultAmountPerSet - consumed;
         return (int) Math.max(0, Math.min(Integer.MAX_VALUE, available));
+    }
+
+    boolean usesBatchExecution() {
+        return batchExecution;
     }
 
     /**
@@ -306,6 +313,7 @@ class PatternCraftingOrder {
      * Persists runtime-only scheduler state that is not part of the original request tree.
      */
     void writeRuntimeState(NBTTagCompound tag) {
+        tag.setBoolean("batchExecution", batchExecution);
         tag.setBoolean(TRACKS_DISPATCH_TAG, tracksDispatch);
         tag.setInteger(BYPRODUCT_SETS_TAG, byproductSets);
         tag.setInteger(DISPATCHED_SETS_TAG, dispatchedSets);
@@ -339,6 +347,7 @@ class PatternCraftingOrder {
      * Restores runtime scheduler state saved with a staged order.
      */
     void readRuntimeState(NBTTagCompound tag) {
+        batchExecution = tag.getBoolean("batchExecution");
         tracksDispatch = tag.getBoolean(TRACKS_DISPATCH_TAG);
         byproductSets = tag.getInteger(BYPRODUCT_SETS_TAG);
         dispatchedSets = tag.getInteger(DISPATCHED_SETS_TAG);

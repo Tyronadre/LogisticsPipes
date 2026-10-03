@@ -8,10 +8,7 @@ import java.util.Set;
 
 import net.minecraft.item.ItemStack;
 
-import logisticspipes.crafting.patternStack.IPatternStack;
 import logisticspipes.pipes.PipeItemsPatternCraftingLogistics;
-import logisticspipes.routing.order.LogisticsFluidOrder;
-import logisticspipes.routing.order.LogisticsItemOrder;
 import logisticspipes.utils.CacheHolder.CacheTypes;
 
 /**
@@ -84,10 +81,6 @@ class PatternStagedCraftingScheduler {
             if (removeOrderWithoutPattern(order, pattern) || removeFullyRequestedOrder(order)) {
                 continue;
             }
-            if (!isSamePipeOutput(order) && isBlockedByAnotherRunningCraft(order)) {
-                continue;
-            }
-
             requestOrderIngredients(order, pattern);
         }
     }
@@ -96,11 +89,11 @@ class PatternStagedCraftingScheduler {
         if (!order.outputOrder.isFinished()) {
             return false;
         }
-        if (!order.isFullyRequested() && isSamePipeOutput(order)) {
+        if (!order.isFullyRequested()) {
             module.debugEventThrottled(
                     "SCHED",
                     60,
-                    "request ingredients slot=%d kept finished same-pipe staged order until ingredients requested remainingSets=%d",
+                    "request ingredients slot=%d kept satisfied output until its planned ingredients are requested remainingSets=%d",
                     order.patternSlot,
                     order.remainingSets);
             return false;
@@ -114,18 +107,6 @@ class PatternStagedCraftingScheduler {
         stagedCrafts.remove(order);
         module.markCraftingStateDirty();
         return true;
-    }
-
-    private boolean isSamePipeOutput(PatternCraftingOrder order) {
-        if (order.outputOrder instanceof LogisticsItemOrder itemOrder) {
-            return module.isOrderDestinationThisModule(itemOrder)
-                    && itemOrder.getInformation() instanceof PatternTargetInformation;
-        }
-        if (order.outputOrder instanceof LogisticsFluidOrder fluidOrder) {
-            return module.isOrderDestinationThisModule(fluidOrder)
-                    && fluidOrder.getInformation() instanceof PatternTargetInformation;
-        }
-        return false;
     }
 
     private boolean removeOrderWithoutPattern(PatternCraftingOrder order, ItemStack pattern) {
@@ -157,25 +138,8 @@ class PatternStagedCraftingScheduler {
         return true;
     }
 
-    private boolean isBlockedByAnotherRunningCraft(PatternCraftingOrder order) {
-        PipeItemsPatternCraftingLogistics.BlockingMode mode = module.getEffectiveBlockingMode();
-        if (mode == PipeItemsPatternCraftingLogistics.BlockingMode.OFF || !module.isRunningCraftLocked()) {
-            return false;
-        }
-        int runningCraft = module.getRunningCraftForHandler();
-        if (runningCraft == order.patternSlot) {
-            return false;
-        }
-        module.debugEventThrottled(
-                "SCHED",
-                100,
-                "request ingredients slot=%d skipped: running craft locked by slot=%d",
-                order.patternSlot,
-                runningCraft);
-        return true;
-    }
-
     private void requestOrderIngredients(PatternCraftingOrder order, ItemStack pattern) {
+        if (!module.workspace().admit(order)) return;
         int branchSets = order.availableSetsFromBranches(pattern);
         int orderableSets = orderableSetsForPattern(order, pattern, branchSets);
         int sets = Math.min(order.remainingSets, orderableSets);
@@ -235,35 +199,12 @@ class PatternStagedCraftingScheduler {
      * freed capacity.
      */
     private int orderableSetsForPattern(PatternCraftingOrder order, ItemStack pattern, int branchSets) {
-        boolean samePipe = isSamePipeOutput(order);
-        if (!module.isPatternCraftingSupported(pattern)
-                || (!samePipe && !module.canReceiveForPattern(order.patternSlot))) {
+        if (!module.isPatternCraftingSupported(pattern)) {
             module.debugEventThrottled("SCHED", "orderable sets slot=%d result=0 cannot receive", order.patternSlot);
             return 0;
         }
-        List<IPatternStack> ingredients = module.getAggregatedIngredients(pattern);
-        if (ingredients.isEmpty()) {
-            return 0;
-        }
-        int maxWantedSets = Math.min(order.remainingSets, branchSets);
-        int targetSets = module.maxDispatchablePatternSets(order.reference(), pattern, maxWantedSets);
-        if (samePipe && maxWantedSets > 0) {
-            // Queue one intermediate set even while the target is busy, so its orders can drain the previous surplus.
-            targetSets = Math.max(1, targetSets);
-        }
-        if (targetSets <= 0) {
-            module.debugEventThrottled(
-                    "SCHED",
-                    "orderable sets slot=%d result=0 no target capacity maxWantedSets=%d",
-                    order.patternSlot,
-                    maxWantedSets);
-            return 0;
-        }
-        int sets = Integer.MAX_VALUE;
-        for (IPatternStack ingredient : ingredients) {
-            int room = module.remainingIngredientRoomForSets(order.patternSlot, pattern, ingredient, targetSets);
-            sets = Math.min(sets, Math.max(0, room) / ingredient.getAmount());
-        }
-        return sets == Integer.MAX_VALUE ? 0 : Math.max(0, sets);
+        // Admission reserved this order and its entire subtree together. Machine mode only gates insertion;
+        // gating dependency creation on a busy machine can prevent the orders needed to drain its output.
+        return Math.min(order.remainingSets, branchSets);
     }
 }

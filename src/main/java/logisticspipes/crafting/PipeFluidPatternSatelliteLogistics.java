@@ -257,6 +257,12 @@ public class PipeFluidPatternSatelliteLogistics extends logisticspipes.pipes.Pip
         return !fluids.isEmpty() && AdjacentInventoryHandler.canFitFluids(handlers, fluids, 1);
     }
 
+    List<TileEntity> patternTargetTanks() {
+        List<TileEntity> result = new ArrayList<>();
+        for (Pair<TileEntity, ForgeDirection> pair : getAdjacentTanks(false)) result.add(pair.getValue1());
+        return result;
+    }
+
     /**
      * Returns whether the adjacent tank target is ready for a blocking-mode satellite batch.
      */

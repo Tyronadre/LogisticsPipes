@@ -10,7 +10,6 @@ import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.nbt.NBTTagList;
 
 import logisticspipes.pipes.PipeItemsPatternCraftingLogistics;
-import logisticspipes.utils.AdjacentTile;
 
 /** Moves complete buffered ingredient sets into the local crafting target and linked satellites. */
 final class PatternCraftingBufferDispatcher {
@@ -22,8 +21,8 @@ final class PatternCraftingBufferDispatcher {
     private final PatternSatelliteDispatchHandler satelliteDispatchHandler;
     private final PatternCraftingIngredientPlanner ingredientPlanner;
     /**
-     * A set that only partly went into the target (or its satellites). It is finished before anything else is pushed,
-     * so the target never keeps half a set. Its exact progress is saved with its owning branch.
+     * A prepared batch awaiting satellite deliveries or recovering an unexpectedly short insert. Its exact progress is
+     * saved with its owning branch; another batch cannot enter its reserved targets during preparation.
      */
     private PatternSatelliteDispatchHandler.DispatchPlan pendingDispatch;
     private final Map<PatternSatelliteDispatchHandler.DispatchPlan, Boolean> deferredCleanup = new LinkedHashMap<>();
@@ -97,33 +96,18 @@ final class PatternCraftingBufferDispatcher {
             return;
         }
         refreshSatelliteBatches();
-        AdjacentTile connected = adjacentInventory.getConnected();
-        if (connected == null) {
-            module.debugEventThrottled(
-                    "BUFFER",
-                    "push skipped: no connected inventory bufferedSlots=%d",
-                    ingredientBuffer.size());
-            return;
-        }
         PipeItemsPatternCraftingLogistics.BlockingMode mode = module.getEffectiveBlockingMode();
         module.debug(
                 "push tick mode=%s runningCraft=%d bufferedSlots=%d",
                 mode,
                 blockingHandler.runningCraft(),
                 ingredientBuffer.size());
-        if (mode == PipeItemsPatternCraftingLogistics.BlockingMode.OFF) {
-            for (int patternSlot : new ArrayList<>(ingredientBuffer.asMap().keySet())) {
-                for (PatternCraftingReference owner : ingredientBuffer.owners(patternSlot)) {
-                    if (completeBufferedSets(owner, patternSlot) > 0) {
-                        pushBufferedIngredientsFor(owner, patternSlot);
-                    }
+        for (int patternSlot : new ArrayList<>(ingredientBuffer.asMap().keySet())) {
+            for (PatternCraftingReference owner : ingredientBuffer.owners(patternSlot)) {
+                if (completeBufferedSets(owner, patternSlot) > 0) {
+                    pushBufferedIngredientsFor(owner, patternSlot);
                 }
             }
-            return;
-        }
-        blockingHandler.refreshRunningCraftState(connected);
-        if (blockingHandler.runningCraft() >= 0) {
-            pushBufferedIngredientsFor(blockingHandler.runningCraftReference(), blockingHandler.runningCraft());
         }
     }
 
@@ -156,10 +140,14 @@ final class PatternCraftingBufferDispatcher {
         int bufferedSets = completeBufferedSets(ownerReference, patternSlot);
         PatternSatelliteDispatchHandler.DispatchPlan plan = satelliteDispatchHandler
                 .findInsertableBufferedPlan(ownerReference, patternSlot, pattern, bufferedSets);
+        PatternCraftingOrder owner = PatternCraftingInstanceRegistry.find(ownerReference);
+        boolean batchExecution = owner != null && owner.usesBatchExecution();
+        if (plan != null && batchExecution && !module.batchOutputs().prepare(plan)) plan = null;
         PatternSatelliteDispatchHandler.DispatchResult result = plan == null
                 ? PatternSatelliteDispatchHandler.DispatchResult.NONE
                 : plan.dispatch(ingredientBuffer);
         if (result == PatternSatelliteDispatchHandler.DispatchResult.NONE) {
+            if (plan != null) module.batchOutputs().discardPrepared(plan);
             module.debugEventThrottled("BUFFER", "push slot=%d failed: bufferedSets=%d", patternSlot, bufferedSets);
             return;
         }
@@ -201,8 +189,17 @@ final class PatternCraftingBufferDispatcher {
         PatternCraftingReference ownerReference = plan.ownerReference();
         int insertedSets = plan.sets();
         module.debugEvent("BUFFER", "push slot=%d inserted sets=%d", patternSlot, insertedSets);
-        blockingHandler.markDispatched(patternSlot, ownerReference, plan.satelliteBatch(), plan.usesLocalInventory());
         PatternCraftingOrder order = PatternCraftingInstanceRegistry.find(ownerReference);
+        if (order != null && !order.usesBatchExecution()) {
+            blockingHandler
+                    .markDispatched(patternSlot, ownerReference, plan.satelliteBatch(), plan.usesLocalInventory());
+            if (module.getEffectiveBlockingMode() == PipeItemsPatternCraftingLogistics.BlockingMode.OFF
+                    && !plan.release())
+                deferCleanup(plan, false);
+        } else {
+            module.batchOutputs().committed(plan);
+            if (!plan.release()) deferCleanup(plan, false);
+        }
         if (order != null) {
             order.ingredientsDispatched(insertedSets);
         }
@@ -240,6 +237,7 @@ final class PatternCraftingBufferDispatcher {
     }
 
     private boolean abandonPendingDispatch() {
+        module.batchOutputs().discardPrepared(pendingDispatch);
         if (!pendingDispatch.abandon()) deferCleanup(pendingDispatch, true);
         pendingDispatch = null;
         module.markCraftingStateDirty();

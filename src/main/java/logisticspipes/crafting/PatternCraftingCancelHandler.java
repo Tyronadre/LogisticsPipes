@@ -67,6 +67,7 @@ final class PatternCraftingCancelHandler {
         PatternCraftingReference reference = order.reference();
         UUID instanceId = reference.instanceId();
         boolean changed = stagedCrafting.cancelTrackedOrder(order);
+        changed |= module.batchOutputs().cancelInstance(instanceId);
         changed |= removeStandaloneOrders(instanceId);
         changed |= requestedIngredient.removeAll(reference);
         changed |= module.abandonPendingDispatch(instanceId);
@@ -90,6 +91,7 @@ final class PatternCraftingCancelHandler {
 
     private boolean cancelUntrackedInstance(UUID instanceId, boolean removeOrders) {
         boolean changed = removeOrders && removeStandaloneOrders(instanceId);
+        changed |= module.batchOutputs().cancelInstance(instanceId);
         changed |= requestedIngredient.removeInstance(instanceId);
         changed |= module.abandonPendingDispatch(instanceId);
         for (PatternStackBufferHandler.OwnedEntry entry : ingredientBuffer.entries(instanceId)) {

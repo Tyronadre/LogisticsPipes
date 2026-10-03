@@ -114,6 +114,12 @@ class PatternStagedCraftingCoordinator {
         return false;
     }
 
+    boolean queuedForWorkspace(int slot) {
+        for (PatternCraftingOrder order : stagedCrafts)
+            if (order.patternSlot == slot && module.workspace().queued(order.reference().instanceId())) return true;
+        return false;
+    }
+
     void writeToNBT(NBTTagCompound tag) {
         Set<IOrderInfoProvider> savedOutputOrders = Collections.newSetFromMap(new IdentityHashMap<>());
         Map<PatternCraftingReference, NBTTagCompound> branches = new LinkedHashMap<>();

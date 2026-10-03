@@ -389,6 +389,34 @@ public class PipeItemsPatternSatelliteLogistics extends PipeItemsSatelliteLogist
     /**
      * Records a routed pattern input that has been sent to this satellite but has not reached the pipe yet.
      */
+    private final Map<PatternCraftingReference, ItemIdentifierStack> stagedDeliveries = new LinkedHashMap<>();
+    private final Set<PatternCraftingReference> stagingDeliveries = new HashSet<>();
+
+    void expectStagedPatternInput(ItemIdentifierStack stack, PatternCraftingReference delivery, boolean tracked) {
+        stagingDeliveries.add(delivery);
+        expectPatternInput(stack, delivery, tracked);
+    }
+
+    int stagedPatternInputAmount(PatternCraftingReference delivery) {
+        ItemIdentifierStack stack = stagedDeliveries.get(delivery);
+        return stack == null ? 0 : stack.getStackSize();
+    }
+
+    int insertStagedPatternInput(PatternCraftingReference delivery, int amount) {
+        ItemIdentifierStack stack = stagedDeliveries.get(delivery);
+        if (stack == null) return 0;
+        int inserted = insertPatternInput(
+                new ItemIdentifierStack(stack.getItem(), Math.min(amount, stack.getStackSize())),
+                false);
+        stack.lowerStackSize(inserted);
+        if (stack.getStackSize() <= 0) {
+            stagedDeliveries.remove(delivery);
+            stagingDeliveries.remove(delivery);
+        }
+        if (inserted > 0) markReservationDirty();
+        return inserted;
+    }
+
     public void expectPatternInput(ItemIdentifierStack stack, PatternCraftingReference delivery,
             boolean trackReservation) {
         if (stack == null || stack.getStackSize() <= 0) {
@@ -500,8 +528,13 @@ public class PipeItemsPatternSatelliteLogistics extends PipeItemsSatelliteLogist
         ItemIdentifierStack expected = expectedDeliveries.get(deliveryReference);
         if (expected != null) expected.setStackSize(0);
         lostDeliveries.remove(deliveryReference);
+        stagingDeliveries.remove(deliveryReference);
+        ItemIdentifierStack staged = stagedDeliveries.remove(deliveryReference);
+        if (staged != null) queueToStorage(staged.makeNormalStack(), getPointedOrientation());
         markReservationDirty();
-        int extracted = retrieveLandedItemsToStorage(stack);
+        int stagedAmount = staged == null ? 0 : staged.getStackSize();
+        int extracted = stagedAmount + retrieveLandedItemsToStorage(
+                new ItemIdentifierStack(stack.getItem(), Math.max(0, stack.getStackSize() - stagedAmount)));
         int missing = stack.getStackSize() - extracted;
         if (interceptMissing && missing > 0) {
             addPendingCancelledArrival(stack.getItem(), missing, deliveryReference);
@@ -547,6 +580,13 @@ public class PipeItemsPatternSatelliteLogistics extends PipeItemsSatelliteLogist
                 markReservationDirty();
             }
             if (java.util.Objects.equals(reservedReference, target.orderReference())) markExpectedInputArrived(item);
+            if (stagingDeliveries.contains(target.deliveryReference()) && item.getStackSize() > 0) {
+                ItemIdentifierStack staged = stagedDeliveries.get(target.deliveryReference());
+                if (staged == null) stagedDeliveries.put(target.deliveryReference(), item.clone());
+                else staged.setStackSize(staged.getStackSize() + item.getStackSize());
+                item.setStackSize(0);
+                markReservationDirty();
+            }
         } else {
             markExpectedInputArrived(item);
         }
@@ -628,7 +668,7 @@ public class PipeItemsPatternSatelliteLogistics extends PipeItemsSatelliteLogist
         return inventoryUtil.itemCount(item);
     }
 
-    private AdjacentTile getPatternTargetInventory() {
+    AdjacentTile getPatternTargetInventory() {
         WorldUtil worldUtil = new WorldUtil(getWorld(), getX(), getY(), getZ());
         ForgeDirection pointed = getPointedOrientation();
         AdjacentTile fallback = null;
@@ -868,6 +908,8 @@ public class PipeItemsPatternSatelliteLogistics extends PipeItemsSatelliteLogist
         }
         expectedDeliveries.clear();
         lostDeliveries.clear();
+        stagedDeliveries.clear();
+        stagingDeliveries.clear();
         NBTTagList deliveries = nbttagcompound.getTagList("patternDeliveries", 10);
         for (int i = 0; i < deliveries.tagCount(); i++) {
             NBTTagCompound entry = deliveries.getCompoundTagAt(i);
@@ -876,6 +918,9 @@ public class PipeItemsPatternSatelliteLogistics extends PipeItemsSatelliteLogist
             if (stack == null || delivery == null) continue;
             stack.setStackSize(Math.max(0, entry.getInteger("remaining")));
             expectedDeliveries.put(delivery, stack);
+            if (entry.getBoolean("staging")) stagingDeliveries.add(delivery);
+            int staged = Math.max(0, entry.getInteger("staged"));
+            if (staged > 0) stagedDeliveries.put(delivery, new ItemIdentifierStack(stack.getItem(), staged));
             int lost = Math.min(stack.getStackSize(), entry.getInteger("lost"));
             if (lost > 0) lostDeliveries.put(delivery, lost);
         }
@@ -924,6 +969,8 @@ public class PipeItemsPatternSatelliteLogistics extends PipeItemsSatelliteLogist
             delivery.getKey().writeToNBT(entry, "delivery");
             entry.setInteger("remaining", delivery.getValue().getStackSize());
             entry.setInteger("lost", lostDeliveries.getOrDefault(delivery.getKey(), 0));
+            entry.setBoolean("staging", stagingDeliveries.contains(delivery.getKey()));
+            entry.setInteger("staged", stagedPatternInputAmount(delivery.getKey()));
             deliveries.appendTag(entry);
         }
         nbttagcompound.setTag("patternDeliveries", deliveries);
@@ -944,6 +991,12 @@ public class PipeItemsPatternSatelliteLogistics extends PipeItemsSatelliteLogist
             return;
         }
         ALL_PATTERN_SATELLITES.remove(this);
+        PatternStackBufferHandler drops = new PatternStackBufferHandler(() -> {});
+        for (Map.Entry<PatternCraftingReference, ItemIdentifierStack> entry : stagedDeliveries.entrySet())
+            drops.add(entry.getKey(), 0, new PatternItemStack(entry.getValue()));
+        drops.dropContents(getWorld(), getX(), getY(), getZ());
+        stagedDeliveries.clear();
+        stagingDeliveries.clear();
     }
 
     private static class PendingCancelledArrival {

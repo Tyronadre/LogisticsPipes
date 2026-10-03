@@ -7,7 +7,9 @@ import net.minecraftforge.common.util.ForgeDirection;
 import net.minecraftforge.fluids.FluidStack;
 
 import logisticspipes.config.Configs;
+import logisticspipes.crafting.patternStack.IPatternStack;
 import logisticspipes.crafting.patternStack.PatternFluidStack;
+import logisticspipes.crafting.patternStack.PatternStackHelper;
 import logisticspipes.logisticspipes.IRoutedItem;
 import logisticspipes.logisticspipes.IRoutedItem.TransportMode;
 import logisticspipes.pipefxhandlers.Particles;
@@ -55,8 +57,11 @@ class PatternCraftingResultExtractor {
      * Attempts to extract both item and fluid outputs for this tick.
      */
     void tick() {
+        if (pipe.isNthTick(6)) module.batchOutputs().collect();
         extractItemsFromAdjacentInventory();
         extractFluidsFromAdjacentHandlers();
+        module.batchOutputs().returnUnclaimedOutputs();
+        module.batchOutputs().cleanup();
     }
 
     /**
@@ -116,6 +121,21 @@ class PatternCraftingResultExtractor {
             }
 
             PatternByproductTarget remoteTarget = remoteByproductTarget(order, false);
+            IPatternStack bufferedOutput = module.batchOutputs().take(order, maxToSend);
+            if (bufferedOutput != null) {
+                ItemStack extracted = PatternStackHelper.asSolidStack(bufferedOutput).makeNormalStack();
+                itemsLeft -= extracted.stackSize;
+                stacksLeft--;
+                extractedAny = true;
+                sendExtracted(order, extracted, ForgeDirection.UNKNOWN);
+                ordersLeftToTry = orderManager.getAllOrders().size();
+                continue;
+            }
+            if (module.batchOutputs().manages(order)) {
+                orderManager.deferSend();
+                ordersLeftToTry--;
+                continue;
+            }
             if (remoteTarget != null) {
                 PatternByproductExtractionResult remoteExtraction = remoteByproducts.extractItem(
                         remoteTarget,
@@ -189,10 +209,15 @@ class PatternCraftingResultExtractor {
     private int maxExtractableItemAmount(LogisticsItemOrder order, int itemsLeft) {
         int maxToSend = Math.min(itemsLeft, order.getAmount());
         maxToSend = Math.min(maxToSend, order.getResource().getItem().getMaxStackSize());
+        if (order.getDestination() == null && module.batchOutputs().manages(order))
+            maxToSend = module.batchOutputs().storageRoom(
+                    new logisticspipes.crafting.patternStack.PatternItemStack(
+                            order.getResource().getItem().makeStack(maxToSend)),
+                    maxToSend);
         boolean samePipe = module.isOrderDestinationThisModule(order)
                 && order.getInformation() instanceof PatternTargetInformation;
         PatternCraftingOrder source = PatternCraftingInstanceRegistry.find(order);
-        if (source != null && !samePipe) {
+        if (source != null && !source.usesBatchExecution() && !samePipe) {
             // Drain dispatched sets while the rest is still being requested; their output can block further inputs.
             maxToSend = Math.min(maxToSend, source.extractableOutputAmount());
         }
@@ -200,9 +225,7 @@ class PatternCraftingResultExtractor {
             // Split recursive orders share the target's surplus. Their own ingredient work is retained by the
             // scheduler.
             int requested = module.requestedSamePipeItemAmount(order);
-            if (requested > 0) {
-                maxToSend = Math.min(maxToSend, requested);
-            }
+            if (requested > 0) maxToSend = Math.min(maxToSend, requested);
         }
         return maxToSend;
     }
@@ -212,6 +235,16 @@ class PatternCraftingResultExtractor {
      * routing.
      */
     private void sendExtracted(LogisticsItemOrder order, ItemStack extracted, ForgeDirection orientation) {
+        if (order.getDestination() == null && module.batchOutputs().manages(order)) {
+            IPatternStack stack = new logisticspipes.crafting.patternStack.PatternItemStack(
+                    ItemIdentifierStack.getFromStack(extracted));
+            IRoutedItem routed = module.batchOutputs().sendToStorage(stack);
+            if (routed == null) {
+                module.batchOutputs().putBack(order, stack);
+                pipe.getItemOrderManager().deferSend();
+            } else pipe.getItemOrderManager().sendSuccessfull(extracted.stackSize, false, routed);
+            return;
+        }
         if (module.isOrderDestinationThisModule(order) && order.getInformation() instanceof PatternTargetInformation) {
             sendExtractedToLocalBuffer(order, extracted);
             return;
@@ -297,7 +330,7 @@ class PatternCraftingResultExtractor {
         PatternByproductTarget remoteTarget = remoteByproductTarget(order, true);
         List<AdjacentTile> handlers = remoteTarget == null ? adjacentInventory.locateFluidHandlers()
                 : java.util.Collections.emptyList();
-        if (handlers.isEmpty() && remoteTarget == null) {
+        if (handlers.isEmpty() && remoteTarget == null && !module.batchOutputs().manages(order)) {
             module.debugEventThrottled("FLOW", "extract fluids failed: no adjacent fluid handlers");
             pipe.getPatternFluidOrderManager().sendFailed();
             return;
@@ -328,6 +361,16 @@ class PatternCraftingResultExtractor {
                     order.getDestination(),
                     order.getInformation(),
                     samePipeRequested);
+            pipe.getPatternFluidOrderManager().deferSend();
+            return;
+        }
+        IPatternStack bufferedOutput = module.batchOutputs().take(order, amountToDrain);
+        if (bufferedOutput instanceof PatternFluidStack fluid) {
+            sendExtractedFluid(order, fluid.getFluid().makeFluidStack(fluid.getAmount()), ForgeDirection.UNKNOWN);
+            module.requestIngredientsForStagedCrafts();
+            return;
+        }
+        if (module.batchOutputs().manages(order)) {
             pipe.getPatternFluidOrderManager().deferSend();
             return;
         }
@@ -389,18 +432,18 @@ class PatternCraftingResultExtractor {
 
     private int maxExtractableFluidAmount(LogisticsFluidOrder order) {
         int amountToDrain = Math.min(order.getAmount(), Configs.MAX_LOGISTICS_FLUID_TRANSPORT_INNER_CAPACITY / 2);
+        if (order.getDestination() == null && module.batchOutputs().manages(order)) amountToDrain = module
+                .batchOutputs().storageRoom(new PatternFluidStack(order.getFluid(), amountToDrain), amountToDrain);
         boolean samePipe = module.isOrderDestinationThisModule(order)
                 && order.getInformation() instanceof PatternTargetInformation;
         PatternCraftingOrder source = PatternCraftingInstanceRegistry.find(order);
-        if (source != null && !samePipe) {
+        if (source != null && !source.usesBatchExecution() && !samePipe) {
             // The same rule applies to fluid intermediates from partially dispatched recursive crafts.
             amountToDrain = Math.min(amountToDrain, source.extractableOutputAmount());
         }
         if (samePipe) {
             int requested = module.requestedSamePipeFluidAmount(order);
-            if (requested > 0) {
-                amountToDrain = Math.min(amountToDrain, requested);
-            }
+            if (requested > 0) amountToDrain = Math.min(amountToDrain, requested);
         }
         return amountToDrain;
     }
@@ -410,6 +453,15 @@ class PatternCraftingResultExtractor {
      * routing.
      */
     private void sendExtractedFluid(LogisticsFluidOrder order, FluidStack drained, ForgeDirection orientation) {
+        if (order.getDestination() == null && module.batchOutputs().manages(order)) {
+            IPatternStack stack = new PatternFluidStack(order.getFluid(), drained.amount);
+            IRoutedItem routed = module.batchOutputs().sendToStorage(stack);
+            if (routed == null) {
+                module.batchOutputs().putBack(order, stack);
+                pipe.getPatternFluidOrderManager().deferSend();
+            } else pipe.getPatternFluidOrderManager().sendSuccessfull(drained.amount, false, routed);
+            return;
+        }
         if (module.isOrderDestinationThisModule(order) && order.getInformation() instanceof PatternTargetInformation) {
             sendExtractedFluidToLocalBuffer(order, drained);
             return;

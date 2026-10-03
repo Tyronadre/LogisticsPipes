@@ -133,6 +133,7 @@ public final class PatternCraftingInstanceRegistry {
     }
 
     public static synchronized void clear() {
+        PatternCraftingBatchOutputs.clear();
         ORDERS.clear();
         INSTANCE_ORDERS.clear();
         CANCELLED_INSTANCES.clear();

@@ -297,6 +297,16 @@ class PatternStackBufferHandler implements ISaveState {
         }
     }
 
+    long unreservedAmount(java.util.Set<UUID> admitted, boolean fluid) {
+        long amount = 0;
+        for (Map.Entry<PatternCraftingReference, OwnedStacks> entry : ownedBuffer.entrySet()) {
+            if (admitted.contains(entry.getKey().instanceId())) continue;
+            for (IPatternStack stack : entry.getValue().stacks)
+                if (PatternStackHelper.isFluid(stack) == fluid) amount += stack.getAmount();
+        }
+        return amount;
+    }
+
     static List<ItemStack> makeItemStacks(IPatternStack patternStack) {
         List<ItemStack> stacks = new ArrayList<>();
         if (patternStack == null || patternStack.getAmount() <= 0) {

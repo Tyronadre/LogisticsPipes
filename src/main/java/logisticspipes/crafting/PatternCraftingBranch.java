@@ -62,6 +62,26 @@ public class PatternCraftingBranch {
     private PatternCraftingReference reference;
     private transient ModulePatternCrafting debugModule;
 
+    void collectWorkspace(Map<ModulePatternCrafting, PatternCraftingWorkspace.Budget> plan) {
+        for (PromiseState state : promises) {
+            IPromise promise = state.promise;
+            if (!(promise.getProvider() instanceof ModulePatternCrafting provider)) continue;
+            int slot;
+            int result;
+            if (promise instanceof PatternCraftingPromise crafting) {
+                slot = crafting.getPatternSlot();
+                result = crafting.getResultAmountPerSet();
+            } else if (promise instanceof PatternFluidCraftingPromise crafting) {
+                slot = crafting.getPatternSlot();
+                result = crafting.getResultAmountPerSet();
+            } else continue;
+            int amount = promise.getAmount();
+            int sets = amount <= 0 ? 0 : 1 + (amount - 1) / Math.max(1, result);
+            PatternCraftingWorkspace.addRecipe(plan, provider, slot, sets);
+        }
+        for (PatternCraftingBranch child : subRequests) child.collectWorkspace(plan);
+    }
+
     /**
      * Captures the request-tree state that belongs to one staged crafting output.
      * <p>

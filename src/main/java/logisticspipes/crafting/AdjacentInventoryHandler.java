@@ -146,6 +146,7 @@ class AdjacentInventoryHandler {
             return false;
         }
         if (connected.tile instanceof PatternLogisticsCraftingTableTileEntity table) {
+            if (!table.isIdle()) return false;
             for (PatternIngredientAssignment assignment : assignments) {
                 ItemIdentifierStack item = PatternStackHelper.asSolidStack(assignment.stack());
                 if (item == null) {
@@ -647,7 +648,10 @@ class AdjacentInventoryHandler {
     }
 
     ItemStack extract(IResource wanted, int count) {
-        var tile = getConnected();
+        return extract(getConnected(), wanted, count);
+    }
+
+    ItemStack extract(AdjacentTile tile, IResource wanted, int count) {
         if (tile == null) return null;
 
         if (tile.tile instanceof PatternLogisticsCraftingTableTileEntity) {
@@ -669,7 +673,7 @@ class AdjacentInventoryHandler {
                     extracted);
             return extracted;
         }
-        IInventory inventory = (IInventory) tile.tile;
+        if (!(tile.tile instanceof IInventory inventory)) return null;
         if (inventory instanceof net.minecraft.inventory.ISidedInventory) {
             inventory = new SidedInventoryMinecraftAdapter(
                     (net.minecraft.inventory.ISidedInventory) inventory,

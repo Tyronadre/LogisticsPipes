@@ -43,7 +43,7 @@ final class PatternByproductExtractionTargetCache {
                 : target.extractFluidByproduct(fluid, amount, destination, info);
     }
 
-    private PatternByproductExtractionTarget resolve(PatternByproductTarget configuredTarget) {
+    PatternByproductExtractionTarget resolve(PatternByproductTarget configuredTarget) {
         if (!configuredTarget.isConfigured() || pipe.getWorld() == null) {
             return null;
         }

@@ -104,7 +104,7 @@ final class PatternLostIngredientHandler {
             if (lost == null) break;
             Pair<IPatternStack, IAdditionalTargetInformation> pair = lost.get();
             PatternTargetInformation target = (PatternTargetInformation) pair.getValue2();
-            if (!PatternCraftingInstanceRegistry.isCancelled(target.orderReference())) {
+            if (target.isBatchOutput() || !PatternCraftingInstanceRegistry.isCancelled(target.orderReference())) {
                 IPatternStack stack = pair.getValue1();
                 int received = requestLostIngredient(stack, target);
                 if (received < stack.getAmount()) {
@@ -152,8 +152,9 @@ final class PatternLostIngredientHandler {
     private int requestLostIngredient(IPatternStack stack, PatternTargetInformation target) {
         int originalAmount = stack == null ? 0 : stack.getAmount();
         ItemIdentifierStack item = PatternStackHelper.asSolidStack(stack);
-        int outstandingAmount = item == null ? requestedIngredient.amount(target.orderReference(), stack)
-                : module.requestedItemAmount(target.orderReference(), target.patternSlot(), item.getItem());
+        int outstandingAmount = target.isBatchOutput() ? module.batchOutputs().missing(target, stack)
+                : item == null ? requestedIngredient.amount(target.orderReference(), stack)
+                        : module.requestedItemAmount(target.orderReference(), target.patternSlot(), item.getItem());
         int noLongerNeeded = originalAmount - Math.min(originalAmount, outstandingAmount);
         long incoming = 0;
         for (ModulePatternCrafting provider : PatternCraftingMonitorRegistry.networkPatternModules(pipe.getRouter())) {

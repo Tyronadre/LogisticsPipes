@@ -110,7 +110,7 @@ final class PatternCraftingHudHandler {
                                 outputSlot));
             }
         }
-        patternInfo.setActive(blockingHandler.isPatternActive(slot));
+        patternInfo.setActive(module.batchOutputs().activePattern(slot) || blockingHandler.isPatternActive(slot));
         patternInfo.setStatus(getStatus(slot, pattern));
         return patternInfo;
     }
@@ -119,14 +119,18 @@ final class PatternCraftingHudHandler {
         if (!module.isPatternCraftingSupported(pattern)) {
             return "Waiting: fluid crafting upgrade missing";
         }
+        if (stagedCrafting.queuedForWorkspace(patternSlot)) return "Waiting: crafting workspace capacity";
         PipeItemsPatternCraftingLogistics.BlockingMode mode = module.getEffectiveBlockingMode();
         AdjacentTile connected = adjacentInventory.getConnected();
         int bufferedSets = module.completeBufferedSets(patternSlot);
         int pendingDispatchSlot = module.pendingDispatchSlot();
         if (pendingDispatchSlot >= 0) {
-            return pendingDispatchSlot == patternSlot ? "Waiting: target full, finishing a partly inserted set"
+            String status = module.batchOutputs().patternStatus(patternSlot);
+            return pendingDispatchSlot == patternSlot ? status == null ? "Waiting: finishing batch insertion" : status
                     : "Waiting: another pattern is finishing its set";
         }
+        String batchStatus = module.batchOutputs().patternStatus(patternSlot);
+        if (batchStatus != null) return batchStatus;
         String satelliteStatus = blockingHandler.getHudSatelliteStatus(patternSlot);
         if (satelliteStatus != null) {
             return satelliteStatus;
@@ -164,7 +168,7 @@ final class PatternCraftingHudHandler {
         if (connected == null) {
             return "Waiting: no target inventory";
         }
-        if (mode != PipeItemsPatternCraftingLogistics.BlockingMode.OFF && !adjacentInventory.isEmpty(connected)) {
+        if (mode == PipeItemsPatternCraftingLogistics.BlockingMode.BLOCKING && !adjacentInventory.isEmpty(connected)) {
             return "Waiting: target inventory occupied";
         }
         if (satelliteDispatchHandler

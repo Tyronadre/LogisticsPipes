@@ -85,6 +85,8 @@ public final class PatternCraftingMonitorRegistry {
             for (PatternCraftingMonitorEntry standalone : module.getStandaloneOrderEntries()) {
                 mergeEntry(entriesByInstance, standalone);
             }
+            for (PatternCraftingMonitorEntry batch : module.batchOutputs().monitorEntries())
+                mergeEntry(entriesByInstance, batch);
         }
         for (ModulePatternCrafting module : modules) {
             for (PatternCraftingMonitorEntry pending : module.getPendingRestoreEntries()) {
@@ -116,6 +118,7 @@ public final class PatternCraftingMonitorRegistry {
         for (ModulePatternCrafting module : modules) {
             pendingInNetwork |= module.hasPendingRestoreInstance(instanceId);
             standaloneInNetwork |= module.hasStandaloneOrderInstance(instanceId);
+            standaloneInNetwork |= module.batchOutputs().hasInstance(instanceId);
         }
         if (!foundInNetwork && !pendingInNetwork && !standaloneInNetwork) {
             return false;
@@ -126,6 +129,7 @@ public final class PatternCraftingMonitorRegistry {
         for (ModulePatternCrafting module : modules) {
             changed |= module.cancelPendingRestore(instanceId);
             changed |= module.cancelStandaloneOrderInstance(instanceId);
+            changed |= module.batchOutputs().cancelInstance(instanceId);
         }
         return changed;
     }
@@ -172,7 +176,8 @@ public final class PatternCraftingMonitorRegistry {
     private static void cleanupFinishedOrders() {
         for (PatternCraftingOrder order : PatternCraftingInstanceRegistry.liveOrders()) {
             IOrderInfoProvider output = order.outputOrder;
-            if (output == null || output.isFinished() && output.getProgresses().isEmpty() && order.isFullyRequested()) {
+            if (output == null
+                    || output.isFinished() && output.getProgresses().isEmpty() && order.isFullyDispatched()) {
                 PatternCraftingInstanceRegistry.unregister(order);
             }
         }
