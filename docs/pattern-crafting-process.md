@@ -1,128 +1,98 @@
 # Current pattern crafting process
 
-Implementation reference: `bf5fe60d`. All classes below are in
-`src/main/java/logisticspipes/crafting/`. Labels use actual class and method names;
-arrows describe control flow or asynchronous data flow, rather than implying that
-every connected method directly calls the next method. This covers pattern crafting,
-including its satellite pipes, rather than the older non-pattern crafting pipe.
+All runtime classes shown below are in `src/main/java/logisticspipes/crafting/`. Arrows describe execution or
+asynchronous data flow; they do not imply that every method directly calls the next method.
 
-## Request, ingredient staging, and machine insertion
+## Planning, ordering, and insertion
 
 ```mermaid
 flowchart TD
-    Request["ModulePatternCrafting.fullFillStagedCrafting(...)"]
-    Register["PatternStagedCraftingCoordinator.fulfill(...)<br/>Create/register PatternCraftingOrder and its branch graph"]
-    Schedule["PatternStagedCraftingCoordinator.requestIngredients()<br/>PatternStagedCraftingScheduler.requestIngredients(...)"]
-    Select["PatternStagedCraftingScheduler.requestOrderIngredients(...)"]
-    Admit{"PatternCraftingWorkspace.admit(order)<br/>PatternCraftingBranch.collectWorkspace(plan)"}
-    Queue["Wait for workspace or legacy orders to drain<br/>Retry from a later scheduler invocation"]
-    Reject["PatternCraftingInstanceRegistry.cancelInstance(...)<br/>Plan exceeds hard workspace limits: split request"]
-    Ingredients["PatternCraftingOrder.requestIngredients(pattern, sets)<br/>PatternCraftingOrder.requestFromBranches(...)<br/>Fulfill reserved stock/crafting promises"]
-    Child["ModulePatternCrafting.fullFillStagedCrafting(...)<br/>Child recipe order in the same job"]
-    Arrival["ModulePatternCrafting.itemArrived(...)<br/>PatternCraftingArrivalHandler.itemArrived(...)<br/>solidItemArrived(...) / fluidArrived(...)"]
-    Buffer["PatternStackBufferHandler<br/>Ingredient stock keyed by owning branch"]
-    Push["PatternCraftingBufferDispatcher.pushBufferedIngredients()<br/>pushBufferedIngredientsFor(...)"]
-    Sets{"PatternCraftingBufferDispatcher.completeBufferedSets(...)<br/>Complete concrete ingredient sets available?"}
-    Plan["PatternSatelliteDispatchHandler.findInsertableBufferedPlan(...)<br/>At most 64 complete sets"]
-    Check{"PatternSatelliteDispatchHandler.DispatchPlan.canDispatch()<br/>Targets available, mode compatible, complete sets fit?"}
-    Prepare{"PatternCraftingBatchOutputs.prepare(plan)<br/>canUseTargets(plan)<br/>Reserve every configured output and shared-target lease"}
-    Dispatch["PatternSatelliteDispatchHandler.DispatchPlan.dispatch(buffer)<br/>Reserve input satellites; resolve target snapshots"]
-    Stage["DispatchPlan.routeItemSatelliteAssignment(...)<br/>PipeItemsPatternSatelliteLogistics.itemArrived(...)<br/>Stage routed items outside the machine inventory"]
-    Ready{"DispatchPlan.dispatch(buffer)<br/>stagedPatternInputAmount(...) sufficient?<br/>canDispatch() still succeeds?"}
-    Insert["DispatchPlan.insertLocal(buffer)<br/>PipeFluidPatternSatelliteLogistics.insertPatternInput(...)<br/>PipeItemsPatternSatelliteLogistics.insertStagedPatternInput(...)<br/>or insertPatternInput(...) for instant satellite items"]
-    Complete{"DispatchResult.COMPLETE?"}
-    Pending["PatternCraftingBufferDispatcher.pendingDispatch<br/>resumePendingDispatch()<br/>Retain exact progress across ticks/restarts"]
-    Finish["PatternCraftingBufferDispatcher.finishDispatch(plan)<br/>PatternCraftingBatchOutputs.committed(plan)<br/>DispatchPlan.release()<br/>PatternCraftingOrder.ingredientsDispatched(sets)"]
-    Machine["Connected machine processes complete ingredient sets"]
-
-    Request --> Register --> Schedule --> Select --> Admit
-    Admit -->|Temporarily occupied| Queue --> Schedule
-    Admit -->|Plan too large| Reject
-    Admit -->|Reserved on every participating pipe| Ingredients
-    Ingredients -->|Crafting promise| Child --> Register
-    Ingredients -->|Stock/provider delivery| Arrival --> Buffer --> Push --> Sets
-    Sets -->|No: wait for more deliveries| Buffer
-    Sets -->|Yes| Plan --> Check
-    Check -->|No: retry later| Push
-    Check -->|Yes| Prepare
-    Prepare -->|No room or conflicting lease| Push
-    Prepare -->|Prepared| Dispatch
-    Dispatch -->|Routed satellite items| Stage --> Ready
-    Dispatch -->|Local, fluid, or instant item inputs| Ready
-    Ready -->|Waiting for delivery or capacity| Pending
-    Ready -->|All ready| Insert --> Complete
-    Complete -->|Unexpected short insertion| Pending --> Dispatch
-    Complete -->|Yes| Finish --> Machine
+    Tree["Initial RequestTree / RequestTreeNode<br/>PatternCraftingBranch.reserveProviderPromises()"]
+    Register["ModulePatternCrafting.fullFillStagedCrafting(...)<br/>PatternStagedCraftingCoordinator.fulfill(...) / registerOrder(...)"]
+    Order["PatternCraftingOrder<br/>Stable branch reference and saved recipe snapshot"]
+    Schedule["PatternStagedCraftingScheduler.requestIngredients(...)<br/>PatternCraftingCapacity.orderableSets(order)"]
+    Limit{"New sets fit per-pattern allowance?<br/>64 + mode-eligible target room - pending sets"}
+    Subtree["PatternCraftingOrder.requestIngredients(...) / requestFromBranches(...)<br/>PatternCraftingBranch.request(...) / copyForAmount(...)"]
+    Child["Child crafting promise creates another PatternCraftingOrder<br/>Repeat bounded subtree expansion recursively"]
+    Supplier["Fulfill reserved supplier promises<br/>PatternTargetInformation identifies owner, pattern and ingredient"]
+    Arrive["ModulePatternCrafting.itemArrived(...)<br/>PatternCraftingArrivalHandler.itemArrived(...)<br/>Accept outstanding owned ingredients without a capacity gate"]
+    Buffer["PatternStackBufferHandler<br/>Ingredient buffer owned by branch, grouped by pattern"]
+    Push["PatternCraftingBufferDispatcher.pushBufferedIngredients(...)<br/>PatternSatelliteDispatchHandler.findInsertableBufferedPlan(...)"]
+    Check{"DispatchPlan.canDispatch()<br/>Complete sets, shared targets, active recipes and input room"}
+    Prepare["PatternCraftingBatchOutputs.prepare(plan)<br/>Record expected full outputs and preparation lease"]
+    Stage["DispatchPlan.dispatch(buffer)<br/>Reserve satellites and stage routed item deliveries"]
+    Wait["PipeItemsPatternSatelliteLogistics.itemArrived(...)<br/>stagedPatternInputAmount(...)<br/>Pending preparation resumes independently by branch"]
+    Commit["DispatchPlan.dispatch(buffer)<br/>Recheck all targets; insertLocal(...) / insertPatternInput(...)<br/>insertStagedPatternInput(...)"]
+    Finish["PatternCraftingBufferDispatcher.finishDispatch(plan)<br/>PatternCraftingBatchOutputs.committed(plan)<br/>PatternCraftingOrder.ingredientsDispatched(sets)<br/>DispatchPlan.release()"]
+    Machine["Machine processes complete sets"]
+    Tree --> Register --> Order --> Schedule --> Limit
+    Limit -->|Wait for allowance| Schedule
+    Limit -->|Admit next slice| Subtree
+    Subtree -->|Crafting dependency| Child --> Register
+    Subtree -->|Supplier material| Supplier --> Arrive --> Buffer --> Push --> Check
+    Check -->|Wait for complete set, room or mode| Buffer
+    Check -->|Ready| Prepare --> Stage
+    Stage -->|Routed items pending| Wait --> Stage
+    Stage -->|All staged; targets still fit| Commit --> Finish --> Machine
+    Commit -->|Adapter inserted less than simulated: retain recovery progress| Wait
+    Finish --> Schedule
 ```
 
-`DispatchResult.NONE` discards an uncommitted prepared batch through
-`PatternCraftingBatchOutputs.discardPrepared(...)`; `PARTIAL` retains a pending
-dispatch. Normal routed item deliveries wait in satellite staging before any
-machine insertion. Generic handlers are simulated together, then inserted serially
-in the same server tick; handlers that insert less than simulated require recovery.
+Blocking and Smart Blocking both permit additional complete sets of the active recipe; they differ in ordering
+allowance. Non blocking permits different recipes when targets fit. Prepared batches hold their shared targets
+exclusively until commit. Shared item inventories and overlapping fluid tank handlers are simulated together to
+avoid spending the same physical room twice.
 
-## Producing batch, consumer delivery, and surplus
+## Extraction, distribution, and cancellation
 
 ```mermaid
 flowchart TD
-    Machine["Machine output becomes available"]
-    Tick["PatternCraftingResultExtractor.tick()<br/>Every sixth pipe tick: PatternCraftingBatchOutputs.collect()"]
-    Target{"Configured output satellite?"}
-    Remote["PatternByproductExtractionTargetCache.extractItem(...) / extractFluid(...)<br/>PatternTargetInformation.batchOutput(...)<br/>remaining decreases; inFlight increases"]
-    Arrive["ModulePatternCrafting.itemArrived(...)<br/>PatternCraftingBatchOutputs.arrival(...)<br/>inFlight decreases; available increases"]
-    Local["AdjacentInventoryHandler.extract(...) / extractFluid(...)<br/>Use DispatchPlan.localTarget() snapshot<br/>remaining decreases; available increases"]
-    Stock["PatternCraftingBatchOutputs.Output<br/>Typed collected item/fluid stock owned by producing job"]
-    Extract["PatternCraftingResultExtractor.extractItemsFromAdjacentInventory()<br/>extractFluidsFromAdjacentHandlers()<br/>PatternCraftingBatchOutputs.take(order, maximum)"]
-    Route{"Consumer destination?"}
-    Same["PatternCraftingResultExtractor.sendExtractedToLocalBuffer(...)<br/>sendExtractedFluidToLocalBuffer(...)<br/>Direct same-pipe ingredient arrival"]
-    Other["PatternCraftingResultExtractor.sendExtracted(...)<br/>sendExtractedFluid(...)<br/>Route result to consumer; account fulfilled order amount"]
-    Wake["ModulePatternCrafting.requestIngredientsForStagedCrafts()<br/>Dependent recipes can gather/dispatch their next sets"]
-    Extra["PatternCraftingBatchOutputs.returnUnclaimedOutputs()<br/>storageRoom(...) / sendToStorage(...)<br/>Unclaimed or cancelled output goes to storage when room exists"]
-    Lease["PatternCraftingBatchOutputs.canUseTargets(...)<br/>Drained batch no longer blocks new machine work<br/>Collected/in-transit output can still remain"]
-    Clean["PatternCraftingBatchOutputs.cleanup()<br/>PatternCraftingWorkspace.cleanup()<br/>Release records/reservations once their remaining work is gone"]
-
-    Machine --> Tick --> Target
-    Target -->|Yes| Remote --> Arrive --> Stock
-    Target -->|No| Local --> Stock
-    Tick -->|Retry until all expected outputs drained| Machine
-    Stock --> Extract --> Route
-    Route -->|Same crafting pipe| Same --> Wake
-    Route -->|Another consumer| Other --> Wake
-    Route -->|Extra order| Extra
-    Stock -->|No remaining claim or cancelled job| Extra
-    Tick -->|All expected outputs removed from machine| Lease
+    Tick["PatternCraftingResultExtractor.tick()<br/>Every sixth tick: PatternCraftingBatchOutputs.collect()"]
+    Output["AdjacentInventoryHandler.extract(...) / extractFluid(...)<br/>or PatternByproductExtractionTargetCache.extractItem(...) / extractFluid(...)"]
+    Transit["Satellite result transport<br/>PatternTargetInformation.batchOutput(...)"]
+    Arrival["ModulePatternCrafting.itemArrived(...)<br/>PatternCraftingBatchOutputs.arrival(...)"]
+    Stock["Owned output staging<br/>Batch.completedSets() / deliverable(output)<br/>Include main yield and every byproduct"]
+    Take["PatternCraftingResultExtractor.distributeItems() / distributeFluids()<br/>PatternCraftingBatchOutputs.take(order, maximum)"]
+    Route["PatternCraftingResultExtractor.route(...)<br/>Same-pipe result: direct ModulePatternCrafting.itemArrived(...)<br/>Other consumer: active routing with branch metadata"]
+    Claims["PatternCraftingBatchOutputs.futureClaims(...)<br/>PatternCraftingBranch.unrequestedOutputClaims(...)<br/>Protect promises in not-yet-expanded subtrees"]
+    Default["PatternCraftingBatchOutputs.returnUnclaimedOutputs() / sendToStorage(...)<br/>Default routing; material may drop when no sink accepts it"]
+    Cancel["PatternCraftingInstanceRegistry.cancelInstance(...)<br/>PatternCraftingCancelHandler<br/>Return unused/staged inputs; redirect late arrivals"]
+    CancelBatch["PatternCraftingBatchOutputs.cancelInstance(...)<br/>Retain inserted production, drain eventual outputs to default routing"]
+    Release["Batch.drained()<br/>Active recipe no longer prevents different recipes at shared targets"]
+    Clean["PatternCraftingBatchOutputs.cleanup()<br/>PatternStagedCraftingCoordinator.cleanupCompletedOutputOrders()"]
+    Tick --> Output
+    Output -->|Local| Stock
+    Output -->|Satellite| Transit --> Arrival --> Stock
+    Stock -->|Complete result sets| Take --> Route
+    Stock --> Claims
+    Claims -->|Unclaimed completed surplus| Default
+    Output -->|All expected output extracted| Release
+    Cancel --> CancelBatch --> Tick
+    Cancel --> Default
     Stock --> Clean
-    Extra --> Clean
+    Route --> Clean
 ```
 
-Collection drains the **full configured recipe output**, including partial-request
-overflow and byproducts, independently of how much the consumer ordered. A batch
-order without collected stock waits; it does not fall back to extracting arbitrary
-physical output. `PatternCraftingBatchOutputs.manages(order)` selects that path.
-Older saved orders with `PatternCraftingOrder.usesBatchExecution() == false` retain
-the legacy per-order extraction path.
+Physical output collection may be partial to avoid filling a small byproduct hatch. Consumers can take output only
+from complete result sets. Main-output overproduction remains tracked even if the original requested amount is
+smaller than the recipe yield. Cancellation routes collected output immediately and keeps polling inserted production.
 
-`PatternCraftingBatchOutputs.canUseTargets(...)` applies Blocking until the prior
-batch is drained, Smart Blocking for matching concrete recipes, and Non blocking
-for any compatible complete recipe that fits. An uncommitted preparation holds its
-shared targets exclusively in every mode. Physical input/output target overlap is
-used for sharing; separate hatches do not establish a common controller identity.
+## Tick and restart
 
-## Actual server tick order
+`ModulePatternCrafting.tick()` restores staged orders, retries deferred satellite cleanup, waits for unresolved
+restoration, validates fluid support, retries lost deliveries, extracts/distributes results, resumes/inserts buffered
+sets, then schedules additional ingredient subtrees. Output draining precedes further insertion.
 
-```mermaid
-flowchart TD
-    Tick["ModulePatternCrafting.tick()"]
-    Restore["restoreStagedCraftingIfNeeded()<br/>PatternStagedCraftingCoordinator.restoreFromNBT(...)"]
-    Deferred["PatternCraftingBufferDispatcher.retryDeferredCleanup()"]
-    Gate{"pendingStagedCrafting != null?"}
-    Return["Return; wait for restored dependencies"]
-    Validate["cancelUnsupportedFluidPatternCrafts()<br/>scheduleRequestedIngredientRestoreRetriesIfReady()"]
-    Retry["PatternLostIngredientHandler.retryLostItems()"]
-    Results["PatternCraftingResultExtractor.tick()<br/>collect; serve item/fluid orders;<br/>returnUnclaimedOutputs; cleanup"]
-    Push["ModulePatternCrafting.pushBufferedIngredients()<br/>PatternCraftingBufferDispatcher.pushBufferedIngredients()"]
-    Request["PatternStagedCraftingCoordinator.requestIngredients()"]
-    Legacy["ModulePatternCrafting.clearRunningCraftIfFinished()"]
-    Cleanup["PatternCraftingWorkspace.cleanup()"]
-    Tick --> Restore --> Deferred --> Gate
-    Gate -->|Yes| Return
+NBT persists the flat branch graph and order references through `PatternStagedCraftingCoordinator`, recipe snapshots
+and quantities through `PatternCraftingOrder`, buffers/requests through `PatternStackBufferHandler` and
+`PatternStackRequestHandler`, production through `PatternCraftingBatchOutputs`, and independent pending dispatches
+through `PatternCraftingBufferDispatcher`. Satellites persist their delivery staging and preparation reservation.
+
+`ModulePatternCrafting.itemLost(...)`, `PatternCraftingBatchOutputs.lost(...)`, and
+`PatternLostIngredientHandler.retryLostItems()` reconcile lost output/ingredient delivery. Satellite staging retries
+lost ingredient packets through `PipeItemsPatternSatelliteLogistics.throttledUpdateEntity()`.
+
+The small legacy extraction path handles older orders saved before batch accounting. Generic machine APIs still
+require reliable simulation/insertion; an unexpectedly short insertion preserves exact recovery progress.
+
+See [the implemented design](pattern-crafting-simplified-design.md) and [the complete source map](pattern-crafting-code-map.md).

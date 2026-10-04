@@ -46,6 +46,8 @@ class PatternCraftingOrder {
     private int inheritedOutputAmount;
     private boolean tracksDispatch;
     private boolean batchExecution = true;
+    private ItemStack recipe;
+    private int requestingSets;
 
     final IOrderInfoProvider outputOrder;
     private final ModulePatternCrafting module;
@@ -54,7 +56,7 @@ class PatternCraftingOrder {
 
     PatternCraftingOrder(PatternCraftingReference reference, int patternSlot, int resultAmountPerSet,
             PatternCraftingBranch branch, IOrderInfoProvider outputOrder, ModulePatternCrafting module,
-            PatternStackRequestHandler requestedIngredient) {
+            PatternStackRequestHandler requestedIngredient, ItemStack plannedRecipe) {
         this.reference = reference;
         this.patternSlot = patternSlot;
         this.resultAmountPerSet = Math.max(1, resultAmountPerSet);
@@ -64,8 +66,8 @@ class PatternCraftingOrder {
         this.ingredientBranches = new ArrayList<>(branch.getSubRequests());
         this.outputOrder = outputOrder;
         this.module = module;
-        for (PatternCraftingOrder parent : PatternCraftingInstanceRegistry.ordersForInstance(reference.instanceId()))
-            if (!parent.usesBatchExecution()) batchExecution = false;
+        ItemStack configured = plannedRecipe == null ? module.getPatternStack(patternSlot) : plannedRecipe;
+        this.recipe = configured == null ? null : configured.copy();
         this.requestedIngredient = requestedIngredient;
         this.remainingSets = initialRemainingSets(branch);
         for (IExtraPromise promise : branch.getByproductPromises()) {
@@ -109,6 +111,8 @@ class PatternCraftingOrder {
         }
         this.outputOrder = outputOrder;
         this.module = module;
+        ItemStack configured = module.getPatternStack(patternSlot);
+        this.recipe = configured == null ? null : configured.copy();
         this.requestedIngredient = requestedIngredient;
         this.remainingSets = Math.max(0, remainingSets);
         module.debugEvent(
@@ -192,7 +196,7 @@ class PatternCraftingOrder {
     }
 
     private int capRemainingSets(int sets) {
-        ItemStack pattern = module.getPatternStack(patternSlot);
+        ItemStack pattern = recipe;
         if (pattern == null) {
             return sets;
         }
@@ -227,6 +231,35 @@ class PatternCraftingOrder {
      * module buffer space.
      */
     int requestIngredients(ItemStack pattern, int sets) {
+        requestingSets = sets;
+        try {
+            return requestIngredientSlice(pattern, sets);
+        } finally {
+            requestingSets = 0;
+        }
+    }
+
+    ItemStack pattern() {
+        return recipe;
+    }
+
+    int pendingSets() {
+        int required = originalOutputAmount <= inheritedOutputAmount ? 0
+                : 1 + (originalOutputAmount - inheritedOutputAmount - 1) / resultAmountPerSet;
+        int pending = Math.max(0, required - remainingSets - dispatchedSets);
+        return (int) Math.min(Integer.MAX_VALUE, (long) pending + Math.max(partialSets(), requestingSets));
+    }
+
+    int partialSets() {
+        int partial = 0;
+        if (recipe != null) for (PatternIngredientTarget input : module.getIngredientTargets(recipe)) {
+            int amount = preRequestedAmount(input.inputSlot());
+            partial = Math.max(partial, amount <= 0 ? 0 : 1 + (amount - 1) / input.stack().getAmount());
+        }
+        return partial;
+    }
+
+    private int requestIngredientSlice(ItemStack pattern, int sets) {
         int requestedSets = sets;
         List<RequestedIngredient> requestedIngredients = new ArrayList<>();
         module.debugEvent(
@@ -314,6 +347,11 @@ class PatternCraftingOrder {
      */
     void writeRuntimeState(NBTTagCompound tag) {
         tag.setBoolean("batchExecution", batchExecution);
+        if (recipe != null) {
+            NBTTagCompound snapshot = new NBTTagCompound();
+            recipe.writeToNBT(snapshot);
+            tag.setTag("recipe", snapshot);
+        }
         tag.setBoolean(TRACKS_DISPATCH_TAG, tracksDispatch);
         tag.setInteger(BYPRODUCT_SETS_TAG, byproductSets);
         tag.setInteger(DISPATCHED_SETS_TAG, dispatchedSets);
@@ -348,6 +386,7 @@ class PatternCraftingOrder {
      */
     void readRuntimeState(NBTTagCompound tag) {
         batchExecution = tag.getBoolean("batchExecution");
+        if (tag.hasKey("recipe")) recipe = ItemStack.loadItemStackFromNBT(tag.getCompoundTag("recipe"));
         tracksDispatch = tag.getBoolean(TRACKS_DISPATCH_TAG);
         byproductSets = tag.getInteger(BYPRODUCT_SETS_TAG);
         dispatchedSets = tag.getInteger(DISPATCHED_SETS_TAG);

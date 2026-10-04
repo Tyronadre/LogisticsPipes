@@ -42,16 +42,6 @@ class PatternStackRequestHandler implements ISaveState {
         return false;
     }
 
-    long unreservedAmount(java.util.Set<UUID> admitted, boolean fluid) {
-        long amount = 0;
-        for (Map.Entry<PatternCraftingReference, OwnedStacks> entry : ownedRequests.entrySet()) {
-            if (admitted.contains(entry.getKey().instanceId())) continue;
-            for (IPatternStack stack : entry.getValue().stacks)
-                if (PatternStackHelper.isFluid(stack) == fluid) amount += stack.getAmount();
-        }
-        return amount;
-    }
-
     PatternStackRequestHandler(Map<Integer, List<IPatternStack>> requestedIngredients, Runnable changeListener) {
         this.requestedIngredients = requestedIngredients;
         this.changeListener = changeListener;

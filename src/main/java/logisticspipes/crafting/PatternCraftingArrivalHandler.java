@@ -51,7 +51,7 @@ final class PatternCraftingArrivalHandler {
             sendToStorage(target, item, fluid);
             return;
         }
-        ItemStack pattern = module.getPatternStack(patternSlot);
+        ItemStack pattern = module.patternForOwner(target.orderReference(), patternSlot);
         if (fluid != null) {
             fluidArrived(target, pattern, item, fluid);
         } else {
@@ -62,7 +62,7 @@ final class PatternCraftingArrivalHandler {
     private void solidItemArrived(PatternTargetInformation target, ItemStack pattern, ItemIdentifierStack item) {
         int patternSlot = target.patternSlot();
         if (pattern == null || ingredientPlanner.ingredientAmount(pattern, item.getItem()) <= 0) {
-            module.debugEvent("FLOW", "item arrival rejected slot=%d item=%s pattern=%s", patternSlot, item, pattern);
+            sendToStorage(target, item, null);
             return;
         }
         int original = item.getStackSize();
@@ -98,7 +98,6 @@ final class PatternCraftingArrivalHandler {
                     requestedAfter,
                     ingredientPlanner.bufferedItemAmount(patternSlot, pattern, item.getItem()),
                     module.completeBufferedSets(patternSlot));
-            module.activateRunningCraftFromBuffer(patternSlot, target.orderReference());
             module.pushBufferedIngredientsFor(patternSlot);
         }
         item.setStackSize(original - accepted);
@@ -120,6 +119,7 @@ final class PatternCraftingArrivalHandler {
                     fluid,
                     fluidStack == null ? 0 : fluidStack.amount,
                     pattern);
+            sendToStorage(target, routedStack, fluidStack);
             return;
         }
         int original = fluidStack.amount;
@@ -159,7 +159,6 @@ final class PatternCraftingArrivalHandler {
                     requestedAfter,
                     ingredientBuffer.amount(patternSlot, fluid),
                     module.completeBufferedSets(patternSlot));
-            module.activateRunningCraftFromBuffer(patternSlot, target.orderReference());
             module.pushBufferedIngredientsFor(patternSlot);
             pipe.getCacheHolder().trigger(CacheTypes.Inventory);
         }

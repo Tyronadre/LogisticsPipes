@@ -61,16 +61,6 @@ final class PatternCraftingIngredientPlanner {
         return plan == null ? Collections.emptyList() : plan.ingredients;
     }
 
-    List<IPatternStack> getAggregatedIngredients(ItemStack pattern) {
-        TargetPlan plan = getTargetPlan(pattern);
-        return plan == null ? Collections.emptyList() : plan.aggregatedIngredients;
-    }
-
-    List<IPatternStack> getLocalAggregatedIngredients(ItemStack pattern) {
-        TargetPlan plan = getTargetPlan(pattern);
-        return plan == null ? Collections.emptyList() : plan.localAggregatedIngredients;
-    }
-
     IRequestItems getSatelliteTargetForInputSlot(ItemStack pattern, int inputSlot) {
         for (PatternIngredientTarget target : getIngredientTargets(pattern)) {
             if (target.inputSlot() == inputSlot) {
@@ -196,31 +186,9 @@ final class PatternCraftingIngredientPlanner {
         });
     }
 
-    boolean requiresConcreteIngredientPlanning(ItemStack pattern) {
-        PatternRecipeSnapshot recipe = patternHandler.getRecipe(pattern);
-        return recipe != null && (recipe.isOreDictSubstitutionEnabled() || recipe.isIgnoreNbtEnabled());
-    }
-
-    List<PatternIngredientAssignment> buildBufferedIngredientPlan(int patternSlot, ItemStack pattern, int sets) {
-        return buildBufferedIngredientPlan(patternSlot, pattern, getIngredientTargets(pattern), sets, null);
-    }
-
     List<PatternIngredientAssignment> buildBufferedIngredientPlan(PatternCraftingReference owner, int patternSlot,
             ItemStack pattern, int sets) {
-        return buildBufferedIngredientPlan(patternSlot, pattern, getIngredientTargets(pattern), sets, null, owner);
-    }
-
-    List<PatternIngredientAssignment> buildBufferedIngredientPlanAfterAdding(int patternSlot, ItemStack pattern,
-            int sets, IPatternStack arrivingStack) {
-        return buildBufferedIngredientPlan(patternSlot, pattern, getIngredientTargets(pattern), sets, arrivingStack);
-    }
-
-    int completeBufferedSets(int patternSlot, ItemStack pattern) {
-        long total = 0;
-        for (PatternCraftingReference owner : ingredientBuffer.owners(patternSlot)) {
-            total += completeBufferedSets(owner, patternSlot, pattern);
-        }
-        return (int) Math.min(Integer.MAX_VALUE, total);
+        return buildBufferedIngredientPlan(pattern, getIngredientTargets(pattern), sets, owner);
     }
 
     int completeBufferedSets(PatternCraftingReference owner, int patternSlot, ItemStack pattern) {
@@ -241,8 +209,9 @@ final class PatternCraftingIngredientPlanner {
                     upperBound,
                     matchingAmount(pattern, ownedStacks, ingredient.stack()) / ingredient.stack().getAmount());
         }
-        for (int sets = upperBound; sets > 0; sets--) {
-            if (buildBufferedIngredientPlan(patternSlot, pattern, ingredients, sets, null, owner) != null) {
+        // Dispatch commits at most 64 sets at once; overflow can be much larger after target capacity changes.
+        for (int sets = Math.min(64, upperBound); sets > 0; sets--) {
+            if (buildBufferedIngredientPlan(pattern, ingredients, sets, owner) != null) {
                 completeSetsByOwner.put(owner, new CompleteSetsCache(pattern, bufferVersion, sets));
                 return sets;
             }
@@ -278,7 +247,6 @@ final class PatternCraftingIngredientPlanner {
     private TargetPlan buildTargetPlan(ItemStack pattern) {
         PatternRecipeSnapshot recipe = patternHandler.getRecipe(pattern);
         List<PatternIngredientTarget> ingredients = new ArrayList<>();
-        List<PatternIngredientTarget> localIngredients = new ArrayList<>();
         boolean patternTable = adjacentInventory.isConnectedToPatternCraftingTable();
         boolean useSatellites = module.hasAdvancedSatelliteUpgrade() && !patternTable;
         boolean hasSatellites = false;
@@ -300,13 +268,9 @@ final class PatternCraftingIngredientPlanner {
             }
             PatternIngredientTarget target = new PatternIngredientTarget(slot, stack.copy(), itemTarget, fluidTarget);
             ingredients.add(target);
-            if (itemTarget == null && fluidTarget == null) {
-                localIngredients.add(target);
-            } else {
-                hasSatellites = true;
-            }
+            if (itemTarget != null || fluidTarget != null) hasSatellites = true;
         }
-        return new TargetPlan(ingredients, localIngredients, hasSatellites);
+        return new TargetPlan(ingredients, hasSatellites);
     }
 
     private void refreshTargetPlanTick() {
@@ -345,22 +309,12 @@ final class PatternCraftingIngredientPlanner {
                 && expected.getDictIdentifiers().canMatch(actual.getDictIdentifiers(), true, false);
     }
 
-    private List<PatternIngredientAssignment> buildBufferedIngredientPlan(int patternSlot, ItemStack pattern,
-            List<PatternIngredientTarget> ingredients, int sets, IPatternStack extraStack) {
-        return buildBufferedIngredientPlan(patternSlot, pattern, ingredients, sets, extraStack, null);
-    }
-
-    private List<PatternIngredientAssignment> buildBufferedIngredientPlan(int patternSlot, ItemStack pattern,
-            List<PatternIngredientTarget> ingredients, int sets, IPatternStack extraStack,
-            PatternCraftingReference owner) {
+    private List<PatternIngredientAssignment> buildBufferedIngredientPlan(ItemStack pattern,
+            List<PatternIngredientTarget> ingredients, int sets, PatternCraftingReference owner) {
         if (sets <= 0 || ingredients.isEmpty()) {
             return Collections.emptyList();
         }
-        List<IPatternStack> available = owner == null ? copyBufferedIngredients(patternSlot)
-                : ingredientBuffer.copyOwnedStacks(owner);
-        if (extraStack != null && extraStack.getAmount() > 0) {
-            PatternStackHelper.addAggregated(available, extraStack);
-        }
+        List<IPatternStack> available = ingredientBuffer.copyOwnedStacks(owner);
         List<PatternIngredientAssignment> assignments = new ArrayList<>();
         for (PatternIngredientTarget ingredient : ingredients) {
             long requestedAmount = (long) ingredient.stack().getAmount() * sets;
@@ -374,20 +328,6 @@ final class PatternCraftingIngredientPlanner {
             assignments.add(new PatternIngredientAssignment(ingredient.inputSlot(), selected));
         }
         return assignments;
-    }
-
-    private List<IPatternStack> copyBufferedIngredients(int patternSlot) {
-        List<IPatternStack> result = new ArrayList<>();
-        List<IPatternStack> buffered = ingredientBuffer.asMap().get(patternSlot);
-        if (buffered == null) {
-            return result;
-        }
-        for (IPatternStack stack : buffered) {
-            if (stack != null && stack.getAmount() > 0) {
-                result.add(stack.copy());
-            }
-        }
-        return result;
     }
 
     private IPatternStack takeMatchingStack(ItemStack pattern, List<IPatternStack> available, IPatternStack ingredient,
@@ -410,26 +350,14 @@ final class PatternCraftingIngredientPlanner {
     private static final class TargetPlan {
 
         private final List<PatternIngredientTarget> ingredients;
-        private final List<IPatternStack> aggregatedIngredients;
-        private final List<IPatternStack> localAggregatedIngredients;
         private final boolean hasSatelliteAssignments;
         private final Map<ItemIdentifier, Integer> itemAmounts = new java.util.HashMap<>();
 
-        private TargetPlan(List<PatternIngredientTarget> ingredients, List<PatternIngredientTarget> localIngredients,
-                boolean hasSatelliteAssignments) {
+        private TargetPlan(List<PatternIngredientTarget> ingredients, boolean hasSatelliteAssignments) {
             this.ingredients = Collections.unmodifiableList(ingredients);
-            aggregatedIngredients = aggregate(ingredients);
-            localAggregatedIngredients = aggregate(localIngredients);
             this.hasSatelliteAssignments = hasSatelliteAssignments;
         }
 
-        private static List<IPatternStack> aggregate(List<PatternIngredientTarget> targets) {
-            List<IPatternStack> result = new ArrayList<>();
-            for (PatternIngredientTarget target : targets) {
-                PatternStackHelper.addAggregated(result, target.stack());
-            }
-            return Collections.unmodifiableList(result);
-        }
     }
 
     private static final class CompleteSetsCache {

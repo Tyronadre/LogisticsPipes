@@ -5,6 +5,7 @@ import java.util.*;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.nbt.NBTTagList;
 
+import logisticspipes.crafting.patternStack.PatternStackHelper;
 import logisticspipes.interfaces.routing.IAdditionalTargetInformation;
 import logisticspipes.interfaces.routing.IRequestFluid;
 import logisticspipes.interfaces.routing.IRequestItems;
@@ -62,24 +63,30 @@ public class PatternCraftingBranch {
     private PatternCraftingReference reference;
     private transient ModulePatternCrafting debugModule;
 
-    void collectWorkspace(Map<ModulePatternCrafting, PatternCraftingWorkspace.Budget> plan) {
+    /** Promises in the remaining subtree still own their output even before the scheduler creates consumer orders. */
+    long unrequestedOutputClaims(ModulePatternCrafting provider, PatternByproductTarget target,
+            logisticspipes.crafting.patternStack.IPatternStack output, java.util.UUID producingJob,
+            Set<PatternCraftingBranch> visited) {
+        if (!visited.add(this)) return 0;
+        long amount = 0;
         for (PromiseState state : promises) {
-            IPromise promise = state.promise;
-            if (!(promise.getProvider() instanceof ModulePatternCrafting provider)) continue;
-            int slot;
-            int result;
-            if (promise instanceof PatternCraftingPromise crafting) {
-                slot = crafting.getPatternSlot();
-                result = crafting.getResultAmountPerSet();
-            } else if (promise instanceof PatternFluidCraftingPromise crafting) {
-                slot = crafting.getPatternSlot();
-                result = crafting.getResultAmountPerSet();
-            } else continue;
-            int amount = promise.getAmount();
-            int sets = amount <= 0 ? 0 : 1 + (amount - 1) / Math.max(1, result);
-            PatternCraftingWorkspace.addRecipe(plan, provider, slot, sets);
+            if (state.remainingAmount <= 0 || state.promise.getProvider() != provider
+                    || !(state.promise instanceof PatternByproductPromise promise))
+                continue;
+            PatternByproductTarget origin = promise.getByproductTarget();
+            if (origin == null || origin.getPatternSlot() != target.getPatternSlot()
+                    || origin.getOutputSlot() != target.getOutputSlot()
+                    || origin.isFluid() != target.isFluid()
+                    || !PatternStackHelper.matches(output, state.promise.getItemType()))
+                continue;
+            PatternCraftingReference owner = origin.getSourceReference();
+            if (owner != null && !producingJob.equals(owner.instanceId())) continue;
+            if (owner == null && (reference == null || !producingJob.equals(reference.instanceId()))) continue;
+            amount += state.remainingAmount;
         }
-        for (PatternCraftingBranch child : subRequests) child.collectWorkspace(plan);
+        for (PatternCraftingBranch child : subRequests)
+            amount += child.unrequestedOutputClaims(provider, target, output, producingJob, visited);
+        return amount;
     }
 
     /**

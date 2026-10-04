@@ -2,6 +2,7 @@ package logisticspipes.crafting;
 
 import java.util.UUID;
 
+import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraftforge.fluids.FluidStack;
 
@@ -130,6 +131,7 @@ final class PatternCraftingPersistence {
     static boolean writePromise(NBTTagCompound tag, IPromise promise) {
         if (promise instanceof PatternFluidCraftingPromise pattern) {
             tag.setString(KIND_TAG, PATTERN_FLUID_PROMISE_KIND);
+            if (pattern.getRecipe() != null) tag.setTag("recipe", pattern.getRecipe().writeToNBT(new NBTTagCompound()));
             writeFluid(tag, pattern.getLiquid(), pattern.getAmount());
             writeFluidProvider(tag, PROVIDER_TAG, pattern.getSender());
             tag.setInteger(PATTERN_SLOT_TAG, pattern.getPatternSlot());
@@ -161,6 +163,7 @@ final class PatternCraftingPersistence {
         }
         if (promise instanceof PatternCraftingPromise pattern) {
             tag.setString(KIND_TAG, PATTERN_ITEM_PROMISE_KIND);
+            if (pattern.getRecipe() != null) tag.setTag("recipe", pattern.getRecipe().writeToNBT(new NBTTagCompound()));
             writeStack(tag, pattern.getItemType().makeStack(pattern.getAmount()));
             writeItemProvider(tag, PROVIDER_TAG, (IProvideItems) pattern.getProvider());
             tag.setInteger(PATTERN_SLOT_TAG, pattern.getPatternSlot());
@@ -217,6 +220,7 @@ final class PatternCraftingPersistence {
                     tag.getInteger(PATTERN_SLOT_TAG),
                     tag.getInteger(RESULT_AMOUNT_PER_SET_TAG));
             promise.setByproductTarget(PatternByproductTarget.readFromNBT(tag, BYPRODUCT_TARGET_PREFIX));
+            if (tag.hasKey("recipe")) promise.setRecipe(ItemStack.loadItemStackFromNBT(tag.getCompoundTag("recipe")));
             return promise;
         }
         if (PATTERN_FLUID_EXTRA_PROMISE_KIND.equals(kind)) {
@@ -250,6 +254,7 @@ final class PatternCraftingPersistence {
                     tag.getInteger(PATTERN_SLOT_TAG),
                     tag.getInteger(RESULT_AMOUNT_PER_SET_TAG));
             promise.setByproductTarget(PatternByproductTarget.readFromNBT(tag, BYPRODUCT_TARGET_PREFIX));
+            if (tag.hasKey("recipe")) promise.setRecipe(ItemStack.loadItemStackFromNBT(tag.getCompoundTag("recipe")));
             return promise;
         }
         if (PATTERN_ITEM_EXTRA_PROMISE_KIND.equals(kind)) {

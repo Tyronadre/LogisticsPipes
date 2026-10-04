@@ -91,14 +91,12 @@ public class ModulePatternCrafting extends LogisticsModule
     private final PatternCraftingCancelHandler cancelHandler;
     private final PatternCraftingArrivalHandler arrivalHandler;
     private final PatternStagedCraftingCoordinator stagedCrafting;
-    private final PatternCraftingBlockingHandler blockingHandler;
     private final PatternSatelliteDispatchHandler satelliteDispatchHandler;
     private final PatternCraftingBufferDispatcher bufferDispatcher;
     private final PatternCraftingHudHandler hudHandler;
     private final PatternCraftingTemplateBuilder templateBuilder;
     private final PatternCraftingResultExtractor resultExtractor;
     private final PatternCraftingBatchOutputs batchOutputs;
-    private final PatternCraftingWorkspace workspace;
     private SinkReply sinkReply;
     private PipeItemsPatternCraftingLogistics.BlockingMode blockingMode = PipeItemsPatternCraftingLogistics.BlockingMode.OFF;
     private boolean checkingBufferedOrders = false;
@@ -124,14 +122,12 @@ public class ModulePatternCrafting extends LogisticsModule
                 ingredientBuffer,
                 requestedIngredient);
         lostIngredientHandler = new PatternLostIngredientHandler(this, pipe, requestedIngredient);
-        blockingHandler = new PatternCraftingBlockingHandler(this);
         capacity = new PatternCraftingCapacity(this, pipe, patternHandler, requestedIngredient, ingredientPlanner);
         satelliteDispatchHandler = new PatternSatelliteDispatchHandler(this, pipe, adjacentInventory);
         bufferDispatcher = new PatternCraftingBufferDispatcher(
                 this,
                 ingredientBuffer,
                 adjacentInventory,
-                blockingHandler,
                 satelliteDispatchHandler,
                 ingredientPlanner);
         stagedCrafting = new PatternStagedCraftingCoordinator(this, pipe, patternHandler, requestedIngredient);
@@ -143,7 +139,6 @@ public class ModulePatternCrafting extends LogisticsModule
                 requestedIngredients,
                 requestedIngredient,
                 stagedCrafting,
-                blockingHandler,
                 lostIngredientHandler);
         arrivalHandler = new PatternCraftingArrivalHandler(
                 this,
@@ -160,11 +155,9 @@ public class ModulePatternCrafting extends LogisticsModule
                 ingredientBuffer,
                 requestedIngredients,
                 stagedCrafting,
-                blockingHandler,
                 satelliteDispatchHandler);
         templateBuilder = new PatternCraftingTemplateBuilder(this, patternHandler);
         batchOutputs = new PatternCraftingBatchOutputs(this, pipe, adjacentInventory);
-        workspace = new PatternCraftingWorkspace(this);
         resultExtractor = new PatternCraftingResultExtractor(this, pipe, adjacentInventory);
         patternInventory.addListener(inventory -> {
             patternHandler.invalidate();
@@ -198,20 +191,7 @@ public class ModulePatternCrafting extends LogisticsModule
         return batchOutputs;
     }
 
-    PatternCraftingWorkspace workspace() {
-        return workspace;
-    }
-
-    long unreservedInputs(Set<UUID> admitted, boolean fluid) {
-        return ingredientBuffer.unreservedAmount(admitted, fluid)
-                + requestedIngredient.unreservedAmount(admitted, fluid);
-    }
-
-    boolean hasWorkspaceWork(UUID instance) {
-        return batchOutputs.hasInstance(instance) || hasNonBatchWorkspaceWork(instance);
-    }
-
-    boolean hasNonBatchWorkspaceWork(UUID instance) {
+    boolean hasPendingIngredientWork(UUID instance) {
         if (!ingredientBuffer.entries(instance).isEmpty()) return true;
         if (pendingStagedCrafting != null
                 && PatternStagedCraftingCoordinator.pendingInstanceIds(pendingStagedCrafting).contains(instance))
@@ -223,13 +203,6 @@ public class ModulePatternCrafting extends LogisticsModule
             if (order.getCraftingReference() != null && instance.equals(order.getCraftingReference().instanceId()))
                 return true;
         return requestedIngredient.hasInstance(instance);
-    }
-
-    boolean hasLegacyOrders() {
-        if (pendingStagedCrafting != null) return true;
-        for (var order : pipe.getItemOrderManager()) if (!batchOutputs.manages(order)) return true;
-        for (var order : pipe.getPatternFluidOrderManager()) if (!batchOutputs.manages(order)) return true;
-        return false;
     }
 
     public ItemStack getPatternItemStack(int slot) {
@@ -377,8 +350,6 @@ public class ModulePatternCrafting extends LogisticsModule
         resultExtractor.tick();
         pushBufferedIngredients();
         stagedCrafting.requestIngredients();
-        clearRunningCraftIfFinished();
-        workspace.cleanup();
     }
 
     @Override
@@ -468,20 +439,11 @@ public class ModulePatternCrafting extends LogisticsModule
                 Math.min(
                         PipeItemsPatternCraftingLogistics.BlockingMode.values().length - 1,
                         tag.getInteger("patternBlockingMode")))];
-        int restoredRunningCraft = tag.getInteger("runningCraft");
-        PatternCraftingReference restoredRunningReference = PatternCraftingReference.readFromNBT(tag, "runningCraft");
-        boolean restoredRunningCraftInAdjacent = tag.getBoolean("runningCraftInAdjacent");
-        blockingHandler.restoreRunningCraft(
-                restoredRunningReference == null ? -1 : restoredRunningCraft,
-                restoredRunningReference,
-                restoredRunningCraftInAdjacent);
         ingredientBuffer.readFromNBT(tag);
         requestedIngredient.readFromNBT(tag);
         lostIngredientHandler.readFromNBT(tag);
         bufferDispatcher.readFromNBT(tag);
-        blockingHandler.readFromNBT(tag, satelliteDispatchHandler);
         batchOutputs.readFromNBT(tag, satelliteDispatchHandler);
-        workspace.readFromNBT(tag);
         NBTTagCompound restoredStagedCrafting = tag.hasKey(STAGED_CRAFTING_TAG)
                 ? (NBTTagCompound) tag.getCompoundTag(STAGED_CRAFTING_TAG).copy()
                 : null;
@@ -502,26 +464,22 @@ public class ModulePatternCrafting extends LogisticsModule
                 lostIngredientHandler.size(),
                 pendingStagedCrafting != null,
                 assignedStandaloneReferences,
-                blockingHandler.runningCraft(),
-                blockingHandler.runningCraftInAdjacent());
+                batchOutputs.firstActivePattern(),
+                batchOutputs.firstActivePattern() >= 0);
     }
 
     @Override
     public void writeToNBT(NBTTagCompound tag) {
         patternInventory.writeToNBT(tag, "PatternCrafting");
         tag.setInteger("patternBlockingMode", blockingMode.ordinal());
-        tag.setInteger("runningCraft", blockingHandler.runningCraft());
-        tag.setBoolean("runningCraftInAdjacent", blockingHandler.runningCraftInAdjacent());
-        if (blockingHandler.runningCraftReference() != null) {
-            blockingHandler.runningCraftReference().writeToNBT(tag, "runningCraft");
-        }
+        tag.removeTag("runningCraft");
+        tag.removeTag("patternSatelliteBatches");
+        tag.removeTag("patternWorkspace");
         ingredientBuffer.writeToNBT(tag);
         requestedIngredient.writeToNBT(tag);
         lostIngredientHandler.writeToNBT(tag);
         bufferDispatcher.writeToNBT(tag);
-        blockingHandler.writeToNBT(tag);
         batchOutputs.writeToNBT(tag);
-        workspace.writeToNBT(tag);
         if (pendingStagedCrafting != null) {
             tag.setTag(STAGED_CRAFTING_TAG, pendingStagedCrafting.copy());
             tag.setInteger(STAGED_CRAFTING_RESTORE_ATTEMPTS_TAG, stagedCraftingRestoreAttempts);
@@ -538,8 +496,8 @@ public class ModulePatternCrafting extends LogisticsModule
                 requestedIngredients.size(),
                 lostIngredientHandler.size(),
                 pendingStagedCrafting != null,
-                blockingHandler.runningCraft(),
-                blockingHandler.runningCraftInAdjacent());
+                batchOutputs.firstActivePattern(),
+                batchOutputs.firstActivePattern() >= 0);
     }
     // endregion
 
@@ -885,14 +843,13 @@ public class ModulePatternCrafting extends LogisticsModule
             FluidIdentifier fluid = fluidResource.getFluid();
             Map<PatternByproductTarget, Integer> extras = new LinkedHashMap<>();
             for (LogisticsFluidOrder order : manager) {
-                if (order.getType() == ResourceType.EXTRA && order.getFluid().equals(fluid)
-                        && (tree == root || !batchOutputs.manages(order))) {
+                if (order.getType() == ResourceType.EXTRA && order.getFluid().equals(fluid)) {
                     extras.merge(order.getByproductTarget(), order.getAmount(), Integer::sum);
                 }
             }
             for (Map.Entry<PatternByproductTarget, Integer> extra : extras.entrySet()) {
                 int amount = Math.min(
-                        extra.getValue()
+                        extra.getValue() - batchOutputs.futureClaims(extra.getKey(), new PatternFluidStack(fluid, 1))
                                 - root.getPromisedByproductAmount(this, fluid.getItemIdentifier(), extra.getKey()),
                         tree.getMissingAmount());
                 if (amount > 0) {
@@ -909,8 +866,7 @@ public class ModulePatternCrafting extends LogisticsModule
         Map<ItemIdentifier, Map<PatternByproductTarget, Integer>> extras = new LinkedHashMap<>();
         for (LogisticsItemOrder order : manager) {
             ItemIdentifier item = order.getResource().getItem();
-            if (order.getType() == ResourceType.EXTRA && requested.matches(item, IResource.MatchSettings.NORMAL)
-                    && (tree == root || !batchOutputs.manages(order))) {
+            if (order.getType() == ResourceType.EXTRA && requested.matches(item, IResource.MatchSettings.NORMAL)) {
                 extras.computeIfAbsent(item, ignored -> new LinkedHashMap<>())
                         .merge(order.getByproductTarget(), order.getAmount(), Integer::sum);
             }
@@ -918,7 +874,10 @@ public class ModulePatternCrafting extends LogisticsModule
         for (Map.Entry<ItemIdentifier, Map<PatternByproductTarget, Integer>> item : extras.entrySet()) {
             for (Map.Entry<PatternByproductTarget, Integer> extra : item.getValue().entrySet()) {
                 int amount = Math.min(
-                        extra.getValue() - root.getPromisedByproductAmount(this, item.getKey(), extra.getKey()),
+                        extra.getValue()
+                                - batchOutputs
+                                        .futureClaims(extra.getKey(), new PatternItemStack(item.getKey().makeStack(1)))
+                                - root.getPromisedByproductAmount(this, item.getKey(), extra.getKey()),
                         tree.getMissingAmount());
                 if (amount > 0) {
                     tree.addPromise(new PatternItemByproductPromise(item.getKey(), amount, this, true, extra.getKey()));
@@ -1161,15 +1120,14 @@ public class ModulePatternCrafting extends LogisticsModule
                 .append(pipe.getZ()).append(" router=").append(pipe.getRouter().getSimpleID()).append("\n");
         out.append("  mode stored=").append(blockingMode).append(" effective=").append(getEffectiveBlockingMode())
                 .append(" fixed=").append(isBlockingModeFixed()).append(" runningCraft=")
-                .append(blockingHandler.runningCraft()).append(" adjacentBatch=")
-                .append(blockingHandler.runningCraftInAdjacent()).append(" satelliteBatches=")
-                .append(blockingHandler.satelliteBatchPatternSlots()).append("\n");
+                .append(batchOutputs.firstActivePattern()).append(" adjacentBatch=")
+                .append(batchOutputs.firstActivePattern() >= 0).append(" satelliteBatches=")
+                .append(batchOutputs.activePatternSlots()).append("\n");
         appendConnectedInventoryDebug(out);
         appendPatternDebug(out);
         appendStackMapDebug(out, "buffered ingredients", ingredientBuffer.asMap());
         appendStackMapDebug(out, "requested ingredients", requestedIngredients);
         batchOutputs.appendDebugState(out);
-        workspace.appendDebugState(out);
         appendStagedCraftDebug(out);
         appendOrderDebug(out);
         out.append("  lost ingredients queued=").append(lostIngredientHandler.size()).append("\n");
@@ -1188,8 +1146,8 @@ public class ModulePatternCrafting extends LogisticsModule
      * <p>
      * Requested ingredients are accepted into the module buffer even when the adjacent inventory is currently busy.
      * Those requests were already staged against this pipe's own capacity, so asking the adjacent inventory again here
-     * can bounce valid subcraft results back to storage. Non-requested overflow still uses the normal arrival capacity.
-     * The routed stack is reduced to the amount that could not be accepted.
+     * can bounce valid subcraft results back to storage. Unclaimed excess uses default routing; valid deliveries have
+     * no arrival capacity gate. The routed stack is reduced to the amount that could not be accepted.
      */
     @Override
     public void itemArrived(ItemIdentifierStack item, IAdditionalTargetInformation info) {
@@ -1224,49 +1182,30 @@ public class ModulePatternCrafting extends LogisticsModule
     }
 
     /**
-     * Pattern slot of the partly inserted set that has to finish before anything else is pushed, or -1.
-     */
-    int pendingDispatchSlot() {
-        return bufferDispatcher.pendingDispatchSlot();
-    }
-
-    int getRunningCraftForHandler() {
-        return blockingHandler.runningCraft();
-    }
-
-    /**
-     * Returns whether a pattern slot is currently allowed to receive more local ingredients.
-     * <p>
-     * Blocking modes restrict buffering to the active craft or to an empty connected inventory.
-     */
-    boolean canReceiveForPattern(int patternSlot) {
-        if (pendingStagedCrafting != null) return false;
-        if (!isPatternCraftingSupported(patternHandler.getConfiguredPatternStack(patternSlot))) {
-            return false;
-        }
-        return blockingHandler.canReceiveForPattern(patternSlot);
-    }
-
-    /**
      * Calculates how many complete sets can be dispatched to every configured local and satellite target.
      */
+    PatternSatelliteDispatchHandler.DispatchPlan orderingPlan(PatternCraftingOrder order) {
+        return satelliteDispatchHandler.orderingPlan(order.reference(), order.patternSlot, order.pattern());
+    }
+
+    int orderablePatternSets(PatternCraftingOrder order) {
+        return capacity.orderableSets(order);
+    }
+
+    int pendingPatternSets(int slot) {
+        int sets = 0;
+        for (PatternCraftingOrder order : PatternCraftingInstanceRegistry.ordersForModule(this))
+            if (order.patternSlot == slot) sets = (int) Math.min(Integer.MAX_VALUE, (long) sets + order.pendingSets());
+        return sets;
+    }
+
+    ItemStack patternForOwner(PatternCraftingReference owner, int slot) {
+        PatternCraftingOrder order = PatternCraftingInstanceRegistry.find(owner);
+        return order == null ? getPatternStack(slot) : order.pattern();
+    }
+
     int maxDispatchablePatternSets(PatternCraftingReference ownerReference, ItemStack pattern, int maxSets) {
         return satelliteDispatchHandler.maxDispatchableSets(ownerReference, pattern, maxSets);
-    }
-
-    /**
-     * Returns all ingredients that have to be buffered by this crafting pipe before one or more pattern sets can be
-     * dispatched to the local adjacent target and any configured satellites.
-     */
-    List<IPatternStack> getAggregatedIngredients(ItemStack pattern) {
-        return ingredientPlanner.getAggregatedIngredients(pattern);
-    }
-
-    /**
-     * Returns the non-satellite ingredients that are inserted into this crafting pipe's adjacent target.
-     */
-    List<IPatternStack> getLocalAggregatedIngredients(ItemStack pattern) {
-        return ingredientPlanner.getLocalAggregatedIngredients(pattern);
     }
 
     /**
@@ -1295,11 +1234,7 @@ public class ModulePatternCrafting extends LogisticsModule
     }
 
     int requestedItemAmount(PatternCraftingReference owner, int patternSlot, ItemIdentifier item) {
-        return ingredientPlanner.requestedItemAmount(owner, getPatternStack(patternSlot), item);
-    }
-
-    List<PatternIngredientAssignment> buildBufferedIngredientPlan(int patternSlot, ItemStack pattern, int sets) {
-        return ingredientPlanner.buildBufferedIngredientPlan(patternSlot, pattern, sets);
+        return ingredientPlanner.requestedItemAmount(owner, patternForOwner(owner, patternSlot), item);
     }
 
     List<PatternIngredientAssignment> buildBufferedIngredientPlan(PatternCraftingReference owner, int patternSlot,
@@ -1362,10 +1297,6 @@ public class ModulePatternCrafting extends LogisticsModule
         return bufferDispatcher.completeBufferedSets(patternSlot);
     }
 
-    int completeBufferedSets(PatternCraftingReference owner, int patternSlot) {
-        return ingredientPlanner.completeBufferedSets(owner, patternSlot, getPatternStack(patternSlot));
-    }
-
     /**
      * Requests ingredients for all staged crafting orders that still have room in this module or the adjacent
      * inventory.
@@ -1378,8 +1309,8 @@ public class ModulePatternCrafting extends LogisticsModule
                 "request staged crafts trigger bufferedSlots=%d requestedSlots=%d runningCraft=%d adjacentBatch=%s",
                 ingredientBuffer.size(),
                 requestedIngredients.size(),
-                blockingHandler.runningCraft(),
-                blockingHandler.runningCraftInAdjacent());
+                batchOutputs.firstActivePattern(),
+                batchOutputs.firstActivePattern() >= 0);
         stagedCrafting.requestIngredientsAfterCapacityChange();
     }
 
@@ -1409,44 +1340,8 @@ public class ModulePatternCrafting extends LogisticsModule
         return cancelHandler.returnStoredInputsToStorage();
     }
 
-    /**
-     * @return a pattern slot whose buffered arrived ingredients can be pushed as a complete set.
-     */
-    int findCompleteBufferedPattern() {
-        return bufferDispatcher.findCompleteBufferedPattern();
-    }
-
-    /**
-     * Marks the first arrived ingredient for a slot as the active blocking craft when no other slot is active.
-     */
-    void activateRunningCraftFromBuffer(int patternSlot, PatternCraftingReference owner) {
-        blockingHandler.activateFromBuffer(patternSlot, owner);
-    }
-
     PatternCraftingReference completeBufferOwner(int patternSlot) {
         return bufferDispatcher.findCompleteBufferedOwner(patternSlot);
-    }
-
-    /**
-     * Returns whether the active slot is still locked by arrived buffered ingredients or an inserted adjacent batch.
-     */
-    boolean isRunningCraftLocked() {
-        return blockingHandler.isRunningCraftLocked();
-    }
-
-    /**
-     * Refreshes blocking state once per tick after push/request processing.
-     */
-    private void clearRunningCraftIfFinished() {
-        bufferDispatcher.refreshRunningCraftState();
-    }
-
-    AdjacentTile getConnectedInventoryTile() {
-        return adjacentInventory.getConnected();
-    }
-
-    boolean isInventoryEmpty(AdjacentTile connected) {
-        return adjacentInventory.isEmpty(connected);
     }
 
     /**
@@ -1652,7 +1547,6 @@ public class ModulePatternCrafting extends LogisticsModule
         World world = pipe.getWorld();
 
         bufferDispatcher.abandonPendingDispatch(null);
-        blockingHandler.retrieveAndReleaseAllSatelliteBatches();
         stagedCrafting.releaseAll();
         requestedIngredients.clear();
         lostIngredientHandler.clear();

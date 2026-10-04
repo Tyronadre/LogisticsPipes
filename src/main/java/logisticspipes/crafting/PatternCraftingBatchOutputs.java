@@ -25,8 +25,6 @@ import logisticspipes.utils.item.ItemIdentifierStack;
 /** Reserves and drains whole producing batches, independently of the lifetime of their consumer orders. */
 final class PatternCraftingBatchOutputs {
 
-    static final int ITEM_CAPACITY = 65536;
-    static final int FLUID_CAPACITY = 16000000;
     private static final List<WeakReference<PatternCraftingBatchOutputs>> STORES = new ArrayList<>();
 
     private final ModulePatternCrafting module;
@@ -47,20 +45,15 @@ final class PatternCraftingBatchOutputs {
 
     boolean prepare(PatternSatelliteDispatchHandler.DispatchPlan plan) {
         if (batches.containsKey(plan.batchReference())) return true;
-        if (batches.size() >= 1024) return false;
         if (!canUseTargets(plan)) return false;
         PatternRecipeSnapshot recipe = module.getPatternRecipe(plan.pattern());
         Batch batch = new Batch(plan, module.getEffectiveBlockingMode());
-        long items = occupied(false);
-        long fluids = occupied(true);
         for (int slot = 0; slot < recipe.getResultSlotCount(); slot++) {
             IPatternStack output = recipe.getOutput(slot);
             if (output == null || output.getAmount() <= 0) continue;
             long amount = (long) output.getAmount() * plan.sets();
             boolean fluid = PatternStackHelper.isFluid(output);
-            if (fluid) fluids += amount;
-            else items += amount;
-            if (items > ITEM_CAPACITY || fluids > FLUID_CAPACITY || amount > Integer.MAX_VALUE) return false;
+            if (amount > Integer.MAX_VALUE) return false;
             PatternByproductTarget target = new PatternByproductTarget(
                     plan.patternSlot(),
                     slot,
@@ -68,10 +61,11 @@ final class PatternCraftingBatchOutputs {
                     fluid ? recipe.getFluidByproductSatelliteUuid(slot) : recipe.getByproductSatelliteUuid(slot),
                     fluid,
                     plan.ownerReference());
-            if (target.isConfigured() && satellites.resolve(target) == null) {
+            if ((target.isConfigured() && satellites.resolve(target) == null)
+                    || (!target.isConfigured() && plan.localTarget() == null)) {
                 module.debugEventThrottled(
                         "BUFFER",
-                        "slot=%d waiting for output satellite at output=%d",
+                        "slot=%d waiting for output target at output=%d",
                         plan.patternSlot(),
                         slot);
                 return false;
@@ -100,17 +94,41 @@ final class PatternCraftingBatchOutputs {
                         && plan.sharesTargets(active.plan)) {
                     if (!active.committed) return false;
                     var mode = module.getEffectiveBlockingMode();
-                    if (mode == PipeItemsPatternCraftingLogistics.BlockingMode.BLOCKING
-                            || active.mode == PipeItemsPatternCraftingLogistics.BlockingMode.BLOCKING)
-                        return false;
-                    if ((mode == PipeItemsPatternCraftingLogistics.BlockingMode.SMART
-                            || active.mode == PipeItemsPatternCraftingLogistics.BlockingMode.SMART)
+                    if ((mode != PipeItemsPatternCraftingLogistics.BlockingMode.OFF
+                            || active.mode != PipeItemsPatternCraftingLogistics.BlockingMode.OFF)
                             && !plan.sameRecipe(active.plan))
                         return false;
                 }
             }
         }
         return true;
+    }
+
+    /** A second pattern may buffer its 64 sets, but cannot spend already-promised shared machine room. */
+    boolean canOrderIntoTargets(PatternCraftingOrder order) {
+        PatternSatelliteDispatchHandler.DispatchPlan candidate = module.orderingPlan(order);
+        if (candidate == null) return false;
+        for (ModulePatternCrafting provider : PatternCraftingMonitorRegistry.networkPatternModules(pipe.getRouter())) {
+            for (PatternCraftingOrder other : PatternCraftingInstanceRegistry.ordersForModule(provider)) {
+                if (provider == module && other.patternSlot == order.patternSlot) continue;
+                if (provider.pendingPatternSets(other.patternSlot) <= 64) continue;
+                PatternSatelliteDispatchHandler.DispatchPlan reserved = provider.orderingPlan(other);
+                if (reserved != null && candidate.sharesTargets(reserved)) return false;
+            }
+        }
+        return true;
+    }
+
+    int firstActivePattern() {
+        for (Batch batch : batches.values()) if (!batch.drained()) return batch.plan.patternSlot();
+        return -1;
+    }
+
+    List<Integer> activePatternSlots() {
+        List<Integer> slots = new ArrayList<>();
+        for (Batch batch : batches.values())
+            if (!batch.drained() && !slots.contains(batch.plan.patternSlot())) slots.add(batch.plan.patternSlot());
+        return slots;
     }
 
     void committed(PatternSatelliteDispatchHandler.DispatchPlan plan) {
@@ -127,13 +145,6 @@ final class PatternCraftingBatchOutputs {
             batches.remove(plan.batchReference());
             module.markCraftingStateDirty();
         }
-    }
-
-    private long occupied(boolean fluid) {
-        long amount = 0;
-        for (Batch batch : batches.values()) for (Output output : batch.outputs) if (output.target.isFluid() == fluid)
-            amount += output.remaining + (long) output.inFlight + output.available;
-        return amount;
     }
 
     void collect() {
@@ -211,15 +222,17 @@ final class PatternCraftingBatchOutputs {
         for (Output output : batch.outputs) {
             if (output.target.getOutputSlot() != info.outputSlot() || stack == null || !output.stack.canMerge(stack))
                 continue;
-            int replacementRoom = (int) Math.max(
-                    0,
-                    (output.target.isFluid() ? FLUID_CAPACITY : ITEM_CAPACITY) - occupied(output.target.isFluid()));
-            int accepted = Math
-                    .min(output.inFlight + Math.min(output.awaitingReplacement, replacementRoom), stack.getAmount());
+            int accepted = Math.min(output.inFlight + output.awaitingReplacement, stack.getAmount());
             int fromTransit = Math.min(output.inFlight, accepted);
             output.inFlight -= fromTransit;
             output.awaitingReplacement -= accepted - fromTransit;
             output.available += accepted;
+            if (batch.cancelled) {
+                output.available -= accepted;
+                returnArrivalToStorage(arrived);
+                module.markCraftingStateDirty();
+                return true;
+            }
             if (accepted == stack.getAmount()) arrived.setStackSize(0);
             else if (stack instanceof PatternFluidStack fluid) {
                 pipe.sendStack(
@@ -285,7 +298,8 @@ final class PatternCraftingBatchOutputs {
         for (Batch batch : batches.values()) {
             for (Output output : batch.outputs) {
                 if (output.available <= 0 || !matches(batch, output, order)) continue;
-                int amount = Math.min(maxAmount, output.available);
+                int amount = Math.min(maxAmount, batch.deliverable(output));
+                if (amount <= 0) continue;
                 output.available -= amount;
                 module.markCraftingStateDirty();
                 return PatternStackHelper.copyWithAmount(output.stack, amount);
@@ -307,9 +321,39 @@ final class PatternCraftingBatchOutputs {
         return owner != null && owner.instanceId().equals(batch.plan.ownerReference().instanceId());
     }
 
+    int futureClaims(LogisticsOrder order) {
+        PatternByproductTarget target = order.getByproductTarget();
+        if (target == null) return 0;
+        PatternCraftingReference owner = target.getSourceReference() == null ? order.getCraftingReference()
+                : target.getSourceReference();
+        if (owner == null) return 0;
+        IPatternStack output = target.isFluid()
+                ? new PatternFluidStack(((logisticspipes.routing.order.LogisticsFluidOrder) order).getFluid(), 1)
+                : new logisticspipes.crafting.patternStack.PatternItemStack(order.getAsDisplayItem());
+        return futureClaims(target, output, owner.instanceId());
+    }
+
+    int futureClaims(PatternByproductTarget target, IPatternStack output) {
+        return target == null || target.getSourceReference() == null ? 0
+                : futureClaims(target, output, target.getSourceReference().instanceId());
+    }
+
+    private int futureClaims(PatternByproductTarget target, IPatternStack output, UUID producingJob) {
+        java.util.Set<PatternCraftingBranch> visited = java.util.Collections
+                .newSetFromMap(new java.util.IdentityHashMap<>());
+        long amount = 0;
+        for (ModulePatternCrafting provider : PatternCraftingMonitorRegistry.networkPatternModules(pipe.getRouter())) {
+            for (PatternCraftingOrder pending : PatternCraftingInstanceRegistry.ordersForModule(provider)) {
+                for (PatternCraftingBranch branch : pending.ingredientBranches)
+                    amount += branch.unrequestedOutputClaims(module, target, output, producingJob, visited);
+            }
+        }
+        return (int) Math.min(Integer.MAX_VALUE, amount);
+    }
+
     boolean manages(LogisticsOrder order) {
         PatternCraftingOrder source = PatternCraftingInstanceRegistry.find(order);
-        if (source != null) return source.usesBatchExecution();
+        if (source != null && source.usesBatchExecution()) return true;
         PatternByproductTarget target = order.getByproductTarget();
         PatternCraftingReference owner = target != null && target.getSourceReference() != null
                 ? target.getSourceReference()
@@ -320,57 +364,16 @@ final class PatternCraftingBatchOutputs {
         return false;
     }
 
-    void forgetJob(UUID instance) {
-        if (!hasInstance(instance)) managedJobs.remove(instance);
-    }
-
     void manageJob(UUID instance) {
         managedJobs.add(instance);
     }
 
-    private logisticspipes.utils.tuples.Pair<Integer, Integer> storageReply(IPatternStack stack, int wanted) {
-        if (stack instanceof PatternFluidStack fluid) {
-            return logisticspipes.proxy.SimpleServiceLocator.logisticsFluidManager.getBestReply(
-                    fluid.getFluid().makeFluidStack(wanted),
-                    pipe.getRouter(),
-                    java.util.Collections.emptyList());
-        }
-        List<Integer> exclude = new ArrayList<>();
-        for (ModulePatternCrafting provider : PatternCraftingMonitorRegistry.networkPatternModules(pipe.getRouter()))
-            exclude.add(provider.getRouter().getSimpleID());
-        var reply = pipe.hasDestination(PatternStackHelper.asSolidStack(stack).getItem(), true, exclude);
-        return reply == null ? new logisticspipes.utils.tuples.Pair<>(0, 0)
-                : new logisticspipes.utils.tuples.Pair<>(
-                        reply.getValue1(),
-                        reply.getValue2().maxNumberOfItems <= 0 ? wanted
-                                : Math.min(wanted, reply.getValue2().maxNumberOfItems));
-    }
-
-    int storageRoom(IPatternStack stack, int wanted) {
-        return Math.min(wanted, storageReply(stack, wanted).getValue2());
-    }
-
     logisticspipes.logisticspipes.IRoutedItem sendToStorage(IPatternStack stack) {
-        var reply = storageReply(stack, stack.getAmount());
-        if (reply.getValue2() < stack.getAmount()) return null;
-        ItemStack routed = stack instanceof PatternFluidStack fluid
-                ? logisticspipes.proxy.SimpleServiceLocator.logisticsFluidManager
-                        .getFluidContainer(fluid.getFluid().makeFluidStack(stack.getAmount())).makeNormalStack()
-                : PatternStackHelper.asSolidStack(stack).makeNormalStack();
         return pipe.sendStack(
-                routed,
-                reply.getValue1(),
+                stack.makePatternStack(),
+                -1,
                 logisticspipes.pipes.basic.CoreRoutedPipe.ItemSendMode.Normal,
                 null);
-    }
-
-    void putBack(LogisticsOrder order, IPatternStack stack) {
-        for (Batch batch : batches.values()) for (Output output : batch.outputs) if (matches(batch, output, order)) {
-            output.available += stack.getAmount();
-            module.markCraftingStateDirty();
-            return;
-        }
-        throw new IllegalStateException("Collected output lost its producing batch");
     }
 
     boolean hasInstance(UUID instance) {
@@ -423,19 +426,9 @@ final class PatternCraftingBatchOutputs {
             if (!batch.committed) return "Waiting: staging complete batch at satellites";
             if (!batch.drained()) return "Doing: crafting and draining complete batch";
             for (Output output : batch.outputs) if (output.inFlight > 0) return "Waiting: batch outputs in transit";
-            return "Waiting: delivering collected outputs or storage space";
+            return "Waiting: delivering complete result sets";
         }
         return null;
-    }
-
-    long unreservedAmount(java.util.Set<UUID> admitted, boolean fluid) {
-        long amount = 0;
-        for (Batch batch : batches.values()) {
-            if (admitted.contains(batch.plan.ownerReference().instanceId())) continue;
-            for (Output output : batch.outputs) if (output.target.isFluid() == fluid)
-                amount += output.remaining + (long) output.inFlight + output.available;
-        }
-        return amount;
     }
 
     void cleanup() {
@@ -447,6 +440,9 @@ final class PatternCraftingBatchOutputs {
                 module.markCraftingStateDirty();
             }
         }
+        managedJobs.removeIf(
+                id -> !hasInstance(id) && PatternCraftingInstanceRegistry.ordersForInstance(id).isEmpty()
+                        && !module.hasPendingIngredientWork(id));
     }
 
     void returnUnclaimedOutputs() {
@@ -457,31 +453,46 @@ final class PatternCraftingBatchOutputs {
                 if (!PatternCraftingInstanceRegistry.ordersForInstance(id).isEmpty()) return false;
                 for (ModulePatternCrafting provider : PatternCraftingMonitorRegistry.networkPatternModules(
                         pipe.getRouter()))
-                    if (provider.hasNonBatchWorkspaceWork(id)) return false;
+                    if (provider.hasPendingIngredientWork(id)) return false;
                 return true;
             });
-            if (!batch.cancelled && !noConsumers) continue;
             for (Output output : batch.outputs) {
-                if (output.awaitingReplacement > 0) {
+                if ((batch.cancelled || noConsumers) && output.awaitingReplacement > 0) {
                     output.awaitingReplacement = 0;
                     module.markCraftingStateDirty();
                 }
-                if (output.available <= 0) continue;
+                int surplus = batch.cancelled ? output.available : unclaimedAmount(batch, output);
+                if (surplus <= 0) continue;
                 IPatternStack stack = PatternStackHelper.copyWithAmount(
                         output.stack,
                         Math.min(
-                                output.available,
+                                surplus,
                                 output.target.isFluid()
                                         ? logisticspipes.config.Configs.MAX_LOGISTICS_FLUID_TRANSPORT_INNER_CAPACITY / 2
                                         : PatternStackHelper.asSolidStack(output.stack).getItem().getMaxStackSize()));
-                int room = storageRoom(stack, stack.getAmount());
-                if (room <= 0) continue;
-                stack = PatternStackHelper.copyWithAmount(stack, room);
-                if (sendToStorage(stack) == null) continue;
+                sendToStorage(stack);
                 output.available -= stack.getAmount();
                 module.markCraftingStateDirty();
             }
         }
+    }
+
+    /** Protect live consumer orders and promises in subtrees that have not been expanded yet. */
+    private int unclaimedAmount(Batch batch, Output output) {
+        long claimed = futureClaims(output.target, output.stack, batch.plan.ownerReference().instanceId());
+        for (var order : pipe.getItemOrderManager()) if (matches(batch, output, order)) claimed += order.getAmount();
+        for (var order : pipe.getPatternFluidOrderManager())
+            if (matches(batch, output, order)) claimed += order.getAmount();
+        long collected = 0;
+        for (Batch other : batches.values()) {
+            if (!other.plan.ownerReference().instanceId().equals(batch.plan.ownerReference().instanceId())
+                    || other.plan.patternSlot() != batch.plan.patternSlot())
+                continue;
+            for (Output stock : other.outputs)
+                if (stock.target.getOutputSlot() == output.target.getOutputSlot() && stock.stack.canMerge(output.stack))
+                    collected += other.deliverable(stock);
+        }
+        return (int) Math.min(batch.deliverable(output), Math.max(0, collected - claimed));
     }
 
     void dropContents(net.minecraft.world.World world, int x, int y, int z) {
@@ -562,8 +573,7 @@ final class PatternCraftingBatchOutputs {
     }
 
     void appendDebugState(StringBuilder out) {
-        out.append("  producing batches: ").append(batches.size()).append(" reservedItems=").append(occupied(false))
-                .append(" reservedFluid=").append(occupied(true)).append('\n');
+        out.append("  producing batches: ").append(batches.size()).append('\n');
         for (Batch batch : batches.values()) {
             out.append("    batch=").append(batch.plan.batchReference()).append(" owner=")
                     .append(batch.plan.ownerReference()).append(" slot=").append(batch.plan.patternSlot())
@@ -588,6 +598,29 @@ final class PatternCraftingBatchOutputs {
         Batch(PatternSatelliteDispatchHandler.DispatchPlan plan, PipeItemsPatternCraftingLogistics.BlockingMode mode) {
             this.plan = plan;
             this.mode = mode;
+        }
+
+        // Collect partial outputs so a small byproduct hatch cannot stop the machine. Only complete result
+        // sets become available to consumers. Dispatched recipe quantities stay owned until then.
+        int completedSets() {
+            int sets = plan.sets();
+            int complete = sets;
+            for (Output output : outputs) {
+                int perSet = output.stack.getAmount() / sets;
+                int received = output.stack.getAmount() - output.remaining
+                        - output.inFlight
+                        - output.awaitingReplacement;
+                complete = Math.min(complete, Math.max(0, received / perSet));
+            }
+            return complete;
+        }
+
+        int deliverable(Output output) {
+            int received = output.stack.getAmount() - output.remaining - output.inFlight - output.awaitingReplacement;
+            int delivered = received - output.available;
+            return Math.max(
+                    0,
+                    Math.min(output.available, completedSets() * (output.stack.getAmount() / plan.sets()) - delivered));
         }
 
         boolean drained() {

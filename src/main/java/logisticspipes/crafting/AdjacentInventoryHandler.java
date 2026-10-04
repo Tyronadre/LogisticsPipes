@@ -2,7 +2,6 @@ package logisticspipes.crafting;
 
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -13,10 +12,7 @@ import net.minecraftforge.fluids.FluidStack;
 import net.minecraftforge.fluids.FluidTankInfo;
 import net.minecraftforge.fluids.IFluidHandler;
 
-import logisticspipes.crafting.pattern.PatternRecipeSnapshot;
-import logisticspipes.crafting.patternStack.IPatternStack;
 import logisticspipes.crafting.patternStack.PatternFluidStack;
-import logisticspipes.crafting.patternStack.PatternItemStack;
 import logisticspipes.crafting.patternStack.PatternStackHelper;
 import logisticspipes.interfaces.IInventoryUtil;
 import logisticspipes.pipes.PipeItemsPatternCraftingLogistics;
@@ -35,7 +31,6 @@ class AdjacentInventoryHandler {
 
     private final ModulePatternCrafting module;
     private final PipeItemsPatternCraftingLogistics pipe;
-    private final Map<ItemStack, Integer> patternSetCapacity = new IdentityHashMap<>();
     private long contentCacheTick = Long.MIN_VALUE;
     private net.minecraft.tileentity.TileEntity contentCacheTile;
     private ForgeDirection contentCacheOrientation = ForgeDirection.UNKNOWN;
@@ -75,69 +70,6 @@ class AdjacentInventoryHandler {
             handlers.add(connected);
         }
         return handlers;
-    }
-
-    int roomFor(AdjacentTile connected, ItemIdentifier item) {
-        if (connected.tile instanceof PatternLogisticsCraftingTableTileEntity) {
-            return ((PatternLogisticsCraftingTableTileEntity) connected.tile).roomForPatternPipeItem(item);
-        }
-        IInventoryUtil inv = SimpleServiceLocator.inventoryUtilFactory
-                .getInventoryUtil(getInsertableInventory(connected), module.getInsertionOrientation(connected));
-        return inv.roomForItem(item, 9999);
-    }
-
-    int availablePatternSets(ItemStack pattern) {
-        AdjacentTile connected = getConnected();
-        if (connected == null || pattern == null) {
-            module.debug("adjacent capacity result=0 connected=%s pattern=%s", connected, pattern);
-            return 0;
-        }
-        refreshContentCache(connected);
-        Integer cached = patternSetCapacity.get(pattern);
-        if (cached != null) {
-            return cached;
-        }
-        int sets = Integer.MAX_VALUE;
-        boolean hasIngredient = false;
-        List<IPatternStack> localIngredients = module.getLocalAggregatedIngredients(pattern);
-        List<ItemIdentifierStack> solidIngredients = getSolidIngredients(localIngredients);
-        List<PatternFluidStack> fluidIngredients = getFluidIngredients(localIngredients);
-        if (!solidIngredients.isEmpty()) {
-            hasIngredient = true;
-            if (connected.tile instanceof PatternLogisticsCraftingTableTileEntity) {
-                sets = Math.min(
-                        sets,
-                        availablePatternSetsForPatternTable(
-                                pattern,
-                                (PatternLogisticsCraftingTableTileEntity) connected.tile));
-            } else if (connected.tile instanceof IInventory) {
-                sets = Math.min(sets, availablePatternSetsDisregardingSlots(solidIngredients, connected));
-            } else {
-                module.debug(
-                        "adjacent capacity result=0: solid ingredients but connected tile is not inventory tile=%s",
-                        connected.tile);
-                return 0;
-            }
-        }
-        if (!fluidIngredients.isEmpty()) {
-            hasIngredient = true;
-            if (!(connected.tile instanceof IFluidHandler)) {
-                module.debug(
-                        "adjacent capacity result=0: fluid ingredients but connected tile is not fluid handler tile=%s",
-                        connected.tile);
-                return 0;
-            }
-            sets = Math.min(sets, availablePatternSetsForFluids(fluidIngredients, connected));
-        }
-        int result = hasIngredient && sets != Integer.MAX_VALUE ? Math.max(0, sets) : 0;
-        module.debug(
-                "adjacent capacity result=%d solidIngredients=%d fluidIngredients=%d tile=%s",
-                result,
-                solidIngredients.size(),
-                fluidIngredients.size(),
-                connected.tile);
-        patternSetCapacity.put(pattern, result);
-        return result;
     }
 
     boolean canInsertPatternIngredients(ItemStack pattern, List<PatternIngredientAssignment> assignments) {
@@ -223,47 +155,6 @@ class AdjacentInventoryHandler {
         return inserted;
     }
 
-    private int availablePatternSetsForFluids(List<PatternFluidStack> ingredients, AdjacentTile connected) {
-        IFluidHandler handler = (IFluidHandler) connected.tile;
-        ForgeDirection side = getFluidInsertionOrientation(connected);
-        ingredients = mergeFluids(ingredients, 1);
-        int sets = Integer.MAX_VALUE;
-        for (PatternFluidStack ingredient : ingredients) {
-            int upperBound = ingredient.getFluid().getFreeSpaceInsideTank(handler, side) / ingredient.getAmount();
-            int low = 0;
-            int high = upperBound;
-            while (low < high) {
-                int mid = low + (int) (((long) high - low + 1) / 2);
-                FluidStack stack = ingredient.getFluid().makeFluidStack(ingredient.getAmount() * mid);
-                if (handler.fill(side, stack, false) == stack.amount) {
-                    low = mid;
-                } else {
-                    high = mid - 1;
-                }
-            }
-            module.debug("adjacent fluid capacity ingredient=%s upperBound=%d sets=%d", ingredient, upperBound, low);
-            sets = Math.min(sets, low);
-        }
-        if (sets == Integer.MAX_VALUE) {
-            return 0;
-        }
-        if (ingredients.size() > 1) {
-            // each fluid fits on its own; find how many sets fit when they all go in together
-            int low = 0;
-            int high = sets;
-            while (low < high) {
-                int mid = low + (int) (((long) high - low + 1) / 2);
-                if (canFitFluids(handler, side, ingredients, mid)) {
-                    low = mid;
-                } else {
-                    high = mid - 1;
-                }
-            }
-            sets = low;
-        }
-        return Math.max(0, sets);
-    }
-
     /**
      * Whether {@code sets} times the given fluids fit into the handler at the same time (D3).
      * <p>
@@ -337,6 +228,46 @@ class AdjacentInventoryHandler {
         return true;
     }
 
+    /** Simulate different insertion endpoints against one shared snapshot per physical tank handler. */
+    static boolean canFitFluidInputs(List<List<Pair<IFluidHandler, ForgeDirection>>> targets,
+            List<PatternFluidStack> fluids) {
+        Map<IFluidHandler, FluidCapacitySnapshot> shared = new java.util.IdentityHashMap<>();
+        for (int group = 0; group < fluids.size(); group++) {
+            PatternFluidStack fluid = fluids.get(group);
+            List<Pair<IFluidHandler, ForgeDirection>> handlers = targets.get(group);
+            List<FluidCapacitySnapshot> snapshots = new ArrayList<>();
+            List<Integer> accepted = new ArrayList<>();
+            java.util.Set<IFluidHandler> visited = java.util.Collections
+                    .newSetFromMap(new java.util.IdentityHashMap<>());
+            for (Pair<IFluidHandler, ForgeDirection> handler : handlers) {
+                if (!visited.add(handler.getValue1())) continue;
+                snapshots.add(
+                        shared.computeIfAbsent(
+                                handler.getValue1(),
+                                ignored -> new FluidCapacitySnapshot(handler.getValue1(), handler.getValue2())));
+                accepted.add(Math.max(0, handler.getValue1().fill(handler.getValue2(), fluid.makeFluidStack(), false)));
+            }
+            int remaining = fluid.getAmount();
+            for (int pass = 0; pass < 2 && remaining > 0; pass++) {
+                for (int h = 0; h < snapshots.size() && remaining > 0; h++) {
+                    FluidCapacitySnapshot snapshot = snapshots.get(h);
+                    for (int tank = 0; tank < snapshot.room.length && remaining > 0; tank++) {
+                        FluidIdentifier contents = snapshot.contents[tank];
+                        if (pass == 0 ? !fluid.getFluid().equals(contents) : contents != null) continue;
+                        int used = Math.min(remaining, Math.min(snapshot.room[tank], accepted.get(h)));
+                        if (used <= 0) continue;
+                        snapshot.contents[tank] = fluid.getFluid();
+                        snapshot.room[tank] -= used;
+                        accepted.set(h, accepted.get(h) - used);
+                        remaining -= used;
+                    }
+                }
+            }
+            if (remaining > 0) return false;
+        }
+        return true;
+    }
+
     private static final class FluidCapacitySnapshot {
 
         private final IFluidHandler handler;
@@ -386,59 +317,10 @@ class AdjacentInventoryHandler {
         return merged;
     }
 
-    private List<ItemIdentifierStack> getSolidIngredients(List<IPatternStack> ingredients) {
-        List<ItemIdentifierStack> result = new ArrayList<>();
-        for (IPatternStack ingredient : ingredients) {
-            ItemIdentifierStack stack = PatternStackHelper.asSolidStack(ingredient);
-            if (stack != null) {
-                result.add(stack.clone());
-            }
-        }
-        return result;
-    }
-
-    private List<PatternFluidStack> getFluidIngredients(List<IPatternStack> ingredients) {
-        List<PatternFluidStack> result = new ArrayList<>();
-        for (IPatternStack ingredient : ingredients) {
-            if (ingredient instanceof PatternFluidStack) {
-                result.add(((PatternFluidStack) ingredient).copy());
-            }
-        }
-        return result;
-    }
-
-    private int availablePatternSetsDisregardingSlots(List<ItemIdentifierStack> ingredients, AdjacentTile connected) {
-        if (ingredients.isEmpty()) {
-            return 0;
-        }
-        int upperBound = Integer.MAX_VALUE;
-        for (ItemIdentifierStack ingredient : ingredients) {
-            upperBound = Math.min(upperBound, roomFor(connected, ingredient.getItem()) / ingredient.getStackSize());
-            module.debug("adjacent item upper bound ingredient=%s currentUpperBound=%d", ingredient, upperBound);
-        }
-        if (upperBound <= 0 || upperBound == Integer.MAX_VALUE) {
-            module.debug("adjacent item capacity result=0 upperBound=%d", upperBound);
-            return 0;
-        }
-        IInventory inventory = getInsertableInventory(connected);
-        int low = 0;
-        int high = upperBound;
-        while (low < high) {
-            int mid = low + (int) (((long) high - low + 1) / 2);
-            if (canFitPatternSetsDisregardingSlots(inventory, ingredients, mid)) {
-                low = mid;
-            } else {
-                high = mid - 1;
-            }
-        }
-        module.debug("adjacent item capacity sets=%d upperBound=%d", low, upperBound);
-        return low;
-    }
-
     /**
      * The target inventory as seen from the insertion side, so capacity checks see the same slots the insert uses.
      */
-    private IInventory getInsertableInventory(AdjacentTile connected) {
+    IInventory getInsertableInventory(AdjacentTile connected) {
         IInventory inventory = (IInventory) connected.tile;
         if (inventory instanceof net.minecraft.inventory.ISidedInventory) {
             return new SidedInventoryMinecraftAdapter(
@@ -513,37 +395,6 @@ class AdjacentInventoryHandler {
         return remaining <= 0;
     }
 
-    private int availablePatternSetsForPatternTable(ItemStack pattern, PatternLogisticsCraftingTableTileEntity table) {
-        int sets = Integer.MAX_VALUE;
-        boolean hasIngredient = false;
-        PatternRecipeSnapshot configuredPattern = module.getPatternRecipe(pattern);
-        if (configuredPattern == null) {
-            return 0;
-        }
-        for (int slot = 0; slot < configuredPattern.getIngredientSlotCount(); slot++) {
-            IPatternStack patternStack = configuredPattern.getInput(slot);
-            if (!(patternStack instanceof PatternItemStack)) {
-                continue;
-            }
-            if (module.hasLinkedSatelliteAssignment(pattern, slot)) {
-                continue;
-            }
-            ItemStack ingredient = patternStack.makePatternStack();
-            hasIngredient = true;
-            int room = table.roomForPatternPipeSlot(slot, ingredient);
-            module.debug(
-                    "adjacent pattern-table slot capacity inputSlot=%d ingredient=%s room=%d amount=%d",
-                    slot,
-                    patternStack,
-                    room,
-                    ingredient.stackSize);
-            sets = Math.min(sets, room / ingredient.stackSize);
-        }
-        int result = hasIngredient ? Math.max(0, sets) : 0;
-        module.debug("adjacent pattern-table capacity sets=%d", result);
-        return result;
-    }
-
     private int insert(ItemIdentifierStack item) {
         AdjacentTile connected = getConnected();
         if (connected == null || item.getStackSize() <= 0) {
@@ -603,7 +454,7 @@ class AdjacentInventoryHandler {
         return inserted;
     }
 
-    private ForgeDirection getFluidInsertionOrientation(AdjacentTile connected) {
+    ForgeDirection getFluidInsertionOrientation(AdjacentTile connected) {
         return module.getInsertionOrientation(connected);
     }
 
@@ -732,41 +583,6 @@ class AdjacentInventoryHandler {
         return drained;
     }
 
-    /**
-     * returns null if there is no te connected. returns null if there is no handler for the connected te
-     *
-     * @return the list of items extractable from this inventory
-     */
-    public List<ItemStack> getExtractableItems() {
-        var connected = getConnected();
-        if (connected == null) return null;
-
-        var tile = connected.tile;
-
-        if (tile instanceof PatternLogisticsCraftingTableTileEntity table) {
-            var out = new ArrayList<ItemStack>();
-            for (Pair<ItemStack, Integer> entry : table.getOutputInventory()) {
-                if (entry == null || entry.getValue1() == null) continue;
-                out.add(entry.getValue1());
-            }
-            return out;
-        }
-
-        if (tile instanceof IInventory inventory) {
-            var invUtil = SimpleServiceLocator.inventoryUtilFactory.getInventoryUtil(inventory, connected.orientation);
-
-            var out = new ArrayList<ItemStack>();
-
-            for (var entry : invUtil.getItemsAndCount().entrySet()) {
-                if (entry.getValue() == null) continue;
-                out.add(entry.getKey().makeNormalStack(entry.getValue()));
-            }
-            return out;
-        }
-
-        return null;
-    }
-
     private void refreshContentCache(AdjacentTile connected) {
         long tick = module.currentWorldTick();
         net.minecraft.tileentity.TileEntity tile = connected == null ? null : connected.tile;
@@ -785,7 +601,6 @@ class AdjacentInventoryHandler {
     }
 
     private void clearContentCacheValues() {
-        patternSetCapacity.clear();
         emptyCached = false;
     }
 

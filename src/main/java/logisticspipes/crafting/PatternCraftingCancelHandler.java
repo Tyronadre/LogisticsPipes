@@ -28,14 +28,12 @@ final class PatternCraftingCancelHandler {
     private final Map<Integer, List<IPatternStack>> requestedIngredients;
     private final PatternStackRequestHandler requestedIngredient;
     private final PatternStagedCraftingCoordinator stagedCrafting;
-    private final PatternCraftingBlockingHandler blockingHandler;
     private final PatternLostIngredientHandler lostIngredientHandler;
 
     PatternCraftingCancelHandler(ModulePatternCrafting module, PipeItemsPatternCraftingLogistics pipe,
             PatternHandler patternHandler, PatternStackBufferHandler ingredientBuffer,
             Map<Integer, List<IPatternStack>> requestedIngredients, PatternStackRequestHandler requestedIngredient,
-            PatternStagedCraftingCoordinator stagedCrafting, PatternCraftingBlockingHandler blockingHandler,
-            PatternLostIngredientHandler lostIngredientHandler) {
+            PatternStagedCraftingCoordinator stagedCrafting, PatternLostIngredientHandler lostIngredientHandler) {
         this.module = module;
         this.pipe = pipe;
         this.patternHandler = patternHandler;
@@ -43,7 +41,6 @@ final class PatternCraftingCancelHandler {
         this.requestedIngredients = requestedIngredients;
         this.requestedIngredient = requestedIngredient;
         this.stagedCrafting = stagedCrafting;
-        this.blockingHandler = blockingHandler;
         this.lostIngredientHandler = lostIngredientHandler;
     }
 
@@ -72,8 +69,6 @@ final class PatternCraftingCancelHandler {
         changed |= requestedIngredient.removeAll(reference);
         changed |= module.abandonPendingDispatch(instanceId);
         changed |= flushBufferedIngredientsToStorage(reference, order.patternSlot);
-        changed |= blockingHandler.retrieveAndReleaseSatelliteBatches(instanceId);
-        changed |= blockingHandler.clearRunningCraft(instanceId);
         changed |= lostIngredientHandler.removeInstance(instanceId);
         if (changed) {
             pipe.getCacheHolder().trigger(CacheTypes.Inventory);
@@ -97,8 +92,6 @@ final class PatternCraftingCancelHandler {
         for (PatternStackBufferHandler.OwnedEntry entry : ingredientBuffer.entries(instanceId)) {
             changed |= flushBufferedIngredientsToStorage(entry.owner, entry.patternSlot);
         }
-        changed |= blockingHandler.retrieveAndReleaseSatelliteBatches(instanceId);
-        changed |= blockingHandler.clearRunningCraft(instanceId);
         changed |= lostIngredientHandler.removeInstance(instanceId);
         if (changed) {
             pipe.getCacheHolder().trigger(CacheTypes.Inventory);
@@ -161,11 +154,6 @@ final class PatternCraftingCancelHandler {
         for (int slot : remainingSlots) {
             changed |= requestedIngredient.removeAll(slot);
             changed |= flushBufferedIngredientsToStorage(slot);
-        }
-        changed |= blockingHandler.retrieveAndReleaseAllSatelliteBatches();
-        if (blockingHandler.runningCraft() >= 0) {
-            blockingHandler.restoreRunningCraft(-1, null, false);
-            changed = true;
         }
         changed |= lostIngredientHandler.clear();
         if (changed) {

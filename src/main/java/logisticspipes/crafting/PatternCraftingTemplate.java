@@ -3,6 +3,8 @@ package logisticspipes.crafting;
 import java.util.ArrayList;
 import java.util.List;
 
+import net.minecraft.item.ItemStack;
+
 import logisticspipes.crafting.pattern.ItemPattern;
 import logisticspipes.interfaces.routing.ICraftFluids;
 import logisticspipes.interfaces.routing.ICraftItems;
@@ -23,6 +25,11 @@ public class PatternCraftingTemplate extends BaseCraftingTemplate {
     private final ICraftItems crafter;
     private final int patternSlot;
     private PatternByproductTarget outputTarget;
+    private ItemStack recipe;
+
+    public void setRecipe(ItemStack recipe) {
+        this.recipe = recipe == null ? null : recipe.copy();
+    }
 
     public void setOutputTarget(PatternByproductTarget target) {
         outputTarget = target;
@@ -126,6 +133,7 @@ public class PatternCraftingTemplate extends BaseCraftingTemplate {
                 patternSlot,
                 result.getStackSize());
         promise.setByproductTarget(outputTarget);
+        promise.setRecipe(recipe);
         return promise;
     }
 

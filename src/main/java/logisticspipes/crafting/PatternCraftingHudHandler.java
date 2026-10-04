@@ -29,7 +29,6 @@ final class PatternCraftingHudHandler {
     private final PatternStackBufferHandler ingredientBuffer;
     private final Map<Integer, List<IPatternStack>> requestedIngredients;
     private final PatternStagedCraftingCoordinator stagedCrafting;
-    private final PatternCraftingBlockingHandler blockingHandler;
     private final PatternSatelliteDispatchHandler satelliteDispatchHandler;
 
     private PatternCraftingHudState cachedState = PatternCraftingHudState.empty();
@@ -39,14 +38,13 @@ final class PatternCraftingHudHandler {
     PatternCraftingHudHandler(ModulePatternCrafting module, PatternHandler patternHandler,
             AdjacentInventoryHandler adjacentInventory, PatternStackBufferHandler ingredientBuffer,
             Map<Integer, List<IPatternStack>> requestedIngredients, PatternStagedCraftingCoordinator stagedCrafting,
-            PatternCraftingBlockingHandler blockingHandler, PatternSatelliteDispatchHandler satelliteDispatchHandler) {
+            PatternSatelliteDispatchHandler satelliteDispatchHandler) {
         this.module = module;
         this.patternHandler = patternHandler;
         this.adjacentInventory = adjacentInventory;
         this.ingredientBuffer = ingredientBuffer;
         this.requestedIngredients = requestedIngredients;
         this.stagedCrafting = stagedCrafting;
-        this.blockingHandler = blockingHandler;
         this.satelliteDispatchHandler = satelliteDispatchHandler;
     }
 
@@ -73,7 +71,6 @@ final class PatternCraftingHudHandler {
     }
 
     private PatternCraftingHudState buildState() {
-        blockingHandler.refreshRunningCraftState(module.getConnectedInventoryTile());
         PatternCraftingHudState state = new PatternCraftingHudState(module.getEffectiveBlockingMode());
         for (int slot = 0; slot < patternHandler.size(); slot++) {
             ItemStack pattern = module.getPatternStack(slot);
@@ -110,7 +107,7 @@ final class PatternCraftingHudHandler {
                                 outputSlot));
             }
         }
-        patternInfo.setActive(module.batchOutputs().activePattern(slot) || blockingHandler.isPatternActive(slot));
+        patternInfo.setActive(module.batchOutputs().activePattern(slot));
         patternInfo.setStatus(getStatus(slot, pattern));
         return patternInfo;
     }
@@ -119,28 +116,11 @@ final class PatternCraftingHudHandler {
         if (!module.isPatternCraftingSupported(pattern)) {
             return "Waiting: fluid crafting upgrade missing";
         }
-        if (stagedCrafting.queuedForWorkspace(patternSlot)) return "Waiting: crafting workspace capacity";
         PipeItemsPatternCraftingLogistics.BlockingMode mode = module.getEffectiveBlockingMode();
         AdjacentTile connected = adjacentInventory.getConnected();
         int bufferedSets = module.completeBufferedSets(patternSlot);
-        int pendingDispatchSlot = module.pendingDispatchSlot();
-        if (pendingDispatchSlot >= 0) {
-            String status = module.batchOutputs().patternStatus(patternSlot);
-            return pendingDispatchSlot == patternSlot ? status == null ? "Waiting: finishing batch insertion" : status
-                    : "Waiting: another pattern is finishing its set";
-        }
         String batchStatus = module.batchOutputs().patternStatus(patternSlot);
         if (batchStatus != null) return batchStatus;
-        String satelliteStatus = blockingHandler.getHudSatelliteStatus(patternSlot);
-        if (satelliteStatus != null) {
-            return satelliteStatus;
-        }
-        if (blockingHandler.runningCraft() == patternSlot && blockingHandler.runningCraftInAdjacent()) {
-            return "Doing: crafting in target inventory";
-        }
-        if (blockingHandler.isBlockedByOtherRunningCraft(patternSlot, connected)) {
-            return "Waiting: blocking slot " + (blockingHandler.runningCraft() + 1) + " is crafting";
-        }
         if (bufferedSets > 0) {
             return getBufferedStatus(patternSlot, pattern, connected, mode, bufferedSets);
         }
@@ -150,11 +130,6 @@ final class PatternCraftingHudHandler {
         }
         int stagedSets = stagedCrafting.remainingSets(patternSlot);
         if (stagedSets > 0) {
-            if (!module.canReceiveForPattern(patternSlot)) {
-                return blockingHandler.runningCraft() >= 0
-                        ? "Waiting: blocking slot " + (blockingHandler.runningCraft() + 1)
-                        : "Waiting: buffer space";
-            }
             return "Doing: requesting " + formatSets(stagedSets);
         }
         if (totalAmount(ingredientBuffer.asMap().get(patternSlot)) > 0) {
@@ -165,12 +140,6 @@ final class PatternCraftingHudHandler {
 
     private String getBufferedStatus(int patternSlot, ItemStack pattern, AdjacentTile connected,
             PipeItemsPatternCraftingLogistics.BlockingMode mode, int bufferedSets) {
-        if (connected == null) {
-            return "Waiting: no target inventory";
-        }
-        if (mode == PipeItemsPatternCraftingLogistics.BlockingMode.BLOCKING && !adjacentInventory.isEmpty(connected)) {
-            return "Waiting: target inventory occupied";
-        }
         if (satelliteDispatchHandler
                 .findInsertableBufferedPlan(module.completeBufferOwner(patternSlot), patternSlot, pattern, bufferedSets)
                 == null) {

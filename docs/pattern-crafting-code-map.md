@@ -1,6 +1,6 @@
 # Complete pattern crafting source inventory
 
-Generated from Java syntax trees: 96 source files, 150 named/nested/anonymous types, 1857 explicit methods and constructors.
+Generated from Java syntax trees: 94 source files, 145 named/nested/anonymous types, 1756 explicit methods and constructors.
 
 Includes the crafting package (except the separate requesttable UI), pattern data/stack types, pattern pipe, pattern editor and satellite GUIs, monitor/popup, upgrades, importer, renderer, and watch packet. Shared integration classes are included in full: RequestTree, RequestTreeNode, ModuleProvider, PipeItemsProviderLogistics, ItemRoutingInformation, and CraftingRequestDebugManager. Other external LP/Minecraft/GT APIs are outside the graph. Lombok-generated methods and implicit constructors are not source declarations; lambdas are included in their enclosing method's call list. Calls in field/static initializers are outside the method graph.
 
@@ -14,47 +14,40 @@ Regenerate from the repository root with `java docs/tools/CraftingDiagram.java` 
 
 ## logisticspipes.crafting.AdjacentInventoryHandler
 
-Source: `src/main/java/logisticspipes/crafting/AdjacentInventoryHandler.java:34`
+Source: `src/main/java/logisticspipes/crafting/AdjacentInventoryHandler.java:30`
 
-- `<init>(ModulePatternCrafting module, PipeItemsPatternCraftingLogistics pipe)` — line 45
-- `void invalidate()` — line 50
-- `AdjacentTile getConnected()` — line 57
-- `boolean isConnectedToPatternCraftingTable()` — line 61
-- `public boolean hasConnectedTE()` — line 66
-- `List<AdjacentTile> locateFluidHandlers()` — line 71
-- `int roomFor(AdjacentTile connected, ItemIdentifier item)` — line 80
-- `int availablePatternSets(ItemStack pattern)` — line 89
-- `boolean canInsertPatternIngredients(ItemStack pattern, List<PatternIngredientAssignment> assignments)` — line 143
-- `int[] insertPatternIngredients(ItemStack pattern, List<PatternIngredientAssignment> assignments)` — line 198
-- `private int availablePatternSetsForFluids(List<PatternFluidStack> ingredients, AdjacentTile connected)` — line 226
-- `private boolean canFitFluids(IFluidHandler handler, ForgeDirection side, List<PatternFluidStack> fluids, int sets)` — line 276
-- `static boolean canFitFluids(List<Pair<IFluidHandler, ForgeDirection>> handlers, List<PatternFluidStack> fluids, int sets)` — line 281
-- `private static List<PatternFluidStack> mergeFluids(List<PatternFluidStack> fluids, int sets)` — line 369
-- `private List<ItemIdentifierStack> getSolidIngredients(List<IPatternStack> ingredients)` — line 389
-- `private List<PatternFluidStack> getFluidIngredients(List<IPatternStack> ingredients)` — line 400
-- `private int availablePatternSetsDisregardingSlots(List<ItemIdentifierStack> ingredients, AdjacentTile connected)` — line 410
-- `private IInventory getInsertableInventory(AdjacentTile connected)` — line 441
-- `static boolean canFitPatternSetsDisregardingSlots(IInventory inventory, List<ItemIdentifierStack> ingredients, int sets)` — line 452
-- `private static boolean insertIntoSnapshot(IInventory inventory, ItemStack[] snapshot, ItemStack stack)` — line 479
-- `private int availablePatternSetsForPatternTable(ItemStack pattern, PatternLogisticsCraftingTableTileEntity table)` — line 516
-- `private int insert(ItemIdentifierStack item)` — line 547
-- `private int insertFluid(PatternFluidStack fluid)` — line 592
-- `private ForgeDirection getFluidInsertionOrientation(AdjacentTile connected)` — line 606
-- `boolean isEmpty(AdjacentTile connected)` — line 610
-- `private boolean calculateEmpty(AdjacentTile connected)` — line 624
-- `ItemStack extract(IResource wanted, int count)` — line 650
-- `ItemStack extract(AdjacentTile tile, IResource wanted, int count)` — line 654
-- `FluidStack extractFluid(AdjacentTile tile, PatternFluidStack wanted, int amount)` — line 703
-- `public List<ItemStack> getExtractableItems()` — line 740
-- `private void refreshContentCache(AdjacentTile connected)` — line 770
-- `private void invalidateContentCache()` — line 783
-- `private void clearContentCacheValues()` — line 787
+- `<init>(ModulePatternCrafting module, PipeItemsPatternCraftingLogistics pipe)` — line 40
+- `void invalidate()` — line 45
+- `AdjacentTile getConnected()` — line 52
+- `boolean isConnectedToPatternCraftingTable()` — line 56
+- `public boolean hasConnectedTE()` — line 61
+- `List<AdjacentTile> locateFluidHandlers()` — line 66
+- `boolean canInsertPatternIngredients(ItemStack pattern, List<PatternIngredientAssignment> assignments)` — line 75
+- `int[] insertPatternIngredients(ItemStack pattern, List<PatternIngredientAssignment> assignments)` — line 130
+- `private boolean canFitFluids(IFluidHandler handler, ForgeDirection side, List<PatternFluidStack> fluids, int sets)` — line 167
+- `static boolean canFitFluids(List<Pair<IFluidHandler, ForgeDirection>> handlers, List<PatternFluidStack> fluids, int sets)` — line 172
+- `static boolean canFitFluidInputs(List<List<Pair<IFluidHandler, ForgeDirection>>> targets, List<PatternFluidStack> fluids)` — line 232
+- `private static List<PatternFluidStack> mergeFluids(List<PatternFluidStack> fluids, int sets)` — line 300
+- `IInventory getInsertableInventory(AdjacentTile connected)` — line 323
+- `static boolean canFitPatternSetsDisregardingSlots(IInventory inventory, List<ItemIdentifierStack> ingredients, int sets)` — line 334
+- `private static boolean insertIntoSnapshot(IInventory inventory, ItemStack[] snapshot, ItemStack stack)` — line 361
+- `private int insert(ItemIdentifierStack item)` — line 398
+- `private int insertFluid(PatternFluidStack fluid)` — line 443
+- `ForgeDirection getFluidInsertionOrientation(AdjacentTile connected)` — line 457
+- `boolean isEmpty(AdjacentTile connected)` — line 461
+- `private boolean calculateEmpty(AdjacentTile connected)` — line 475
+- `ItemStack extract(IResource wanted, int count)` — line 501
+- `ItemStack extract(AdjacentTile tile, IResource wanted, int count)` — line 505
+- `FluidStack extractFluid(AdjacentTile tile, PatternFluidStack wanted, int amount)` — line 554
+- `private void refreshContentCache(AdjacentTile connected)` — line 586
+- `private void invalidateContentCache()` — line 599
+- `private void clearContentCacheValues()` — line 603
 
 ## logisticspipes.crafting.AdjacentInventoryHandler.FluidCapacitySnapshot
 
-Source: `src/main/java/logisticspipes/crafting/AdjacentInventoryHandler.java:340`
+Source: `src/main/java/logisticspipes/crafting/AdjacentInventoryHandler.java:271`
 
-- `private <init>(IFluidHandler handler, ForgeDirection side)` — line 347
+- `private <init>(IFluidHandler handler, ForgeDirection side)` — line 278
 
 ## logisticspipes.crafting.CraftingMonitorGui
 
@@ -168,147 +161,134 @@ Source: `src/main/java/logisticspipes/crafting/ItemMemoryChip.java:35`
 
 Source: `src/main/java/logisticspipes/crafting/ModulePatternCrafting.java:70`
 
-- `public <init>(PipeItemsPatternCraftingLogistics pipe)` — line 112
-- `public IInventory getPatternInventory()` — line 185
-- `public ItemStack getPatternStack(int slot)` — line 189
-- `PatternRecipeSnapshot getPatternRecipe(ItemStack pattern)` — line 193
-- `PatternCraftingBatchOutputs batchOutputs()` — line 197
-- `PatternCraftingWorkspace workspace()` — line 201
-- `long unreservedInputs(Set<UUID> admitted, boolean fluid)` — line 205
-- `boolean hasWorkspaceWork(UUID instance)` — line 210
-- `boolean hasNonBatchWorkspaceWork(UUID instance)` — line 214
-- `boolean hasLegacyOrders()` — line 228
-- `public ItemStack getPatternItemStack(int slot)` — line 235
-- `public void markPatternInventoryDirty()` — line 242
-- `public void onCraftingTargetChanged()` — line 247
-- `public int assignSatelliteToAllPatternIngredients(int satelliteId, String satelliteUuid)` — line 253
-- `public PipeItemsPatternCraftingLogistics.BlockingMode getBlockingMode()` — line 279
-- `public void setBlockingMode(PipeItemsPatternCraftingLogistics.BlockingMode blockingMode)` — line 283
-- `public boolean isBlockingModeFixed()` — line 296
-- `PipeItemsPatternCraftingLogistics.BlockingMode getEffectiveBlockingMode()` — line 300
-- `@Override public SinkReply sinksItem(ItemIdentifier item, int bestPriority, int bestCustomPriority, boolean allowDefault, boolean includeInTransit)` — line 314
-- `public int sinkAmount(FluidStack stack)` — line 356
-- `@Override public void tick()` — line 369
-- `@Override public boolean hasGenericInterests()` — line 384
-- `@Override public Collection<ItemIdentifier> getSpecificInterests()` — line 392
-- `public Set<ItemIdentifier> getCraftedItems()` — line 400
-- `public Set<ItemIdentifier> getOutputItems()` — line 404
-- `@Override public boolean interestedInAttachedInventory()` — line 411
-- `@Override public boolean interestedInUndamagedID()` — line 416
-- `@Override public boolean recievePassive()` — line 421
-- `@Override public void getAllItems(Map<ItemIdentifier, Integer> list, List<IFilter> filter)` — line 426
-- `@Override public LogisticsModule getSubModule(int slot)` — line 429
-- `@Override public int getX()` — line 434
-- `@Override public int getY()` — line 439
-- `@Override public int getZ()` — line 444
-- `@Override public Map<FluidIdentifier, Integer> getAvailableFluids()` — line 449
-- `@Override public net.minecraft.util.IIcon getIconTexture(IIconRegister register)` — line 454
-- `@Override public void readFromNBT(NBTTagCompound tag)` — line 459
-- `@Override public void writeToNBT(NBTTagCompound tag)` — line 509
-- `@Override public void registerPosition(ModulePositionType slot, int positionInt)` — line 549
-- `void debug(String message, Object... args)` — line 555
-- `public void debugEvent(String category, String message, Object... args)` — line 561
-- `void debugEventThrottled(String category, String message, Object... args)` — line 565
-- `void debugEventThrottled(String category, int intervalTicks, String message, Object... args)` — line 569
-- `public void recordDebugEvent(String category, String message)` — line 593
-- `private String formatDebugMessage(String message, Object... args)` — line 598
-- `private long currentDebugTick()` — line 617
-- `long currentWorldTick()` — line 621
-- `private void restoreStagedCraftingIfNeeded()` — line 627
-- `List<PatternCraftingMonitorEntry> getPendingRestoreEntries()` — line 650
-- `List<PatternCraftingMonitorEntry> getStandaloneOrderEntries()` — line 658
-- `private boolean appendStandaloneOrder(LogisticsOrder order, Map<UUID, List<PatternCraftingMonitorNode>> rootsByInstance)` — line 679
-- `boolean hasStandaloneOrderInstance(UUID instanceId)` — line 705
-- `boolean cancelStandaloneOrderInstance(UUID instanceId)` — line 722
-- `private boolean isStandaloneOrderForInstance(LogisticsOrder order, UUID instanceId)` — line 736
-- `boolean hasPendingRestoreInstance(UUID instanceId)` — line 743
-- `boolean cancelPendingRestore(UUID instanceId)` — line 748
-- `private void markPersistentStateDirty()` — line 765
-- `void markCraftingStateDirty()` — line 771
-- `int incomingCraftingAmount(PatternCraftingReference owner, IPatternStack ingredient)` — line 777
-- `private int incomingOrderAmount(LogisticsOrder order, PatternCraftingReference owner, IPatternStack ingredient)` — line 789
-- `void deferDispatchCleanup(PatternSatelliteDispatchHandler.DispatchPlan plan, boolean returnToStorage)` — line 797
-- `private void scheduleRequestedIngredientRestoreRetriesIfReady()` — line 801
-- `boolean supportsFluidCrafting()` — line 819
-- `boolean hasAdvancedSatelliteUpgrade()` — line 824
-- `boolean hasInstantSatelliteUpgrade()` — line 829
-- `public boolean isPatternCraftingSupported(ItemStack pattern)` — line 837
-- `private boolean isFluidCraftingPattern(ItemStack pattern)` — line 841
-- `private void cancelUnsupportedFluidPatternCrafts()` — line 846
-- `@Override public void canProvide(RequestTreeNode tree, RequestTree root, List<IFilter> filters)` — line 877
-- `@Override public LogisticsOrder fullFill(LogisticsPromise promise, IRequestItems destination, IAdditionalTargetInformation info)` — line 937
-- `@Override public IOrderInfoProvider fullFillStagedCrafting(IPromise promise, IResource requestType, IAdditionalTargetInformation info, PatternCraftingBranch branch)` — line 980
-- `@Override public IOrderInfoProvider fullFill(FluidLogisticsPromise promise, IRequestFluid destination, ResourceType type, IAdditionalTargetInformation info)` — line 993
-- `@Override public void sendFailed(FluidIdentifier fluid, Integer amount)` — line 1022
-- `@Override public IRouter getRouter()` — line 1027
-- `@Override public void itemCouldNotBeSend(ItemIdentifierStack item, IAdditionalTargetInformation info)` — line 1032
-- `@Override public int getID()` — line 1037
-- `@Override public int compareTo(IRequest request)` — line 1042
-- `@Override public void registerExtras(IPromise promise)` — line 1053
-- `void registerExtras(IPromise promise, PatternCraftingReference owner)` — line 1058
-- `private PatternByproductTarget byproductTarget(IPromise promise)` — line 1097
-- `@Override public ICraftingTemplate addCrafting(IResource toCraft)` — line 1108
-- `@Override public boolean canCraft(IResource toCraft)` — line 1114
-- `@Override public int getTodo()` — line 1124
-- `@Override public List<ItemIdentifierStack> getConfiguredCraftResults()` — line 1129
-- `public PatternCraftingHudState getHudState()` — line 1138
-- `public boolean shouldRefreshHudState()` — line 1145
-- `public void markHudStateDirty()` — line 1152
-- `public void appendDebugState(StringBuilder out)` — line 1159
-- `@Override public void itemLost(ItemIdentifierStack item, IAdditionalTargetInformation info)` — line 1178
-- `@Override public void itemArrived(ItemIdentifierStack item, IAdditionalTargetInformation info)` — line 1194
-- `protected ISlotUpgradeManager getUpgradeManager()` — line 1200
-- `ForgeDirection getInsertionOrientation(AdjacentTile tile)` — line 1211
-- `boolean abandonPendingDispatch(UUID instanceId)` — line 1222
-- `int pendingDispatchSlot()` — line 1229
-- `int getRunningCraftForHandler()` — line 1233
-- `boolean canReceiveForPattern(int patternSlot)` — line 1242
-- `int maxDispatchablePatternSets(PatternCraftingReference ownerReference, ItemStack pattern, int maxSets)` — line 1253
-- `List<IPatternStack> getAggregatedIngredients(ItemStack pattern)` — line 1261
-- `List<IPatternStack> getLocalAggregatedIngredients(ItemStack pattern)` — line 1268
-- `List<PatternIngredientTarget> getIngredientTargets(ItemStack pattern)` — line 1278
-- `int bufferedIngredientAmount(int patternSlot, ItemStack pattern, IPatternStack ingredient)` — line 1282
-- `int requestedIngredientAmount(int patternSlot, ItemStack pattern, IPatternStack ingredient)` — line 1289
-- `int requestedItemAmount(int patternSlot, ItemStack pattern, ItemIdentifier item)` — line 1293
-- `int requestedItemAmount(PatternCraftingReference owner, int patternSlot, ItemIdentifier item)` — line 1297
-- `List<PatternIngredientAssignment> buildBufferedIngredientPlan(int patternSlot, ItemStack pattern, int sets)` — line 1301
-- `List<PatternIngredientAssignment> buildBufferedIngredientPlan(PatternCraftingReference owner, int patternSlot, ItemStack pattern, int sets)` — line 1305
-- `boolean hasLinkedSatelliteAssignment(ItemStack pattern, int inputSlot)` — line 1313
-- `boolean hasLinkedSatelliteAssignments(ItemStack pattern)` — line 1320
-- `IRequestItems getSatelliteTargetForInputSlot(AbstractPattern pattern, int inputSlot)` — line 1327
-- `IRequestFluid getFluidSatelliteTargetForInputSlot(AbstractPattern pattern, int inputSlot)` — line 1335
-- `private void pushBufferedIngredients()` — line 1346
-- `void pushBufferedIngredientsFor(int patternSlot)` — line 1353
-- `int completeBufferedSets(int patternSlot)` — line 1361
-- `int completeBufferedSets(PatternCraftingReference owner, int patternSlot)` — line 1365
-- `void requestIngredientsForStagedCrafts()` — line 1373
-- `public boolean cancelPatternCraft(int patternSlot)` — line 1389
-- `boolean cancelTrackedOrder(PatternCraftingOrder order)` — line 1397
-- `public boolean returnStoredInputsToStorage()` — line 1408
-- `int findCompleteBufferedPattern()` — line 1415
-- `void activateRunningCraftFromBuffer(int patternSlot, PatternCraftingReference owner)` — line 1422
-- `PatternCraftingReference completeBufferOwner(int patternSlot)` — line 1426
-- `boolean isRunningCraftLocked()` — line 1433
-- `private void clearRunningCraftIfFinished()` — line 1440
-- `AdjacentTile getConnectedInventoryTile()` — line 1444
-- `boolean isInventoryEmpty(AdjacentTile connected)` — line 1448
-- `private boolean areAllOrdersBuffered()` — line 1460
-- `boolean isOrderDestinationThisModule(LogisticsItemOrder order)` — line 1507
-- `boolean isOrderDestinationThisModule(LogisticsFluidOrder order)` — line 1512
-- `int requestedSamePipeItemAmount(LogisticsItemOrder order)` — line 1517
-- `int requestedSamePipeFluidAmount(LogisticsFluidOrder order)` — line 1526
-- `private void appendConnectedInventoryDebug(StringBuilder out)` — line 1535
-- `private void appendPatternDebug(StringBuilder out)` — line 1550
-- `private void appendPatternSlots(StringBuilder out, AbstractPattern pattern, int start, int end, String label)` — line 1574
-- `private void appendStackMapDebug(StringBuilder out, String label, Map<Integer, List<IPatternStack>> stacksByPattern)` — line 1594
-- `private void appendStagedCraftDebug(StringBuilder out)` — line 1608
-- `private void appendOrderDebug(StringBuilder out)` — line 1618
-- `private void appendInlineStacks(StringBuilder out, List<IPatternStack> stacks)` — line 1636
-- `public void onAllowedRemoval()` — line 1650
+- `public <init>(PipeItemsPatternCraftingLogistics pipe)` — line 110
+- `public IInventory getPatternInventory()` — line 178
+- `public ItemStack getPatternStack(int slot)` — line 182
+- `PatternRecipeSnapshot getPatternRecipe(ItemStack pattern)` — line 186
+- `PatternCraftingBatchOutputs batchOutputs()` — line 190
+- `boolean hasPendingIngredientWork(UUID instance)` — line 194
+- `public ItemStack getPatternItemStack(int slot)` — line 208
+- `public void markPatternInventoryDirty()` — line 215
+- `public void onCraftingTargetChanged()` — line 220
+- `public int assignSatelliteToAllPatternIngredients(int satelliteId, String satelliteUuid)` — line 226
+- `public PipeItemsPatternCraftingLogistics.BlockingMode getBlockingMode()` — line 252
+- `public void setBlockingMode(PipeItemsPatternCraftingLogistics.BlockingMode blockingMode)` — line 256
+- `public boolean isBlockingModeFixed()` — line 269
+- `PipeItemsPatternCraftingLogistics.BlockingMode getEffectiveBlockingMode()` — line 273
+- `@Override public SinkReply sinksItem(ItemIdentifier item, int bestPriority, int bestCustomPriority, boolean allowDefault, boolean includeInTransit)` — line 287
+- `public int sinkAmount(FluidStack stack)` — line 329
+- `@Override public void tick()` — line 342
+- `@Override public boolean hasGenericInterests()` — line 355
+- `@Override public Collection<ItemIdentifier> getSpecificInterests()` — line 363
+- `public Set<ItemIdentifier> getCraftedItems()` — line 371
+- `public Set<ItemIdentifier> getOutputItems()` — line 375
+- `@Override public boolean interestedInAttachedInventory()` — line 382
+- `@Override public boolean interestedInUndamagedID()` — line 387
+- `@Override public boolean recievePassive()` — line 392
+- `@Override public void getAllItems(Map<ItemIdentifier, Integer> list, List<IFilter> filter)` — line 397
+- `@Override public LogisticsModule getSubModule(int slot)` — line 400
+- `@Override public int getX()` — line 405
+- `@Override public int getY()` — line 410
+- `@Override public int getZ()` — line 415
+- `@Override public Map<FluidIdentifier, Integer> getAvailableFluids()` — line 420
+- `@Override public net.minecraft.util.IIcon getIconTexture(IIconRegister register)` — line 425
+- `@Override public void readFromNBT(NBTTagCompound tag)` — line 430
+- `@Override public void writeToNBT(NBTTagCompound tag)` — line 471
+- `@Override public void registerPosition(ModulePositionType slot, int positionInt)` — line 507
+- `void debug(String message, Object... args)` — line 513
+- `public void debugEvent(String category, String message, Object... args)` — line 519
+- `void debugEventThrottled(String category, String message, Object... args)` — line 523
+- `void debugEventThrottled(String category, int intervalTicks, String message, Object... args)` — line 527
+- `public void recordDebugEvent(String category, String message)` — line 551
+- `private String formatDebugMessage(String message, Object... args)` — line 556
+- `private long currentDebugTick()` — line 575
+- `long currentWorldTick()` — line 579
+- `private void restoreStagedCraftingIfNeeded()` — line 585
+- `List<PatternCraftingMonitorEntry> getPendingRestoreEntries()` — line 608
+- `List<PatternCraftingMonitorEntry> getStandaloneOrderEntries()` — line 616
+- `private boolean appendStandaloneOrder(LogisticsOrder order, Map<UUID, List<PatternCraftingMonitorNode>> rootsByInstance)` — line 637
+- `boolean hasStandaloneOrderInstance(UUID instanceId)` — line 663
+- `boolean cancelStandaloneOrderInstance(UUID instanceId)` — line 680
+- `private boolean isStandaloneOrderForInstance(LogisticsOrder order, UUID instanceId)` — line 694
+- `boolean hasPendingRestoreInstance(UUID instanceId)` — line 701
+- `boolean cancelPendingRestore(UUID instanceId)` — line 706
+- `private void markPersistentStateDirty()` — line 723
+- `void markCraftingStateDirty()` — line 729
+- `int incomingCraftingAmount(PatternCraftingReference owner, IPatternStack ingredient)` — line 735
+- `private int incomingOrderAmount(LogisticsOrder order, PatternCraftingReference owner, IPatternStack ingredient)` — line 747
+- `void deferDispatchCleanup(PatternSatelliteDispatchHandler.DispatchPlan plan, boolean returnToStorage)` — line 755
+- `private void scheduleRequestedIngredientRestoreRetriesIfReady()` — line 759
+- `boolean supportsFluidCrafting()` — line 777
+- `boolean hasAdvancedSatelliteUpgrade()` — line 782
+- `boolean hasInstantSatelliteUpgrade()` — line 787
+- `public boolean isPatternCraftingSupported(ItemStack pattern)` — line 795
+- `private boolean isFluidCraftingPattern(ItemStack pattern)` — line 799
+- `private void cancelUnsupportedFluidPatternCrafts()` — line 804
+- `@Override public void canProvide(RequestTreeNode tree, RequestTree root, List<IFilter> filters)` — line 835
+- `@Override public LogisticsOrder fullFill(LogisticsPromise promise, IRequestItems destination, IAdditionalTargetInformation info)` — line 896
+- `@Override public IOrderInfoProvider fullFillStagedCrafting(IPromise promise, IResource requestType, IAdditionalTargetInformation info, PatternCraftingBranch branch)` — line 939
+- `@Override public IOrderInfoProvider fullFill(FluidLogisticsPromise promise, IRequestFluid destination, ResourceType type, IAdditionalTargetInformation info)` — line 952
+- `@Override public void sendFailed(FluidIdentifier fluid, Integer amount)` — line 981
+- `@Override public IRouter getRouter()` — line 986
+- `@Override public void itemCouldNotBeSend(ItemIdentifierStack item, IAdditionalTargetInformation info)` — line 991
+- `@Override public int getID()` — line 996
+- `@Override public int compareTo(IRequest request)` — line 1001
+- `@Override public void registerExtras(IPromise promise)` — line 1012
+- `void registerExtras(IPromise promise, PatternCraftingReference owner)` — line 1017
+- `private PatternByproductTarget byproductTarget(IPromise promise)` — line 1056
+- `@Override public ICraftingTemplate addCrafting(IResource toCraft)` — line 1067
+- `@Override public boolean canCraft(IResource toCraft)` — line 1073
+- `@Override public int getTodo()` — line 1083
+- `@Override public List<ItemIdentifierStack> getConfiguredCraftResults()` — line 1088
+- `public PatternCraftingHudState getHudState()` — line 1097
+- `public boolean shouldRefreshHudState()` — line 1104
+- `public void markHudStateDirty()` — line 1111
+- `public void appendDebugState(StringBuilder out)` — line 1118
+- `@Override public void itemLost(ItemIdentifierStack item, IAdditionalTargetInformation info)` — line 1136
+- `@Override public void itemArrived(ItemIdentifierStack item, IAdditionalTargetInformation info)` — line 1152
+- `protected ISlotUpgradeManager getUpgradeManager()` — line 1158
+- `ForgeDirection getInsertionOrientation(AdjacentTile tile)` — line 1169
+- `boolean abandonPendingDispatch(UUID instanceId)` — line 1180
+- `PatternSatelliteDispatchHandler.DispatchPlan orderingPlan(PatternCraftingOrder order)` — line 1187
+- `int orderablePatternSets(PatternCraftingOrder order)` — line 1191
+- `int pendingPatternSets(int slot)` — line 1195
+- `ItemStack patternForOwner(PatternCraftingReference owner, int slot)` — line 1202
+- `int maxDispatchablePatternSets(PatternCraftingReference ownerReference, ItemStack pattern, int maxSets)` — line 1207
+- `List<PatternIngredientTarget> getIngredientTargets(ItemStack pattern)` — line 1217
+- `int bufferedIngredientAmount(int patternSlot, ItemStack pattern, IPatternStack ingredient)` — line 1221
+- `int requestedIngredientAmount(int patternSlot, ItemStack pattern, IPatternStack ingredient)` — line 1228
+- `int requestedItemAmount(int patternSlot, ItemStack pattern, ItemIdentifier item)` — line 1232
+- `int requestedItemAmount(PatternCraftingReference owner, int patternSlot, ItemIdentifier item)` — line 1236
+- `List<PatternIngredientAssignment> buildBufferedIngredientPlan(PatternCraftingReference owner, int patternSlot, ItemStack pattern, int sets)` — line 1240
+- `boolean hasLinkedSatelliteAssignment(ItemStack pattern, int inputSlot)` — line 1248
+- `boolean hasLinkedSatelliteAssignments(ItemStack pattern)` — line 1255
+- `IRequestItems getSatelliteTargetForInputSlot(AbstractPattern pattern, int inputSlot)` — line 1262
+- `IRequestFluid getFluidSatelliteTargetForInputSlot(AbstractPattern pattern, int inputSlot)` — line 1270
+- `private void pushBufferedIngredients()` — line 1281
+- `void pushBufferedIngredientsFor(int patternSlot)` — line 1288
+- `int completeBufferedSets(int patternSlot)` — line 1296
+- `void requestIngredientsForStagedCrafts()` — line 1304
+- `public boolean cancelPatternCraft(int patternSlot)` — line 1320
+- `boolean cancelTrackedOrder(PatternCraftingOrder order)` — line 1328
+- `public boolean returnStoredInputsToStorage()` — line 1339
+- `PatternCraftingReference completeBufferOwner(int patternSlot)` — line 1343
+- `private boolean areAllOrdersBuffered()` — line 1355
+- `boolean isOrderDestinationThisModule(LogisticsItemOrder order)` — line 1402
+- `boolean isOrderDestinationThisModule(LogisticsFluidOrder order)` — line 1407
+- `int requestedSamePipeItemAmount(LogisticsItemOrder order)` — line 1412
+- `int requestedSamePipeFluidAmount(LogisticsFluidOrder order)` — line 1421
+- `private void appendConnectedInventoryDebug(StringBuilder out)` — line 1430
+- `private void appendPatternDebug(StringBuilder out)` — line 1445
+- `private void appendPatternSlots(StringBuilder out, AbstractPattern pattern, int start, int end, String label)` — line 1469
+- `private void appendStackMapDebug(StringBuilder out, String label, Map<Integer, List<IPatternStack>> stacksByPattern)` — line 1489
+- `private void appendStagedCraftDebug(StringBuilder out)` — line 1503
+- `private void appendOrderDebug(StringBuilder out)` — line 1513
+- `private void appendInlineStacks(StringBuilder out, List<IPatternStack> stacks)` — line 1531
+- `public void onAllowedRemoval()` — line 1545
 
 ## logisticspipes.crafting.ModulePatternCrafting.ThrottledDebugEvent
 
-Source: `src/main/java/logisticspipes/crafting/ModulePatternCrafting.java:1666`
+Source: `src/main/java/logisticspipes/crafting/ModulePatternCrafting.java:1560`
 
 No explicit method declarations.
 
@@ -377,278 +357,231 @@ Source: `src/main/java/logisticspipes/crafting/PatternCraftingArrivalHandler.jav
 - `<init>(ModulePatternCrafting module, PipeItemsPatternCraftingLogistics pipe, PatternHandler patternHandler, PatternStackBufferHandler ingredientBuffer, PatternStackRequestHandler requestedIngredient, PatternCraftingIngredientPlanner ingredientPlanner, PatternCraftingCancelHandler cancelHandler)` — line 28
 - `void itemArrived(ItemIdentifierStack item, IAdditionalTargetInformation info)` — line 41
 - `private void solidItemArrived(PatternTargetInformation target, ItemStack pattern, ItemIdentifierStack item)` — line 62
-- `private void fluidArrived(PatternTargetInformation target, ItemStack pattern, ItemIdentifierStack routedStack, FluidStack fluidStack)` — line 111
-- `private void sendToStorage(PatternTargetInformation target, ItemIdentifierStack item, FluidStack fluid)` — line 168
+- `private void fluidArrived(PatternTargetInformation target, ItemStack pattern, ItemIdentifierStack routedStack, FluidStack fluidStack)` — line 110
+- `private void sendToStorage(PatternTargetInformation target, ItemIdentifierStack item, FluidStack fluid)` — line 167
 
 ## logisticspipes.crafting.PatternCraftingBatchOutputs
 
 Source: `src/main/java/logisticspipes/crafting/PatternCraftingBatchOutputs.java:26`
 
-- `<init>(ModulePatternCrafting module, PipeItemsPatternCraftingLogistics pipe, AdjacentInventoryHandler adjacent)` — line 39
-- `boolean prepare(PatternSatelliteDispatchHandler.DispatchPlan plan)` — line 48
-- `boolean canUseTargets(PatternSatelliteDispatchHandler.DispatchPlan plan)` — line 89
-- `void committed(PatternSatelliteDispatchHandler.DispatchPlan plan)` — line 116
-- `void discardPrepared(PatternSatelliteDispatchHandler.DispatchPlan plan)` — line 124
-- `private long occupied(boolean fluid)` — line 132
-- `void collect()` — line 139
-- `boolean arrival(ItemIdentifierStack arrived, PatternTargetInformation info)` — line 203
-- `private void returnArrivalToStorage(ItemIdentifierStack stack)` — line 244
-- `int missing(PatternTargetInformation info, IPatternStack stack)` — line 253
-- `boolean lost(PatternTargetInformation info, IPatternStack stack)` — line 262
-- `int incoming(IPatternStack stack)` — line 276
-- `IPatternStack take(LogisticsOrder order, int maxAmount)` — line 283
-- `private boolean matches(Batch batch, Output output, LogisticsOrder order)` — line 297
-- `boolean manages(LogisticsOrder order)` — line 310
-- `void forgetJob(UUID instance)` — line 323
-- `void manageJob(UUID instance)` — line 327
-- `private logisticspipes.utils.tuples.Pair<Integer, Integer> storageReply(IPatternStack stack, int wanted)` — line 331
-- `int storageRoom(IPatternStack stack, int wanted)` — line 349
-- `logisticspipes.logisticspipes.IRoutedItem sendToStorage(IPatternStack stack)` — line 353
-- `void putBack(LogisticsOrder order, IPatternStack stack)` — line 367
-- `boolean hasInstance(UUID instance)` — line 376
-- `boolean cancelInstance(UUID instance)` — line 381
-- `List<PatternCraftingMonitorEntry> monitorEntries()` — line 397
-- `boolean activePattern(int slot)` — line 415
-- `String patternStatus(int slot)` — line 420
-- `long unreservedAmount(java.util.Set<UUID> admitted, boolean fluid)` — line 431
-- `void cleanup()` — line 441
-- `void returnUnclaimedOutputs()` — line 452
-- `void dropContents(net.minecraft.world.World world, int x, int y, int z)` — line 487
-- `void readFromNBT(NBTTagCompound tag, PatternSatelliteDispatchHandler dispatcher)` — line 498
-- `void writeToNBT(NBTTagCompound tag)` — line 532
-- `void appendDebugState(StringBuilder out)` — line 564
-- `static void clear()` — line 623
+- `<init>(ModulePatternCrafting module, PipeItemsPatternCraftingLogistics pipe, AdjacentInventoryHandler adjacent)` — line 37
+- `boolean prepare(PatternSatelliteDispatchHandler.DispatchPlan plan)` — line 46
+- `boolean canUseTargets(PatternSatelliteDispatchHandler.DispatchPlan plan)` — line 83
+- `boolean canOrderIntoTargets(PatternCraftingOrder order)` — line 108
+- `int firstActivePattern()` — line 122
+- `List<Integer> activePatternSlots()` — line 127
+- `void committed(PatternSatelliteDispatchHandler.DispatchPlan plan)` — line 134
+- `void discardPrepared(PatternSatelliteDispatchHandler.DispatchPlan plan)` — line 142
+- `void collect()` — line 150
+- `boolean arrival(ItemIdentifierStack arrived, PatternTargetInformation info)` — line 214
+- `private void returnArrivalToStorage(ItemIdentifierStack stack)` — line 257
+- `int missing(PatternTargetInformation info, IPatternStack stack)` — line 266
+- `boolean lost(PatternTargetInformation info, IPatternStack stack)` — line 275
+- `int incoming(IPatternStack stack)` — line 289
+- `IPatternStack take(LogisticsOrder order, int maxAmount)` — line 296
+- `private boolean matches(Batch batch, Output output, LogisticsOrder order)` — line 311
+- `int futureClaims(LogisticsOrder order)` — line 324
+- `int futureClaims(PatternByproductTarget target, IPatternStack output)` — line 336
+- `private int futureClaims(PatternByproductTarget target, IPatternStack output, UUID producingJob)` — line 341
+- `boolean manages(LogisticsOrder order)` — line 354
+- `void manageJob(UUID instance)` — line 367
+- `logisticspipes.logisticspipes.IRoutedItem sendToStorage(IPatternStack stack)` — line 371
+- `boolean hasInstance(UUID instance)` — line 379
+- `boolean cancelInstance(UUID instance)` — line 384
+- `List<PatternCraftingMonitorEntry> monitorEntries()` — line 400
+- `boolean activePattern(int slot)` — line 418
+- `String patternStatus(int slot)` — line 423
+- `void cleanup()` — line 434
+- `void returnUnclaimedOutputs()` — line 448
+- `private int unclaimedAmount(Batch batch, Output output)` — line 481
+- `void dropContents(net.minecraft.world.World world, int x, int y, int z)` — line 498
+- `void readFromNBT(NBTTagCompound tag, PatternSatelliteDispatchHandler dispatcher)` — line 509
+- `void writeToNBT(NBTTagCompound tag)` — line 543
+- `void appendDebugState(StringBuilder out)` — line 575
+- `static void clear()` — line 656
 
 ## logisticspipes.crafting.PatternCraftingBatchOutputs.Batch
 
-Source: `src/main/java/logisticspipes/crafting/PatternCraftingBatchOutputs.java:580`
+Source: `src/main/java/logisticspipes/crafting/PatternCraftingBatchOutputs.java:590`
 
-- `<init>(PatternSatelliteDispatchHandler.DispatchPlan plan, PipeItemsPatternCraftingLogistics.BlockingMode mode)` — line 588
-- `boolean drained()` — line 593
-- `boolean empty()` — line 599
+- `<init>(PatternSatelliteDispatchHandler.DispatchPlan plan, PipeItemsPatternCraftingLogistics.BlockingMode mode)` — line 598
+- `int completedSets()` — line 605
+- `int deliverable(Output output)` — line 618
+- `boolean drained()` — line 626
+- `boolean empty()` — line 632
 
 ## logisticspipes.crafting.PatternCraftingBatchOutputs.Output
 
-Source: `src/main/java/logisticspipes/crafting/PatternCraftingBatchOutputs.java:607`
+Source: `src/main/java/logisticspipes/crafting/PatternCraftingBatchOutputs.java:640`
 
-- `<init>(IPatternStack stack, PatternByproductTarget target)` — line 616
-
-## logisticspipes.crafting.PatternCraftingBlockingHandler
-
-Source: `src/main/java/logisticspipes/crafting/PatternCraftingBlockingHandler.java:22`
-
-- `<init>(ModulePatternCrafting module)` — line 31
-- `void readFromNBT(NBTTagCompound tag, PatternSatelliteDispatchHandler dispatcher)` — line 35
-- `void writeToNBT(NBTTagCompound tag)` — line 45
-- `int runningCraft()` — line 51
-- `boolean runningCraftInAdjacent()` — line 55
-- `PatternCraftingReference runningCraftReference()` — line 59
-- `boolean hasSatelliteBatches()` — line 63
-- `List<Integer> satelliteBatchPatternSlots()` — line 68
-- `boolean hasSatelliteBatchFor(int patternSlot)` — line 79
-- `boolean isPatternActive(int patternSlot)` — line 84
-- `void restoreRunningCraft(int patternSlot, PatternCraftingReference reference, boolean inAdjacent)` — line 88
-- `void activateFromBuffer(int patternSlot, PatternCraftingReference reference)` — line 99
-- `boolean canReceiveForPattern(int patternSlot)` — line 108
-- `boolean shouldSkipPushFor(int patternSlot)` — line 125
-- `void markDispatched(int patternSlot, PatternCraftingReference reference, SatelliteBatch satelliteBatch, boolean usesLocalInventory)` — line 136
-- `boolean isRunningCraftLocked()` — line 150
-- `boolean isRunningCraftLocked(AdjacentTile connected)` — line 154
-- `void refreshRunningCraftState(AdjacentTile connected)` — line 165
-- `String getHudSatelliteStatus(int patternSlot)` — line 197
-- `boolean isBlockedByOtherRunningCraft(int patternSlot, AdjacentTile connected)` — line 209
-- `boolean retrieveAndReleaseSatelliteBatches(Collection<Integer> patternSlots)` — line 220
-- `boolean retrieveAndReleaseSatelliteBatches(UUID instanceId)` — line 238
-- `boolean clearRunningCraft(UUID instanceId)` — line 256
-- `boolean retrieveAndReleaseAllSatelliteBatches()` — line 264
-- `boolean releaseAllSatelliteBatches()` — line 276
-- `private void refreshSatelliteBatches()` — line 288
-- `private boolean hasActiveSatelliteBatchWithoutRefresh()` — line 311
-- `private boolean hasSatelliteBatchForWithoutRefresh(int patternSlot)` — line 315
-- `private void setRunningCraft(int patternSlot, PatternCraftingReference reference, boolean inAdjacent)` — line 324
-
-## logisticspipes.crafting.PatternCraftingBlockingHandler.SatelliteBatch
-
-Source: `src/main/java/logisticspipes/crafting/PatternCraftingBlockingHandler.java:335`
-
-- `PatternCraftingReference ownerReference()` — line 337
-- `int patternSlot()` — line 339
-- `int size()` — line 341
-- `boolean isConsumed()` — line 343
-- `void release()` — line 345
-- `void retrieveAndRelease()` — line 347
-- `NBTTagCompound writeToNBT()` — line 349
+- `<init>(IPatternStack stack, PatternByproductTarget target)` — line 649
 
 ## logisticspipes.crafting.PatternCraftingBranch
 
-Source: `src/main/java/logisticspipes/crafting/PatternCraftingBranch.java:27`
+Source: `src/main/java/logisticspipes/crafting/PatternCraftingBranch.java:28`
 
-- `void collectWorkspace(Map<ModulePatternCrafting, PatternCraftingWorkspace.Budget> plan)` — line 65
-- `public <init>(IResource requestType, IAdditionalTargetInformation info, List<IPromise> promises, List<IExtraPromise> extraPromises, List<IExtraPromise> byproducts, List<PatternCraftingBranch> subRequests)` — line 91
-- `private <init>(IResource requestType, IAdditionalTargetInformation info, int originalAmount, int remainingAmount, List<PromiseState> promises, List<ExtraState> extraPromises, List<ExtraState> byproducts, List<PatternCraftingBranch> subRequests)` — line 105
-- `private <init>(IResource requestType, IAdditionalTargetInformation info, int originalAmount, int remainingAmount, int originalCraftingAmount, int remainingCraftingAmount, List<PromiseState> promises, List<ExtraState> extraPromises, List<ExtraState> byproducts, List<PatternCraftingBranch> subRequests)` — line 121
-- `static PatternCraftingBranch readFromNBT(NBTTagCompound tag)` — line 137
-- `private static List<PatternCraftingBranch> mergeCompatibleBranches(List<PatternCraftingBranch> branches)` — line 163
-- `private static int findCompatibleBranch(List<PatternCraftingBranch> branches, PatternCraftingBranch candidate)` — line 176
-- `private static List<PromiseState> copyPromiseStates(List<IPromise> promises)` — line 185
-- `private static List<ExtraState> copyExtraStates(List<IExtraPromise> promises)` — line 196
-- `private static List<PromiseState> readPromiseStates(NBTTagList list)` — line 204
-- `private static List<ExtraState> readExtraStates(NBTTagList list)` — line 218
-- `private static List<PatternCraftingBranch> readSubRequests(NBTTagList list)` — line 230
-- `private static int countCraftingAmount(List<PromiseState> promises)` — line 241
-- `private static int countCraftingSets(List<PromiseState> promises)` — line 254
-- `private static int craftingSetsForAmount(IPromise promise, int amount)` — line 264
-- `private static int resultAmountPerSet(IPromise promise)` — line 272
-- `private static IPromise copyPromiseForAmount(IPromise promise, int amount)` — line 285
-- `private static int scaleAmount(int amount, int numerator, int denominator)` — line 306
-- `public List<PatternCraftingBranch> getSubRequests()` — line 321
-- `IAdditionalTargetInformation getTargetInformation()` — line 328
-- `void attachDebugModule(ModulePatternCrafting module)` — line 337
-- `private static List<ExtraState> mergeByproductStates(List<ExtraState> states)` — line 344
-- `private static PatternByproductTarget byproductTarget(IExtraPromise promise)` — line 369
-- `private boolean producesByproduct(IPromise promise, IExtraPromise byproduct)` — line 373
-- `private int byproductAmountForNext(ExtraState state, int craftingAmount)` — line 390
-- `int getCraftingSets()` — line 412
-- `List<IExtraPromise> getByproductPromises()` — line 416
-- `void bindToInstance(PatternCraftingReference ownerReference)` — line 426
-- `PatternCraftingReference reference()` — line 452
-- `void writeGraph(Map<PatternCraftingReference, NBTTagCompound> records)` — line 457
-- `static Map<PatternCraftingReference, PatternCraftingBranch> readGraph(NBTTagList records)` — line 473
-- `private void writeRecord(NBTTagCompound tag)` — line 495
-- `public void appendDebugState(StringBuilder out, String prefix)` — line 529
-- `public boolean matches(ItemIdentifier item)` — line 549
-- `public boolean matches(FluidIdentifier fluid)` — line 556
-- `PatternCraftingMonitorNode toMonitorNode(Set<PatternCraftingOrder> visitedOrders)` — line 563
-- `void collectNestedCraftingOrders(Set<PatternCraftingOrder> nestedOrders)` — line 591
-- `private void debugBranchEvent(String category, String message, Object... args)` — line 604
-- `private ModulePatternCrafting findDebugModule()` — line 611
-- `public int request(int amount)` — line 635
-- `public int request(int amount, IRequestItems targetOverride, IAdditionalTargetInformation infoOverride)` — line 645
-- `public int request(int amount, IRequestFluid targetOverride, IAdditionalTargetInformation infoOverride)` — line 655
-- `private int request(int amount, IRequestItems targetOverride, IRequestFluid fluidTargetOverride, IAdditionalTargetInformation infoOverride)` — line 659
-- `private IAdditionalTargetInformation createOrderTarget(IAdditionalTargetInformation infoOverride)` — line 800
-- `private IResource copyRequestForTarget(int amount, IRequestItems targetOverride, IRequestFluid fluidTargetOverride)` — line 807
-- `public PatternCraftingBranch copyForAmount(int amount)` — line 838
-- `private void registerExtrasFor(int craftingAmount)` — line 882
-- `private void registerOverflowExtrasFor(List<ExtraState> states, int craftingAmount)` — line 894
-- `private void registerByproductsFor(List<ExtraState> states, int craftingAmount)` — line 930
-- `private void registerExtra(IExtraPromise promise, int craftingAmount)` — line 953
-- `public PatternCraftingBranch copyAndReserve(int amount)` — line 964
-- `public void reserveProviderPromises()` — line 983
-- `public void releaseProviderPromises()` — line 1010
-- `private void requestSubRequestsFor(int amount)` — line 1037
-- `private void reserveSubRequestsFor(int amount)` — line 1059
-- `public void reserve(int amount)` — line 1081
-- `private int requestAmountForPromiseBatch(int startIndex, int maxAmount)` — line 1117
-- `private void consumePromiseBatch(int startIndex, IPromise firstPromise, int amount)` — line 1142
-- `private boolean isMergeableStagedPromise(IPromise promise)` — line 1158
-- `private boolean canMergePromiseBatch(IPromise first, IPromise candidate)` — line 1162
-- `private List<PromiseState> copyPromiseStatesFor(int amount)` — line 1196
-- `private void consumePromises(int amount)` — line 1220
-- `private List<BranchAllocation> allocateChildrenForCraftingAmount(int craftingAmount)` — line 1243
-- `private int craftingAmountForNext(int amount)` — line 1286
-- `private int consumedCraftingSetsForNext(int extraCraftingAmount)` — line 1305
-- `private boolean canMergeWith(PatternCraftingBranch other)` — line 1322
-- `private PatternCraftingBranch mergeWith(PatternCraftingBranch other)` — line 1329
-- `private NBTTagList writePromiseStates()` — line 1349
-- `private NBTTagList writeExtraStates(List<ExtraState> states)` — line 1366
-- `private List<ExtraState> copyOverflowExtraStatesFor(List<ExtraState> states, int craftingAmount)` — line 1385
-- `private List<ExtraState> copyByproductStatesFor(List<ExtraState> states, int craftingAmount)` — line 1408
-- `private void appendPromises(StringBuilder out, String prefix)` — line 1424
-- `private void appendLiveOrders(StringBuilder out, String prefix)` — line 1438
-- `private int getLiveOrderAmount()` — line 1450
-- `private boolean hasInProgressOrders()` — line 1462
-- `private void resolveLiveOrders()` — line 1472
-- `private void appendExtraStates(StringBuilder out, String prefix, String label, List<ExtraState> states)` — line 1483
+- `long unrequestedOutputClaims(ModulePatternCrafting provider, PatternByproductTarget target, logisticspipes.crafting.patternStack.IPatternStack output, java.util.UUID producingJob, Set<PatternCraftingBranch> visited)` — line 67
+- `public <init>(IResource requestType, IAdditionalTargetInformation info, List<IPromise> promises, List<IExtraPromise> extraPromises, List<IExtraPromise> byproducts, List<PatternCraftingBranch> subRequests)` — line 98
+- `private <init>(IResource requestType, IAdditionalTargetInformation info, int originalAmount, int remainingAmount, List<PromiseState> promises, List<ExtraState> extraPromises, List<ExtraState> byproducts, List<PatternCraftingBranch> subRequests)` — line 112
+- `private <init>(IResource requestType, IAdditionalTargetInformation info, int originalAmount, int remainingAmount, int originalCraftingAmount, int remainingCraftingAmount, List<PromiseState> promises, List<ExtraState> extraPromises, List<ExtraState> byproducts, List<PatternCraftingBranch> subRequests)` — line 128
+- `static PatternCraftingBranch readFromNBT(NBTTagCompound tag)` — line 144
+- `private static List<PatternCraftingBranch> mergeCompatibleBranches(List<PatternCraftingBranch> branches)` — line 170
+- `private static int findCompatibleBranch(List<PatternCraftingBranch> branches, PatternCraftingBranch candidate)` — line 183
+- `private static List<PromiseState> copyPromiseStates(List<IPromise> promises)` — line 192
+- `private static List<ExtraState> copyExtraStates(List<IExtraPromise> promises)` — line 203
+- `private static List<PromiseState> readPromiseStates(NBTTagList list)` — line 211
+- `private static List<ExtraState> readExtraStates(NBTTagList list)` — line 225
+- `private static List<PatternCraftingBranch> readSubRequests(NBTTagList list)` — line 237
+- `private static int countCraftingAmount(List<PromiseState> promises)` — line 248
+- `private static int countCraftingSets(List<PromiseState> promises)` — line 261
+- `private static int craftingSetsForAmount(IPromise promise, int amount)` — line 271
+- `private static int resultAmountPerSet(IPromise promise)` — line 279
+- `private static IPromise copyPromiseForAmount(IPromise promise, int amount)` — line 292
+- `private static int scaleAmount(int amount, int numerator, int denominator)` — line 313
+- `public List<PatternCraftingBranch> getSubRequests()` — line 328
+- `IAdditionalTargetInformation getTargetInformation()` — line 335
+- `void attachDebugModule(ModulePatternCrafting module)` — line 344
+- `private static List<ExtraState> mergeByproductStates(List<ExtraState> states)` — line 351
+- `private static PatternByproductTarget byproductTarget(IExtraPromise promise)` — line 376
+- `private boolean producesByproduct(IPromise promise, IExtraPromise byproduct)` — line 380
+- `private int byproductAmountForNext(ExtraState state, int craftingAmount)` — line 397
+- `int getCraftingSets()` — line 419
+- `List<IExtraPromise> getByproductPromises()` — line 423
+- `void bindToInstance(PatternCraftingReference ownerReference)` — line 433
+- `PatternCraftingReference reference()` — line 459
+- `void writeGraph(Map<PatternCraftingReference, NBTTagCompound> records)` — line 464
+- `static Map<PatternCraftingReference, PatternCraftingBranch> readGraph(NBTTagList records)` — line 480
+- `private void writeRecord(NBTTagCompound tag)` — line 502
+- `public void appendDebugState(StringBuilder out, String prefix)` — line 536
+- `public boolean matches(ItemIdentifier item)` — line 556
+- `public boolean matches(FluidIdentifier fluid)` — line 563
+- `PatternCraftingMonitorNode toMonitorNode(Set<PatternCraftingOrder> visitedOrders)` — line 570
+- `void collectNestedCraftingOrders(Set<PatternCraftingOrder> nestedOrders)` — line 598
+- `private void debugBranchEvent(String category, String message, Object... args)` — line 611
+- `private ModulePatternCrafting findDebugModule()` — line 618
+- `public int request(int amount)` — line 642
+- `public int request(int amount, IRequestItems targetOverride, IAdditionalTargetInformation infoOverride)` — line 652
+- `public int request(int amount, IRequestFluid targetOverride, IAdditionalTargetInformation infoOverride)` — line 662
+- `private int request(int amount, IRequestItems targetOverride, IRequestFluid fluidTargetOverride, IAdditionalTargetInformation infoOverride)` — line 666
+- `private IAdditionalTargetInformation createOrderTarget(IAdditionalTargetInformation infoOverride)` — line 807
+- `private IResource copyRequestForTarget(int amount, IRequestItems targetOverride, IRequestFluid fluidTargetOverride)` — line 814
+- `public PatternCraftingBranch copyForAmount(int amount)` — line 845
+- `private void registerExtrasFor(int craftingAmount)` — line 889
+- `private void registerOverflowExtrasFor(List<ExtraState> states, int craftingAmount)` — line 901
+- `private void registerByproductsFor(List<ExtraState> states, int craftingAmount)` — line 937
+- `private void registerExtra(IExtraPromise promise, int craftingAmount)` — line 960
+- `public PatternCraftingBranch copyAndReserve(int amount)` — line 971
+- `public void reserveProviderPromises()` — line 990
+- `public void releaseProviderPromises()` — line 1017
+- `private void requestSubRequestsFor(int amount)` — line 1044
+- `private void reserveSubRequestsFor(int amount)` — line 1066
+- `public void reserve(int amount)` — line 1088
+- `private int requestAmountForPromiseBatch(int startIndex, int maxAmount)` — line 1124
+- `private void consumePromiseBatch(int startIndex, IPromise firstPromise, int amount)` — line 1149
+- `private boolean isMergeableStagedPromise(IPromise promise)` — line 1165
+- `private boolean canMergePromiseBatch(IPromise first, IPromise candidate)` — line 1169
+- `private List<PromiseState> copyPromiseStatesFor(int amount)` — line 1203
+- `private void consumePromises(int amount)` — line 1227
+- `private List<BranchAllocation> allocateChildrenForCraftingAmount(int craftingAmount)` — line 1250
+- `private int craftingAmountForNext(int amount)` — line 1293
+- `private int consumedCraftingSetsForNext(int extraCraftingAmount)` — line 1312
+- `private boolean canMergeWith(PatternCraftingBranch other)` — line 1329
+- `private PatternCraftingBranch mergeWith(PatternCraftingBranch other)` — line 1336
+- `private NBTTagList writePromiseStates()` — line 1356
+- `private NBTTagList writeExtraStates(List<ExtraState> states)` — line 1373
+- `private List<ExtraState> copyOverflowExtraStatesFor(List<ExtraState> states, int craftingAmount)` — line 1392
+- `private List<ExtraState> copyByproductStatesFor(List<ExtraState> states, int craftingAmount)` — line 1415
+- `private void appendPromises(StringBuilder out, String prefix)` — line 1431
+- `private void appendLiveOrders(StringBuilder out, String prefix)` — line 1445
+- `private int getLiveOrderAmount()` — line 1457
+- `private boolean hasInProgressOrders()` — line 1469
+- `private void resolveLiveOrders()` — line 1479
+- `private void appendExtraStates(StringBuilder out, String prefix, String label, List<ExtraState> states)` — line 1490
 
 ## logisticspipes.crafting.PatternCraftingBranch.BranchAllocation
 
-Source: `src/main/java/logisticspipes/crafting/PatternCraftingBranch.java:1494`
+Source: `src/main/java/logisticspipes/crafting/PatternCraftingBranch.java:1501`
 
-- `private <init>(PatternCraftingBranch branch, int amount)` — line 1499
+- `private <init>(PatternCraftingBranch branch, int amount)` — line 1506
 
 ## logisticspipes.crafting.PatternCraftingBranch.PromiseState
 
-Source: `src/main/java/logisticspipes/crafting/PatternCraftingBranch.java:1505`
+Source: `src/main/java/logisticspipes/crafting/PatternCraftingBranch.java:1512`
 
-- `private <init>(IPromise promise, int remainingAmount, boolean providerReserved)` — line 1512
+- `private <init>(IPromise promise, int remainingAmount, boolean providerReserved)` — line 1519
 
 ## logisticspipes.crafting.PatternCraftingBranch.ExtraState
 
-Source: `src/main/java/logisticspipes/crafting/PatternCraftingBranch.java:1519`
+Source: `src/main/java/logisticspipes/crafting/PatternCraftingBranch.java:1526`
 
-- `private <init>(IExtraPromise promise)` — line 1525
-- `private <init>(IExtraPromise promise, int originalAmount)` — line 1530
-- `private int amountForRange(int consumedBefore, int consumedAfter, int parentAmount)` — line 1535
-- `private int scaledAmount(int consumed, int parentAmount)` — line 1539
+- `private <init>(IExtraPromise promise)` — line 1532
+- `private <init>(IExtraPromise promise, int originalAmount)` — line 1537
+- `private int amountForRange(int consumedBefore, int consumedAfter, int parentAmount)` — line 1542
+- `private int scaledAmount(int consumed, int parentAmount)` — line 1546
 
 ## logisticspipes.crafting.PatternCraftingBufferDispatcher
 
 Source: `src/main/java/logisticspipes/crafting/PatternCraftingBufferDispatcher.java:15`
 
-- `<init>(ModulePatternCrafting module, PatternStackBufferHandler ingredientBuffer, AdjacentInventoryHandler adjacentInventory, PatternCraftingBlockingHandler blockingHandler, PatternSatelliteDispatchHandler satelliteDispatchHandler, PatternCraftingIngredientPlanner ingredientPlanner)` — line 30
-- `void refreshSatelliteBatches()` — line 42
-- `void readFromNBT(NBTTagCompound tag)` — line 46
-- `void writeToNBT(NBTTagCompound tag)` — line 61
-- `void deferCleanup(PatternSatelliteDispatchHandler.DispatchPlan plan, boolean returnToStorage)` — line 76
-- `void retryDeferredCleanup()` — line 81
-- `void pushBufferedIngredients()` — line 93
-- `void pushBufferedIngredientsFor(int patternSlot)` — line 114
-- `private void pushBufferedIngredientsFor(PatternCraftingReference ownerReference, int patternSlot)` — line 118
-- `private void resumePendingDispatch()` — line 167
-- `private void finishDispatch(PatternSatelliteDispatchHandler.DispatchPlan plan)` — line 187
-- `int pendingDispatchSlot()` — line 220
-- `boolean abandonPendingDispatch(java.util.UUID instanceId)` — line 228
-- `private boolean abandonPendingDispatch()` — line 239
-- `int completeBufferedSets(int patternSlot)` — line 247
-- `private int completeBufferedSets(PatternCraftingReference owner, int patternSlot)` — line 254
-- `PatternCraftingReference findCompleteBufferedOwner(int patternSlot)` — line 259
-- `int findCompleteBufferedPattern()` — line 268
-- `void refreshRunningCraftState()` — line 281
+- `<init>(ModulePatternCrafting module, PatternStackBufferHandler ingredientBuffer, AdjacentInventoryHandler adjacentInventory, PatternSatelliteDispatchHandler satelliteDispatchHandler, PatternCraftingIngredientPlanner ingredientPlanner)` — line 28
+- `void readFromNBT(NBTTagCompound tag)` — line 37
+- `void writeToNBT(NBTTagCompound tag)` — line 67
+- `void deferCleanup(PatternSatelliteDispatchHandler.DispatchPlan plan, boolean returnToStorage)` — line 82
+- `void retryDeferredCleanup()` — line 87
+- `void pushBufferedIngredients()` — line 99
+- `void pushBufferedIngredientsFor(int patternSlot)` — line 117
+- `private void pushBufferedIngredientsFor(PatternCraftingReference ownerReference, int patternSlot)` — line 121
+- `private void resumePendingDispatch(PatternSatelliteDispatchHandler.DispatchPlan plan)` — line 157
+- `private void finishDispatch(PatternSatelliteDispatchHandler.DispatchPlan plan)` — line 171
+- `boolean abandonPendingDispatch(java.util.UUID instanceId)` — line 197
+- `int completeBufferedSets(int patternSlot)` — line 210
+- `private int completeBufferedSets(PatternCraftingReference owner, int patternSlot)` — line 217
+- `PatternCraftingReference findCompleteBufferedOwner(int patternSlot)` — line 222
 
 ## logisticspipes.crafting.PatternCraftingCancelHandler
 
 Source: `src/main/java/logisticspipes/crafting/PatternCraftingCancelHandler.java:22`
 
-- `<init>(ModulePatternCrafting module, PipeItemsPatternCraftingLogistics pipe, PatternHandler patternHandler, PatternStackBufferHandler ingredientBuffer, Map<Integer, List<IPatternStack>> requestedIngredients, PatternStackRequestHandler requestedIngredient, PatternStagedCraftingCoordinator stagedCrafting, PatternCraftingBlockingHandler blockingHandler, PatternLostIngredientHandler lostIngredientHandler)` — line 34
-- `boolean cancelPatternCraft(int patternSlot)` — line 50
-- `boolean cancelTrackedOrder(PatternCraftingOrder order)` — line 66
-- `boolean cancelPendingInstance(UUID instanceId)` — line 84
-- `boolean cancelStandaloneInstance(UUID instanceId)` — line 88
-- `private boolean cancelUntrackedInstance(UUID instanceId, boolean removeOrders)` — line 92
-- `private boolean removeStandaloneOrders(UUID instanceId)` — line 109
-- `private boolean belongsToInstance(LogisticsOrder order, UUID instanceId)` — line 144
-- `boolean returnStoredInputsToStorage()` — line 148
-- `boolean shouldRouteLateArrivalToStorage(PatternCraftingReference reference)` — line 178
-- `private boolean flushBufferedIngredientsToStorage(PatternCraftingReference owner, int patternSlot)` — line 182
-- `private boolean flushBufferedIngredientsToStorage(int patternSlot)` — line 186
-- `private boolean sendToStorage(List<IPatternStack> stacks, int patternSlot, PatternCraftingReference owner)` — line 190
+- `<init>(ModulePatternCrafting module, PipeItemsPatternCraftingLogistics pipe, PatternHandler patternHandler, PatternStackBufferHandler ingredientBuffer, Map<Integer, List<IPatternStack>> requestedIngredients, PatternStackRequestHandler requestedIngredient, PatternStagedCraftingCoordinator stagedCrafting, PatternLostIngredientHandler lostIngredientHandler)` — line 33
+- `boolean cancelPatternCraft(int patternSlot)` — line 47
+- `boolean cancelTrackedOrder(PatternCraftingOrder order)` — line 63
+- `boolean cancelPendingInstance(UUID instanceId)` — line 79
+- `boolean cancelStandaloneInstance(UUID instanceId)` — line 83
+- `private boolean cancelUntrackedInstance(UUID instanceId, boolean removeOrders)` — line 87
+- `private boolean removeStandaloneOrders(UUID instanceId)` — line 102
+- `private boolean belongsToInstance(LogisticsOrder order, UUID instanceId)` — line 137
+- `boolean returnStoredInputsToStorage()` — line 141
+- `boolean shouldRouteLateArrivalToStorage(PatternCraftingReference reference)` — line 166
+- `private boolean flushBufferedIngredientsToStorage(PatternCraftingReference owner, int patternSlot)` — line 170
+- `private boolean flushBufferedIngredientsToStorage(int patternSlot)` — line 174
+- `private boolean sendToStorage(List<IPatternStack> stacks, int patternSlot, PatternCraftingReference owner)` — line 178
 
 ## logisticspipes.crafting.PatternCraftingCapacity
 
 Source: `src/main/java/logisticspipes/crafting/PatternCraftingCapacity.java:14`
 
 - `<init>(ModulePatternCrafting module, PipeItemsPatternCraftingLogistics pipe, PatternHandler patterns, PatternStackRequestHandler requested, PatternCraftingIngredientPlanner ingredients)` — line 22
-- `int spaceForItem(ItemIdentifier item, boolean includeInTransit)` — line 32
-- `int spaceForFluid(FluidIdentifier fluid, boolean includeInTransit)` — line 42
+- `int orderableSets(PatternCraftingOrder order)` — line 32
+- `int spaceForItem(ItemIdentifier item, boolean includeInTransit)` — line 43
+- `int spaceForFluid(FluidIdentifier fluid, boolean includeInTransit)` — line 53
 
 ## logisticspipes.crafting.PatternCraftingHudHandler
 
 Source: `src/main/java/logisticspipes/crafting/PatternCraftingHudHandler.java:22`
 
-- `<init>(ModulePatternCrafting module, PatternHandler patternHandler, AdjacentInventoryHandler adjacentInventory, PatternStackBufferHandler ingredientBuffer, Map<Integer, List<IPatternStack>> requestedIngredients, PatternStagedCraftingCoordinator stagedCrafting, PatternCraftingBlockingHandler blockingHandler, PatternSatelliteDispatchHandler satelliteDispatchHandler)` — line 39
-- `PatternCraftingHudState getHudState()` — line 53
-- `boolean shouldRefreshHudState()` — line 62
-- `void markDirty()` — line 66
-- `private boolean isRecheckDue()` — line 70
-- `private PatternCraftingHudState buildState()` — line 75
-- `private PatternCraftingHudState.PatternInfo buildPatternInfo(int slot, ItemStack pattern)` — line 88
-- `private String getStatus(int patternSlot, ItemStack pattern)` — line 118
-- `private String getBufferedStatus(int patternSlot, ItemStack pattern, AdjacentTile connected, PipeItemsPatternCraftingLogistics.BlockingMode mode, int bufferedSets)` — line 166
-- `private String getPendingIngredient(int patternSlot, ItemStack pattern)` — line 182
-- `private String ingredientName(IPatternStack stack)` — line 199
-- `private String formatSets(int sets)` — line 204
-- `private int totalAmount(List<IPatternStack> stacks)` — line 208
+- `<init>(ModulePatternCrafting module, PatternHandler patternHandler, AdjacentInventoryHandler adjacentInventory, PatternStackBufferHandler ingredientBuffer, Map<Integer, List<IPatternStack>> requestedIngredients, PatternStagedCraftingCoordinator stagedCrafting, PatternSatelliteDispatchHandler satelliteDispatchHandler)` — line 38
+- `PatternCraftingHudState getHudState()` — line 51
+- `boolean shouldRefreshHudState()` — line 60
+- `void markDirty()` — line 64
+- `private boolean isRecheckDue()` — line 68
+- `private PatternCraftingHudState buildState()` — line 73
+- `private PatternCraftingHudState.PatternInfo buildPatternInfo(int slot, ItemStack pattern)` — line 85
+- `private String getStatus(int patternSlot, ItemStack pattern)` — line 115
+- `private String getBufferedStatus(int patternSlot, ItemStack pattern, AdjacentTile connected, PipeItemsPatternCraftingLogistics.BlockingMode mode, int bufferedSets)` — line 141
+- `private String getPendingIngredient(int patternSlot, ItemStack pattern)` — line 151
+- `private String ingredientName(IPatternStack stack)` — line 168
+- `private String formatSets(int sets)` — line 173
+- `private int totalAmount(List<IPatternStack> stacks)` — line 177
 
 ## logisticspipes.crafting.PatternCraftingHudState
 
@@ -700,67 +633,59 @@ Source: `src/main/java/logisticspipes/crafting/PatternCraftingIngredientPlanner.
 - `<init>(ModulePatternCrafting module, PipeItemsPatternCraftingLogistics pipe, PatternHandler patternHandler, AdjacentInventoryHandler adjacentInventory, PatternStackBufferHandler ingredientBuffer, PatternStackRequestHandler requestedIngredient)` — line 42
 - `void invalidate()` — line 53
 - `List<PatternIngredientTarget> getIngredientTargets(ItemStack pattern)` — line 59
-- `List<IPatternStack> getAggregatedIngredients(ItemStack pattern)` — line 64
-- `List<IPatternStack> getLocalAggregatedIngredients(ItemStack pattern)` — line 69
-- `IRequestItems getSatelliteTargetForInputSlot(ItemStack pattern, int inputSlot)` — line 74
-- `IRequestFluid getFluidSatelliteTargetForInputSlot(ItemStack pattern, int inputSlot)` — line 83
-- `boolean hasLinkedSatelliteAssignment(ItemStack pattern, int inputSlot)` — line 92
-- `boolean hasLinkedSatelliteAssignments(ItemStack pattern)` — line 101
-- `int ingredientAmount(ItemStack pattern, ItemIdentifier item)` — line 106
-- `private boolean ingredientMatchesItem(ItemStack pattern, IPatternStack ingredient, ItemIdentifier item)` — line 125
-- `int bufferedIngredientAmount(int patternSlot, ItemStack pattern, IPatternStack ingredient)` — line 131
-- `int bufferedItemAmount(int patternSlot, ItemStack pattern, ItemIdentifier item)` — line 145
-- `int requestedIngredientAmount(int patternSlot, ItemStack pattern, IPatternStack ingredient)` — line 163
-- `int requestedItemAmount(int patternSlot, ItemStack pattern, ItemIdentifier item)` — line 168
-- `int requestedItemAmount(PatternCraftingReference owner, ItemStack pattern, ItemIdentifier item)` — line 178
-- `int removeRequestedItem(PatternCraftingReference owner, int patternSlot, ItemStack pattern, ItemIdentifier item, int amount)` — line 188
-- `boolean requiresConcreteIngredientPlanning(ItemStack pattern)` — line 199
-- `List<PatternIngredientAssignment> buildBufferedIngredientPlan(int patternSlot, ItemStack pattern, int sets)` — line 204
-- `List<PatternIngredientAssignment> buildBufferedIngredientPlan(PatternCraftingReference owner, int patternSlot, ItemStack pattern, int sets)` — line 208
-- `List<PatternIngredientAssignment> buildBufferedIngredientPlanAfterAdding(int patternSlot, ItemStack pattern, int sets, IPatternStack arrivingStack)` — line 213
-- `int completeBufferedSets(int patternSlot, ItemStack pattern)` — line 218
-- `int completeBufferedSets(PatternCraftingReference owner, int patternSlot, ItemStack pattern)` — line 226
-- `private int matchingAmount(ItemStack pattern, List<IPatternStack> stacks, IPatternStack ingredient)` — line 254
-- `private TargetPlan getTargetPlan(ItemStack pattern)` — line 264
-- `private TargetPlan buildTargetPlan(ItemStack pattern)` — line 278
-- `private void refreshTargetPlanTick()` — line 312
-- `private boolean ingredientMatchesStack(ItemStack pattern, IPatternStack ingredient, IPatternStack buffered)` — line 322
-- `private boolean itemMatchesPatternIngredient(PatternRecipeSnapshot recipe, ItemIdentifier expected, ItemIdentifier actual)` — line 331
-- `private List<PatternIngredientAssignment> buildBufferedIngredientPlan(int patternSlot, ItemStack pattern, List<PatternIngredientTarget> ingredients, int sets, IPatternStack extraStack)` — line 348
-- `private List<PatternIngredientAssignment> buildBufferedIngredientPlan(int patternSlot, ItemStack pattern, List<PatternIngredientTarget> ingredients, int sets, IPatternStack extraStack, PatternCraftingReference owner)` — line 353
-- `private List<IPatternStack> copyBufferedIngredients(int patternSlot)` — line 379
-- `private IPatternStack takeMatchingStack(ItemStack pattern, List<IPatternStack> available, IPatternStack ingredient, int amount)` — line 393
+- `IRequestItems getSatelliteTargetForInputSlot(ItemStack pattern, int inputSlot)` — line 64
+- `IRequestFluid getFluidSatelliteTargetForInputSlot(ItemStack pattern, int inputSlot)` — line 73
+- `boolean hasLinkedSatelliteAssignment(ItemStack pattern, int inputSlot)` — line 82
+- `boolean hasLinkedSatelliteAssignments(ItemStack pattern)` — line 91
+- `int ingredientAmount(ItemStack pattern, ItemIdentifier item)` — line 96
+- `private boolean ingredientMatchesItem(ItemStack pattern, IPatternStack ingredient, ItemIdentifier item)` — line 115
+- `int bufferedIngredientAmount(int patternSlot, ItemStack pattern, IPatternStack ingredient)` — line 121
+- `int bufferedItemAmount(int patternSlot, ItemStack pattern, ItemIdentifier item)` — line 135
+- `int requestedIngredientAmount(int patternSlot, ItemStack pattern, IPatternStack ingredient)` — line 153
+- `int requestedItemAmount(int patternSlot, ItemStack pattern, ItemIdentifier item)` — line 158
+- `int requestedItemAmount(PatternCraftingReference owner, ItemStack pattern, ItemIdentifier item)` — line 168
+- `int removeRequestedItem(PatternCraftingReference owner, int patternSlot, ItemStack pattern, ItemIdentifier item, int amount)` — line 178
+- `List<PatternIngredientAssignment> buildBufferedIngredientPlan(PatternCraftingReference owner, int patternSlot, ItemStack pattern, int sets)` — line 189
+- `int completeBufferedSets(PatternCraftingReference owner, int patternSlot, ItemStack pattern)` — line 194
+- `private int matchingAmount(ItemStack pattern, List<IPatternStack> stacks, IPatternStack ingredient)` — line 223
+- `private TargetPlan getTargetPlan(ItemStack pattern)` — line 233
+- `private TargetPlan buildTargetPlan(ItemStack pattern)` — line 247
+- `private void refreshTargetPlanTick()` — line 276
+- `private boolean ingredientMatchesStack(ItemStack pattern, IPatternStack ingredient, IPatternStack buffered)` — line 286
+- `private boolean itemMatchesPatternIngredient(PatternRecipeSnapshot recipe, ItemIdentifier expected, ItemIdentifier actual)` — line 295
+- `private List<PatternIngredientAssignment> buildBufferedIngredientPlan(ItemStack pattern, List<PatternIngredientTarget> ingredients, int sets, PatternCraftingReference owner)` — line 312
+- `private IPatternStack takeMatchingStack(ItemStack pattern, List<IPatternStack> available, IPatternStack ingredient, int amount)` — line 333
 
 ## logisticspipes.crafting.PatternCraftingIngredientPlanner.TargetPlan
 
-Source: `src/main/java/logisticspipes/crafting/PatternCraftingIngredientPlanner.java:410`
+Source: `src/main/java/logisticspipes/crafting/PatternCraftingIngredientPlanner.java:350`
 
-- `private <init>(List<PatternIngredientTarget> ingredients, List<PatternIngredientTarget> localIngredients, boolean hasSatelliteAssignments)` — line 418
-- `private static List<IPatternStack> aggregate(List<PatternIngredientTarget> targets)` — line 426
+- `private <init>(List<PatternIngredientTarget> ingredients, boolean hasSatelliteAssignments)` — line 356
 
 ## logisticspipes.crafting.PatternCraftingIngredientPlanner.CompleteSetsCache
 
-Source: `src/main/java/logisticspipes/crafting/PatternCraftingIngredientPlanner.java:435`
+Source: `src/main/java/logisticspipes/crafting/PatternCraftingIngredientPlanner.java:363`
 
-- `private <init>(ItemStack pattern, long bufferVersion, int sets)` — line 441
+- `private <init>(ItemStack pattern, long bufferVersion, int sets)` — line 369
 
 ## logisticspipes.crafting.PatternCraftingInstanceRegistry
 
 Source: `src/main/java/logisticspipes/crafting/PatternCraftingInstanceRegistry.java:24`
 
 - `private <init>()` — line 31
-- `static synchronized void register(IOrderInfoProvider outputOrder, PatternCraftingOrder order)` — line 33
-- `static synchronized PatternCraftingOrder find(IOrderInfoProvider outputOrder)` — line 45
-- `static synchronized boolean isTrackedOutputOrder(IOrderInfoProvider outputOrder)` — line 62
-- `static synchronized PatternCraftingOrder find(PatternCraftingReference reference)` — line 66
-- `static synchronized List<PatternCraftingOrder> ordersForInstance(UUID instanceId)` — line 70
-- `static boolean cancelInstance(UUID instanceId)` — line 85
-- `static synchronized boolean isCancelled(PatternCraftingReference reference)` — line 98
-- `static synchronized void recordCancellation(UUID instanceId)` — line 102
-- `static synchronized void unregister(PatternCraftingOrder order)` — line 108
-- `private static void markCancelled(UUID instanceId)` — line 123
-- `static synchronized List<PatternCraftingOrder> liveOrders()` — line 131
-- `public static synchronized void clear()` — line 135
+- `static synchronized List<PatternCraftingOrder> ordersForModule(ModulePatternCrafting module)` — line 33
+- `static synchronized void register(IOrderInfoProvider outputOrder, PatternCraftingOrder order)` — line 39
+- `static synchronized PatternCraftingOrder find(IOrderInfoProvider outputOrder)` — line 51
+- `static synchronized boolean isTrackedOutputOrder(IOrderInfoProvider outputOrder)` — line 68
+- `static synchronized PatternCraftingOrder find(PatternCraftingReference reference)` — line 72
+- `static synchronized List<PatternCraftingOrder> ordersForInstance(UUID instanceId)` — line 76
+- `static boolean cancelInstance(UUID instanceId)` — line 91
+- `static synchronized boolean isCancelled(PatternCraftingReference reference)` — line 104
+- `static synchronized void recordCancellation(UUID instanceId)` — line 108
+- `static synchronized void unregister(PatternCraftingOrder order)` — line 114
+- `private static void markCancelled(UUID instanceId)` — line 129
+- `static synchronized List<PatternCraftingOrder> liveOrders()` — line 137
+- `public static synchronized void clear()` — line 141
 
 ## logisticspipes.crafting.PatternCraftingMonitorEntry
 
@@ -815,114 +740,119 @@ Source: `src/main/java/logisticspipes/crafting/PatternCraftingMonitorRegistry.ja
 
 Source: `src/main/java/logisticspipes/crafting/PatternCraftingOrder.java:23`
 
-- `<init>(PatternCraftingReference reference, int patternSlot, int resultAmountPerSet, PatternCraftingBranch branch, IOrderInfoProvider outputOrder, ModulePatternCrafting module, PatternStackRequestHandler requestedIngredient)` — line 55
-- `<init>(PatternCraftingReference reference, int patternSlot, int resultAmountPerSet, int remainingSets, PatternCraftingBranch rootBranch, List<PatternCraftingBranch> ingredientBranches, IOrderInfoProvider outputOrder, ModulePatternCrafting module, PatternStackRequestHandler requestedIngredient)` — line 93
-- `void ingredientsDispatched(int sets)` — line 125
-- `int extractableOutputAmount()` — line 145
-- `boolean usesBatchExecution()` — line 154
-- `boolean isFullyRequested()` — line 164
-- `boolean isFullyDispatched()` — line 169
-- `private int initialRemainingSets(PatternCraftingBranch branch)` — line 188
-- `private int capRemainingSets(int sets)` — line 194
-- `int availableSetsFromBranches(ItemStack pattern)` — line 216
-- `int requestIngredients(ItemStack pattern, int sets)` — line 229
-- `void releaseReservations()` — line 291
-- `PatternCraftingReference reference()` — line 304
-- `ModulePatternCrafting module()` — line 308
-- `void writeRuntimeState(NBTTagCompound tag)` — line 315
-- `void readRuntimeState(NBTTagCompound tag)` — line 349
-- `void appendDebugState(StringBuilder out, String prefix)` — line 376
-- `PatternCraftingMonitorNode toMonitorNode(Set<PatternCraftingOrder> visitedOrders)` — line 395
-- `void collectNestedCraftingOrders(Set<PatternCraftingOrder> nestedOrders)` — line 410
-- `private int availableFromBranches(PatternIngredientTarget ingredient)` — line 419
-- `private int preRequestedAmount(int inputSlot)` — line 429
-- `private void addPreRequestedIngredient(int inputSlot, int amount)` — line 433
-- `private void commitPreRequested(ItemStack pattern, int sets)` — line 440
-- `private BranchRequest requestFromBranches(IPatternStack ingredient, int amount, int inputSlot, IRequestItems itemTargetOverride, IRequestFluid fluidTargetOverride)` — line 458
-- `private boolean branchMatches(PatternCraftingBranch branch, PatternIngredientTarget ingredient)` — line 509
-- `private boolean branchMatches(PatternCraftingBranch branch, IPatternStack ingredient, int inputSlot)` — line 513
-- `private boolean branchTargetsInputSlot(PatternCraftingBranch branch, int inputSlot)` — line 525
+- `<init>(PatternCraftingReference reference, int patternSlot, int resultAmountPerSet, PatternCraftingBranch branch, IOrderInfoProvider outputOrder, ModulePatternCrafting module, PatternStackRequestHandler requestedIngredient, ItemStack plannedRecipe)` — line 57
+- `<init>(PatternCraftingReference reference, int patternSlot, int resultAmountPerSet, int remainingSets, PatternCraftingBranch rootBranch, List<PatternCraftingBranch> ingredientBranches, IOrderInfoProvider outputOrder, ModulePatternCrafting module, PatternStackRequestHandler requestedIngredient)` — line 95
+- `void ingredientsDispatched(int sets)` — line 129
+- `int extractableOutputAmount()` — line 149
+- `boolean usesBatchExecution()` — line 158
+- `boolean isFullyRequested()` — line 168
+- `boolean isFullyDispatched()` — line 173
+- `private int initialRemainingSets(PatternCraftingBranch branch)` — line 192
+- `private int capRemainingSets(int sets)` — line 198
+- `int availableSetsFromBranches(ItemStack pattern)` — line 220
+- `int requestIngredients(ItemStack pattern, int sets)` — line 233
+- `ItemStack pattern()` — line 242
+- `int pendingSets()` — line 246
+- `int partialSets()` — line 253
+- `private int requestIngredientSlice(ItemStack pattern, int sets)` — line 262
+- `void releaseReservations()` — line 324
+- `PatternCraftingReference reference()` — line 337
+- `ModulePatternCrafting module()` — line 341
+- `void writeRuntimeState(NBTTagCompound tag)` — line 348
+- `void readRuntimeState(NBTTagCompound tag)` — line 387
+- `void appendDebugState(StringBuilder out, String prefix)` — line 415
+- `PatternCraftingMonitorNode toMonitorNode(Set<PatternCraftingOrder> visitedOrders)` — line 434
+- `void collectNestedCraftingOrders(Set<PatternCraftingOrder> nestedOrders)` — line 449
+- `private int availableFromBranches(PatternIngredientTarget ingredient)` — line 458
+- `private int preRequestedAmount(int inputSlot)` — line 468
+- `private void addPreRequestedIngredient(int inputSlot, int amount)` — line 472
+- `private void commitPreRequested(ItemStack pattern, int sets)` — line 479
+- `private BranchRequest requestFromBranches(IPatternStack ingredient, int amount, int inputSlot, IRequestItems itemTargetOverride, IRequestFluid fluidTargetOverride)` — line 497
+- `private boolean branchMatches(PatternCraftingBranch branch, PatternIngredientTarget ingredient)` — line 548
+- `private boolean branchMatches(PatternCraftingBranch branch, IPatternStack ingredient, int inputSlot)` — line 552
+- `private boolean branchTargetsInputSlot(PatternCraftingBranch branch, int inputSlot)` — line 564
 
 ## logisticspipes.crafting.PatternCraftingOrder.BranchRequest
 
-Source: `src/main/java/logisticspipes/crafting/PatternCraftingOrder.java:532`
+Source: `src/main/java/logisticspipes/crafting/PatternCraftingOrder.java:571`
 
-- `private <init>(int amount)` — line 536
-- `private static BranchRequest empty()` — line 540
+- `private <init>(int amount)` — line 575
+- `private static BranchRequest empty()` — line 579
 
 ## logisticspipes.crafting.PatternCraftingOrder.RequestedIngredient
 
-Source: `src/main/java/logisticspipes/crafting/PatternCraftingOrder.java:545`
+Source: `src/main/java/logisticspipes/crafting/PatternCraftingOrder.java:584`
 
-- `private <init>(PatternIngredientTarget ingredient, int amount)` — line 550
+- `private <init>(PatternIngredientTarget ingredient, int amount)` — line 589
 
 ## logisticspipes.crafting.PatternCraftingPersistence
 
-Source: `src/main/java/logisticspipes/crafting/PatternCraftingPersistence.java:39`
+Source: `src/main/java/logisticspipes/crafting/PatternCraftingPersistence.java:40`
 
-- `private <init>()` — line 84
-- `static boolean writeResource(NBTTagCompound tag, IResource resource)` — line 86
-- `static IResource readResource(NBTTagCompound tag)` — line 108
-- `static boolean writePromise(NBTTagCompound tag, IPromise promise)` — line 130
-- `static IPromise readPromise(NBTTagCompound tag)` — line 210
-- `static IExtraPromise readExtraPromise(NBTTagCompound tag)` — line 299
-- `static boolean writeOrder(NBTTagCompound tag, IOrderInfoProvider order)` — line 307
-- `static RestoredOrder readOrder(NBTTagCompound tag)` — line 333
-- `static PatternCraftingReference readOrderCraftingReference(NBTTagCompound tag)` — line 360
-- `static void writeOrderCraftingReference(NBTTagCompound tag, PatternCraftingReference reference)` — line 364
-- `static ItemIdentifierStack readOrderDisplayStack(NBTTagCompound tag)` — line 370
-- `static void writeTargetInfo(NBTTagCompound parent, IAdditionalTargetInformation info)` — line 383
-- `static IAdditionalTargetInformation readTargetInfo(NBTTagCompound tag)` — line 401
-- `static IAdditionalTargetInformation readTargetInfoFromParent(NBTTagCompound parent)` — line 414
-- `private static void writeOrderRuntimeState(NBTTagCompound tag, IOrderInfoProvider order)` — line 418
-- `private static void restoreOrderRuntimeState(IOrderInfoProvider order, RestoredOrder state)` — line 435
-- `private static void writeByproductTarget(NBTTagCompound tag, PatternByproductTarget target)` — line 450
-- `private static void writeDictResource(NBTTagCompound tag, DictResource resource)` — line 456
-- `private static DictResource readDictResource(NBTTagCompound tag, IRequestItems target)` — line 467
-- `private static boolean writeStack(NBTTagCompound tag, ItemIdentifierStack stack)` — line 478
-- `private static ItemIdentifierStack readRequiredStack(NBTTagCompound tag)` — line 488
-- `private static ItemIdentifierStack readStack(NBTTagCompound tag)` — line 496
-- `private static void writeFluid(NBTTagCompound tag, FluidIdentifier fluid, int amount)` — line 500
-- `private static FluidIdentifier readRequiredFluid(NBTTagCompound tag)` — line 511
-- `private static FluidIdentifier readFluid(NBTTagCompound tag)` — line 519
-- `private static void writeResourceType(NBTTagCompound tag, ResourceType type)` — line 527
-- `private static ResourceType readResourceType(NBTTagCompound tag)` — line 533
-- `private static void writeItemProvider(NBTTagCompound tag, String prefix, IProvideItems provider)` — line 544
-- `private static IProvideItems readItemProvider(NBTTagCompound tag, String prefix)` — line 550
-- `private static void writeFluidProvider(NBTTagCompound tag, String prefix, IProvideFluids provider)` — line 559
-- `private static IProvideFluids readFluidProvider(NBTTagCompound tag, String prefix)` — line 565
-- `private static void writeItemRequester(NBTTagCompound tag, String prefix, IRequestItems requester)` — line 574
-- `private static IRequestItems readItemRequester(NBTTagCompound tag, String prefix)` — line 580
-- `private static void writeFluidRequester(NBTTagCompound tag, String prefix, IRequestFluid requester)` — line 592
-- `private static IRequestFluid readFluidRequester(NBTTagCompound tag, String prefix)` — line 598
-- `private static void writeRouter(NBTTagCompound tag, String prefix, IRouter router, Object routedObject)` — line 610
-- `private static IRouter readOptionalRouter(NBTTagCompound tag, String prefix)` — line 618
-- `private static IRouter readRequiredRouter(NBTTagCompound tag, String prefix)` — line 629
-- `private static IRouter readRouter(NBTTagCompound tag, String prefix)` — line 637
-- `private static Object resolveRoutedObject(IRouter router, boolean preferModule, Class<?> type)` — line 650
+- `private <init>()` — line 85
+- `static boolean writeResource(NBTTagCompound tag, IResource resource)` — line 87
+- `static IResource readResource(NBTTagCompound tag)` — line 109
+- `static boolean writePromise(NBTTagCompound tag, IPromise promise)` — line 131
+- `static IPromise readPromise(NBTTagCompound tag)` — line 213
+- `static IExtraPromise readExtraPromise(NBTTagCompound tag)` — line 304
+- `static boolean writeOrder(NBTTagCompound tag, IOrderInfoProvider order)` — line 312
+- `static RestoredOrder readOrder(NBTTagCompound tag)` — line 338
+- `static PatternCraftingReference readOrderCraftingReference(NBTTagCompound tag)` — line 365
+- `static void writeOrderCraftingReference(NBTTagCompound tag, PatternCraftingReference reference)` — line 369
+- `static ItemIdentifierStack readOrderDisplayStack(NBTTagCompound tag)` — line 375
+- `static void writeTargetInfo(NBTTagCompound parent, IAdditionalTargetInformation info)` — line 388
+- `static IAdditionalTargetInformation readTargetInfo(NBTTagCompound tag)` — line 406
+- `static IAdditionalTargetInformation readTargetInfoFromParent(NBTTagCompound parent)` — line 419
+- `private static void writeOrderRuntimeState(NBTTagCompound tag, IOrderInfoProvider order)` — line 423
+- `private static void restoreOrderRuntimeState(IOrderInfoProvider order, RestoredOrder state)` — line 440
+- `private static void writeByproductTarget(NBTTagCompound tag, PatternByproductTarget target)` — line 455
+- `private static void writeDictResource(NBTTagCompound tag, DictResource resource)` — line 461
+- `private static DictResource readDictResource(NBTTagCompound tag, IRequestItems target)` — line 472
+- `private static boolean writeStack(NBTTagCompound tag, ItemIdentifierStack stack)` — line 483
+- `private static ItemIdentifierStack readRequiredStack(NBTTagCompound tag)` — line 493
+- `private static ItemIdentifierStack readStack(NBTTagCompound tag)` — line 501
+- `private static void writeFluid(NBTTagCompound tag, FluidIdentifier fluid, int amount)` — line 505
+- `private static FluidIdentifier readRequiredFluid(NBTTagCompound tag)` — line 516
+- `private static FluidIdentifier readFluid(NBTTagCompound tag)` — line 524
+- `private static void writeResourceType(NBTTagCompound tag, ResourceType type)` — line 532
+- `private static ResourceType readResourceType(NBTTagCompound tag)` — line 538
+- `private static void writeItemProvider(NBTTagCompound tag, String prefix, IProvideItems provider)` — line 549
+- `private static IProvideItems readItemProvider(NBTTagCompound tag, String prefix)` — line 555
+- `private static void writeFluidProvider(NBTTagCompound tag, String prefix, IProvideFluids provider)` — line 564
+- `private static IProvideFluids readFluidProvider(NBTTagCompound tag, String prefix)` — line 570
+- `private static void writeItemRequester(NBTTagCompound tag, String prefix, IRequestItems requester)` — line 579
+- `private static IRequestItems readItemRequester(NBTTagCompound tag, String prefix)` — line 585
+- `private static void writeFluidRequester(NBTTagCompound tag, String prefix, IRequestFluid requester)` — line 597
+- `private static IRequestFluid readFluidRequester(NBTTagCompound tag, String prefix)` — line 603
+- `private static void writeRouter(NBTTagCompound tag, String prefix, IRouter router, Object routedObject)` — line 615
+- `private static IRouter readOptionalRouter(NBTTagCompound tag, String prefix)` — line 623
+- `private static IRouter readRequiredRouter(NBTTagCompound tag, String prefix)` — line 634
+- `private static IRouter readRouter(NBTTagCompound tag, String prefix)` — line 642
+- `private static Object resolveRoutedObject(IRouter router, boolean preferModule, Class<?> type)` — line 655
 
 ## logisticspipes.crafting.PatternCraftingPersistence.RestoredOrder
 
-Source: `src/main/java/logisticspipes/crafting/PatternCraftingPersistence.java:665`
+Source: `src/main/java/logisticspipes/crafting/PatternCraftingPersistence.java:670`
 
-- `PatternCraftingReference craftingReference()` — line 682
-- `IOrderInfoProvider create(PipeItemsPatternCraftingLogistics pipe, ModulePatternCrafting module)` — line 686
+- `PatternCraftingReference craftingReference()` — line 687
+- `IOrderInfoProvider create(PipeItemsPatternCraftingLogistics pipe, ModulePatternCrafting module)` — line 691
 
 ## logisticspipes.crafting.PatternCraftingPersistence.RestoreNotReadyException
 
-Source: `src/main/java/logisticspipes/crafting/PatternCraftingPersistence.java:713`
+Source: `src/main/java/logisticspipes/crafting/PatternCraftingPersistence.java:718`
 
 No explicit method declarations.
 
 ## logisticspipes.crafting.PatternCraftingPromise
 
-Source: `src/main/java/logisticspipes/crafting/PatternCraftingPromise.java:9`
+Source: `src/main/java/logisticspipes/crafting/PatternCraftingPromise.java:11`
 
-- `public void setByproductTarget(PatternByproductTarget target)` — line 16
-- `@Override public PatternItemByproductPromise split(int more)` — line 21
-- `public <init>(ItemIdentifier item, int numberOfItems, IProvideItems sender, int patternSlot, int resultAmountPerSet)` — line 27
-- `@Override public PatternCraftingPromise copy()` — line 34
-- `public PatternCraftingPromise copyWithAmount(int amount)` — line 42
+- `public void setRecipe(ItemStack recipe)` — line 19
+- `public void setByproductTarget(PatternByproductTarget target)` — line 23
+- `@Override public PatternItemByproductPromise split(int more)` — line 28
+- `public <init>(ItemIdentifier item, int numberOfItems, IProvideItems sender, int patternSlot, int resultAmountPerSet)` — line 34
+- `@Override public PatternCraftingPromise copy()` — line 41
+- `public PatternCraftingPromise copyWithAmount(int amount)` — line 49
 
 ## logisticspipes.crafting.PatternCraftingReference
 
@@ -946,20 +876,13 @@ Source: `src/main/java/logisticspipes/crafting/PatternCraftingReference.java:17`
 
 ## logisticspipes.crafting.PatternCraftingResultExtractor
 
-Source: `src/main/java/logisticspipes/crafting/PatternCraftingResultExtractor.java:35`
+Source: `src/main/java/logisticspipes/crafting/PatternCraftingResultExtractor.java:23`
 
-- `<init>(ModulePatternCrafting module, PipeItemsPatternCraftingLogistics pipe, AdjacentInventoryHandler adjacentInventory)` — line 48
-- `void tick()` — line 59
-- `private void extractItemsFromAdjacentInventory()` — line 70
-- `private int maxExtractableItemAmount(LogisticsItemOrder order, int itemsLeft)` — line 209
-- `private void sendExtracted(LogisticsItemOrder order, ItemStack extracted, ForgeDirection orientation)` — line 237
-- `private void sendExtractedToLocalBuffer(LogisticsItemOrder order, ItemStack extracted)` — line 283
-- `private void extractFluidsFromAdjacentHandlers()` — line 319
-- `private int maxExtractableFluidAmount(LogisticsFluidOrder order)` — line 433
-- `private void sendExtractedFluid(LogisticsFluidOrder order, FluidStack drained, ForgeDirection orientation)` — line 455
-- `private void sendExtractedFluidToLocalBuffer(LogisticsFluidOrder order, FluidStack drained)` — line 498
-- `private PatternByproductTarget remoteByproductTarget(LogisticsOrder order, boolean fluid)` — line 531
-- `private int remoteDestination(LogisticsOrder order)` — line 536
+- `<init>(ModulePatternCrafting module, PipeItemsPatternCraftingLogistics pipe, AdjacentInventoryHandler adjacent)` — line 30
+- `void tick()` — line 38
+- `private void distributeItems()` — line 48
+- `private void distributeFluids()` — line 101
+- `private IRoutedItem route(LogisticsOrder order, IPatternStack result, boolean samePipe)` — line 154
 
 ## logisticspipes.crafting.PatternCraftingTargetSelector
 
@@ -985,34 +908,35 @@ Source: `src/main/java/logisticspipes/crafting/PatternCraftingTargetSelector.jav
 
 ## logisticspipes.crafting.PatternCraftingTemplate
 
-Source: `src/main/java/logisticspipes/crafting/PatternCraftingTemplate.java:18`
+Source: `src/main/java/logisticspipes/crafting/PatternCraftingTemplate.java:20`
 
-- `public void setOutputTarget(PatternByproductTarget target)` — line 27
-- `public int getPatternSlot()` — line 31
-- `public <init>(ItemIdentifierStack result, ICraftItems crafter, int priority, int patternSlot)` — line 35
-- `public <init>(ItemIdentifierStack result, ICraftItems crafter, int priority, int patternSlot, int ingredientSlots)` — line 39
-- `public void addByproduct(ItemIdentifierStack stack)` — line 53
-- `public void addByproduct(ItemIdentifierStack stack, PatternByproductTarget target)` — line 57
-- `public void addFluidByproduct(FluidIdentifierStack stack)` — line 70
-- `public void addFluidByproduct(FluidIdentifierStack stack, PatternByproductTarget target)` — line 74
-- `@Override public List<IExtraPromise> getByproducts(int workSets)` — line 88
-- `@Override public IPromise generatePromise(int nCraftingSetsNeeded)` — line 120
-- `@Override public ICraftItems getCrafter()` — line 132
-- `@Override public boolean canCraft(IResource requestType)` — line 137
-- `@Override public IResource getResultResource()` — line 142
-- `@Override public ItemIdentifierStack getResultStack()` — line 147
+- `public void setRecipe(ItemStack recipe)` — line 30
+- `public void setOutputTarget(PatternByproductTarget target)` — line 34
+- `public int getPatternSlot()` — line 38
+- `public <init>(ItemIdentifierStack result, ICraftItems crafter, int priority, int patternSlot)` — line 42
+- `public <init>(ItemIdentifierStack result, ICraftItems crafter, int priority, int patternSlot, int ingredientSlots)` — line 46
+- `public void addByproduct(ItemIdentifierStack stack)` — line 60
+- `public void addByproduct(ItemIdentifierStack stack, PatternByproductTarget target)` — line 64
+- `public void addFluidByproduct(FluidIdentifierStack stack)` — line 77
+- `public void addFluidByproduct(FluidIdentifierStack stack, PatternByproductTarget target)` — line 81
+- `@Override public List<IExtraPromise> getByproducts(int workSets)` — line 95
+- `@Override public IPromise generatePromise(int nCraftingSetsNeeded)` — line 127
+- `@Override public ICraftItems getCrafter()` — line 140
+- `@Override public boolean canCraft(IResource requestType)` — line 145
+- `@Override public IResource getResultResource()` — line 150
+- `@Override public ItemIdentifierStack getResultStack()` — line 155
 
 ## logisticspipes.crafting.PatternCraftingTemplate.ItemByproduct
 
-Source: `src/main/java/logisticspipes/crafting/PatternCraftingTemplate.java:152`
+Source: `src/main/java/logisticspipes/crafting/PatternCraftingTemplate.java:160`
 
-- `private <init>(ItemIdentifierStack stack, PatternByproductTarget target)` — line 157
+- `private <init>(ItemIdentifierStack stack, PatternByproductTarget target)` — line 165
 
 ## logisticspipes.crafting.PatternCraftingTemplate.FluidByproduct
 
-Source: `src/main/java/logisticspipes/crafting/PatternCraftingTemplate.java:163`
+Source: `src/main/java/logisticspipes/crafting/PatternCraftingTemplate.java:171`
 
-- `private <init>(FluidIdentifierStack stack, PatternByproductTarget target)` — line 168
+- `private <init>(FluidIdentifierStack stack, PatternByproductTarget target)` — line 176
 
 ## logisticspipes.crafting.PatternCraftingTemplateBuilder
 
@@ -1021,14 +945,14 @@ Source: `src/main/java/logisticspipes/crafting/PatternCraftingTemplateBuilder.ja
 - `<init>(ModulePatternCrafting module, PatternHandler patternHandler)` — line 34
 - `ICraftingTemplate addCrafting(IResource toCraft)` — line 42
 - `private ICraftingTemplate buildItemTemplate(IResource toCraft, int slot, PatternRecipeSnapshot recipe)` — line 71
-- `private ICraftingTemplate buildFluidTemplate(IResource toCraft, int slot, PatternRecipeSnapshot recipe)` — line 99
-- `private void addItemResultByproducts(PatternCraftingTemplate template, PatternRecipeSnapshot recipe, int resultOutputSlot)` — line 128
-- `private void addFluidResultByproducts(PatternFluidCraftingTemplate template, PatternRecipeSnapshot recipe, int resultOutputSlot)` — line 153
-- `private PatternByproductTarget itemByproductTarget(PatternRecipeSnapshot recipe, int patternSlot, int outputSlot)` — line 175
-- `private PatternByproductTarget fluidByproductTarget(PatternRecipeSnapshot recipe, int patternSlot, int outputSlot)` — line 184
-- `private PatternByproductTarget byproductTarget(int patternSlot, int outputSlot, int satelliteId, String satelliteUuid, boolean fluid)` — line 193
-- `private void addPatternIngredients(BaseCraftingTemplate template, PatternRecipeSnapshot recipe, int slot)` — line 201
-- `private IResource createItemIngredientResource(ItemIdentifierStack item, AbstractPattern pattern)` — line 230
+- `private ICraftingTemplate buildFluidTemplate(IResource toCraft, int slot, PatternRecipeSnapshot recipe)` — line 100
+- `private void addItemResultByproducts(PatternCraftingTemplate template, PatternRecipeSnapshot recipe, int resultOutputSlot)` — line 130
+- `private void addFluidResultByproducts(PatternFluidCraftingTemplate template, PatternRecipeSnapshot recipe, int resultOutputSlot)` — line 155
+- `private PatternByproductTarget itemByproductTarget(PatternRecipeSnapshot recipe, int patternSlot, int outputSlot)` — line 177
+- `private PatternByproductTarget fluidByproductTarget(PatternRecipeSnapshot recipe, int patternSlot, int outputSlot)` — line 186
+- `private PatternByproductTarget byproductTarget(int patternSlot, int outputSlot, int satelliteId, String satelliteUuid, boolean fluid)` — line 195
+- `private void addPatternIngredients(BaseCraftingTemplate template, PatternRecipeSnapshot recipe, int slot)` — line 203
+- `private IResource createItemIngredientResource(ItemIdentifierStack item, AbstractPattern pattern)` — line 232
 
 ## logisticspipes.crafting.PatternCraftingUpgradeCache
 
@@ -1039,29 +963,6 @@ Source: `src/main/java/logisticspipes/crafting/PatternCraftingUpgradeCache.java:
 - `boolean hasAdvancedSatellite()` — line 23
 - `boolean hasInstantSatellite()` — line 28
 - `private void refresh()` — line 33
-
-## logisticspipes.crafting.PatternCraftingWorkspace
-
-Source: `src/main/java/logisticspipes/crafting/PatternCraftingWorkspace.java:19`
-
-- `<init>(ModulePatternCrafting module)` — line 24
-- `boolean admit(PatternCraftingOrder order)` — line 28
-- `static void addRecipe(Map<ModulePatternCrafting, Budget> plan, ModulePatternCrafting provider, int slot, int sets)` — line 78
-- `private Budget occupied()` — line 86
-- `void cleanup()` — line 96
-- `void readFromNBT(NBTTagCompound tag)` — line 110
-- `void writeToNBT(NBTTagCompound tag)` — line 125
-- `void appendDebugState(StringBuilder out)` — line 140
-- `boolean queued(UUID instance)` — line 145
-
-## logisticspipes.crafting.PatternCraftingWorkspace.Budget
-
-Source: `src/main/java/logisticspipes/crafting/PatternCraftingWorkspace.java:149`
-
-- `void add(IPatternStack stack, int sets, boolean output)` — line 156
-- `Budget plus(Budget other)` — line 168
-- `boolean fits()` — line 177
-- `@Override public String toString()` — line 184
 
 ## logisticspipes.crafting.PatternFluidByproductPromise
 
@@ -1075,39 +976,41 @@ Source: `src/main/java/logisticspipes/crafting/PatternFluidByproductPromise.java
 
 ## logisticspipes.crafting.PatternFluidCraftingPromise
 
-Source: `src/main/java/logisticspipes/crafting/PatternFluidCraftingPromise.java:9`
+Source: `src/main/java/logisticspipes/crafting/PatternFluidCraftingPromise.java:11`
 
-- `public void setByproductTarget(PatternByproductTarget target)` — line 16
-- `@Override public PatternFluidByproductPromise split(int more)` — line 21
-- `public <init>(FluidIdentifier fluid, int amount, IProvideFluids sender, int patternSlot, int resultAmountPerSet)` — line 27
-- `@Override public PatternFluidCraftingPromise copy()` — line 37
-- `@Override public PatternFluidCraftingPromise copyWithAmount(int amount)` — line 48
+- `public void setRecipe(ItemStack recipe)` — line 19
+- `public void setByproductTarget(PatternByproductTarget target)` — line 23
+- `@Override public PatternFluidByproductPromise split(int more)` — line 28
+- `public <init>(FluidIdentifier fluid, int amount, IProvideFluids sender, int patternSlot, int resultAmountPerSet)` — line 34
+- `@Override public PatternFluidCraftingPromise copy()` — line 44
+- `@Override public PatternFluidCraftingPromise copyWithAmount(int amount)` — line 55
 
 ## logisticspipes.crafting.PatternFluidCraftingTemplate
 
-Source: `src/main/java/logisticspipes/crafting/PatternFluidCraftingTemplate.java:14`
+Source: `src/main/java/logisticspipes/crafting/PatternFluidCraftingTemplate.java:16`
 
-- `public void setOutputTarget(PatternByproductTarget target)` — line 21
-- `public int getPatternSlot()` — line 25
-- `public <init>(FluidResource result, ICraftFluids crafter, int priority, int patternSlot)` — line 32
-- `@Override public PatternFluidCraftingPromise generatePromise(int nResultSets)` — line 45
-- `@Override public void addByproduct(ItemIdentifierStack stack)` — line 57
-- `public void addByproduct(ItemIdentifierStack stack, PatternByproductTarget target)` — line 62
-- `@Override public void addFluidByproduct(FluidIdentifierStack stack)` — line 68
-- `public void addFluidByproduct(FluidIdentifierStack stack, PatternByproductTarget target)` — line 73
-- `@Override public List<IExtraPromise> getByproducts(int workSets)` — line 82
+- `public void setRecipe(ItemStack recipe)` — line 24
+- `public void setOutputTarget(PatternByproductTarget target)` — line 28
+- `public int getPatternSlot()` — line 32
+- `public <init>(FluidResource result, ICraftFluids crafter, int priority, int patternSlot)` — line 39
+- `@Override public PatternFluidCraftingPromise generatePromise(int nResultSets)` — line 52
+- `@Override public void addByproduct(ItemIdentifierStack stack)` — line 65
+- `public void addByproduct(ItemIdentifierStack stack, PatternByproductTarget target)` — line 70
+- `@Override public void addFluidByproduct(FluidIdentifierStack stack)` — line 76
+- `public void addFluidByproduct(FluidIdentifierStack stack, PatternByproductTarget target)` — line 81
+- `@Override public List<IExtraPromise> getByproducts(int workSets)` — line 90
 
 ## logisticspipes.crafting.PatternFluidCraftingTemplate.ItemByproduct
 
-Source: `src/main/java/logisticspipes/crafting/PatternFluidCraftingTemplate.java:108`
+Source: `src/main/java/logisticspipes/crafting/PatternFluidCraftingTemplate.java:116`
 
-- `private <init>(ItemIdentifierStack stack, PatternByproductTarget target)` — line 113
+- `private <init>(ItemIdentifierStack stack, PatternByproductTarget target)` — line 121
 
 ## logisticspipes.crafting.PatternFluidCraftingTemplate.FluidByproduct
 
-Source: `src/main/java/logisticspipes/crafting/PatternFluidCraftingTemplate.java:119`
+Source: `src/main/java/logisticspipes/crafting/PatternFluidCraftingTemplate.java:127`
 
-- `private <init>(FluidIdentifierStack stack, PatternByproductTarget target)` — line 124
+- `private <init>(FluidIdentifierStack stack, PatternByproductTarget target)` — line 132
 
 ## logisticspipes.crafting.PatternIngredientAssignment
 
@@ -1233,88 +1136,75 @@ Source: `src/main/java/logisticspipes/crafting/PatternSatelliteByproductExtracto
 
 ## logisticspipes.crafting.PatternSatelliteDispatchHandler
 
-Source: `src/main/java/logisticspipes/crafting/PatternSatelliteDispatchHandler.java:31`
+Source: `src/main/java/logisticspipes/crafting/PatternSatelliteDispatchHandler.java:29`
 
-- `<init>(ModulePatternCrafting module, PipeItemsPatternCraftingLogistics pipe, AdjacentInventoryHandler adjacentInventory)` — line 37
-- `DispatchPlan findInsertableBufferedPlan(PatternCraftingReference ownerReference, int patternSlot, ItemStack pattern, int maxSets)` — line 47
-- `int insertedSetsFromPlan(ItemStack pattern, List<PatternIngredientAssignment> plan)` — line 67
-- `int maxDispatchableSets(PatternCraftingReference ownerReference, ItemStack pattern, int maxSets)` — line 89
-- `private List<PatternIngredientAssignment> buildPatternAssignments(ItemStack pattern, int sets)` — line 109
-- `private DispatchPlan buildDispatchPlan(PatternCraftingReference ownerReference, int patternSlot, ItemStack pattern, List<PatternIngredientAssignment> assignments)` — line 133
-- `DispatchPlan readFromNBT(NBTTagCompound tag)` — line 184
-- `private static NBTTagList writeAssignments(List<PatternIngredientAssignment> assignments)` — line 234
-- `private static List<PatternIngredientAssignment> readAssignments(NBTTagList list)` — line 245
-- `private List<PipeItemsPatternSatelliteLogistics> uniqueItemSatellites(List<ItemSatelliteAssignment> assignments)` — line 257
-- `private List<PipeFluidPatternSatelliteLogistics> uniqueFluidSatellites(List<FluidSatelliteAssignment> assignments)` — line 267
+- `<init>(ModulePatternCrafting module, PipeItemsPatternCraftingLogistics pipe, AdjacentInventoryHandler adjacentInventory)` — line 35
+- `DispatchPlan findInsertableBufferedPlan(PatternCraftingReference ownerReference, int patternSlot, ItemStack pattern, int maxSets)` — line 45
+- `int insertedSetsFromPlan(ItemStack pattern, List<PatternIngredientAssignment> plan)` — line 71
+- `int maxDispatchableSets(PatternCraftingReference ownerReference, ItemStack pattern, int maxSets)` — line 93
+- `DispatchPlan orderingPlan(PatternCraftingReference owner, int slot, ItemStack pattern)` — line 113
+- `private List<PatternIngredientAssignment> buildPatternAssignments(ItemStack pattern, int sets)` — line 118
+- `private DispatchPlan buildDispatchPlan(PatternCraftingReference ownerReference, int patternSlot, ItemStack pattern, List<PatternIngredientAssignment> assignments)` — line 142
+- `DispatchPlan readFromNBT(NBTTagCompound tag)` — line 193
+- `private static NBTTagList writeAssignments(List<PatternIngredientAssignment> assignments)` — line 243
+- `private static List<PatternIngredientAssignment> readAssignments(NBTTagList list)` — line 254
+- `private List<PipeItemsPatternSatelliteLogistics> uniqueItemSatellites(List<ItemSatelliteAssignment> assignments)` — line 266
+- `private List<PipeFluidPatternSatelliteLogistics> uniqueFluidSatellites(List<FluidSatelliteAssignment> assignments)` — line 276
 
 ## logisticspipes.crafting.PatternSatelliteDispatchHandler.ItemSatelliteAssignment
 
-Source: `src/main/java/logisticspipes/crafting/PatternSatelliteDispatchHandler.java:277`
+Source: `src/main/java/logisticspipes/crafting/PatternSatelliteDispatchHandler.java:286`
 
-- `private <init>(PipeItemsPatternSatelliteLogistics satellite, ItemIdentifierStack stack, int inputSlot)` — line 288
-- `private <init>(String satelliteUuid, ItemIdentifierStack stack, int inputSlot)` — line 294
+- `private <init>(PipeItemsPatternSatelliteLogistics satellite, ItemIdentifierStack stack, int inputSlot)` — line 297
+- `private <init>(String satelliteUuid, ItemIdentifierStack stack, int inputSlot)` — line 303
 
 ## logisticspipes.crafting.PatternSatelliteDispatchHandler.FluidSatelliteAssignment
 
-Source: `src/main/java/logisticspipes/crafting/PatternSatelliteDispatchHandler.java:302`
+Source: `src/main/java/logisticspipes/crafting/PatternSatelliteDispatchHandler.java:311`
 
-- `private <init>(PipeFluidPatternSatelliteLogistics satellite, FluidIdentifier fluid, int amount)` — line 311
-- `private <init>(String satelliteUuid, FluidIdentifier fluid, int amount)` — line 317
+- `private <init>(PipeFluidPatternSatelliteLogistics satellite, FluidIdentifier fluid, int amount)` — line 320
+- `private <init>(String satelliteUuid, FluidIdentifier fluid, int amount)` — line 326
 
 ## logisticspipes.crafting.PatternSatelliteDispatchHandler.DispatchResult
 
-Source: `src/main/java/logisticspipes/crafting/PatternSatelliteDispatchHandler.java:325`
+Source: `src/main/java/logisticspipes/crafting/PatternSatelliteDispatchHandler.java:334`
 
 No explicit method declarations.
 
 ## logisticspipes.crafting.PatternSatelliteDispatchHandler.DispatchPlan
 
-Source: `src/main/java/logisticspipes/crafting/PatternSatelliteDispatchHandler.java:341`
+Source: `src/main/java/logisticspipes/crafting/PatternSatelliteDispatchHandler.java:350`
 
-- `private <init>(PatternCraftingReference ownerReference, int patternSlot, ItemStack pattern, List<PatternIngredientAssignment> assignments)` — line 356
-- `private <init>(PatternCraftingReference ownerReference, PatternCraftingReference batchReference, int patternSlot, ItemStack pattern, List<PatternIngredientAssignment> assignments, ForgeDirection localDirection)` — line 368
-- `List<PatternIngredientAssignment> assignments()` — line 379
-- `int patternSlot()` — line 383
-- `PatternCraftingReference ownerReference()` — line 387
-- `PatternCraftingReference batchReference()` — line 391
-- `ItemStack pattern()` — line 395
-- `logisticspipes.utils.AdjacentTile localTarget()` — line 399
-- `private List<Object> targetInventories()` — line 406
-- `boolean sameRecipe(DispatchPlan other)` — line 442
-- `boolean sharesTargets(DispatchPlan other)` — line 468
-- `private void addLocal(PatternIngredientAssignment assignment)` — line 474
-- `boolean usesLocalInventory()` — line 479
-- `int sets()` — line 483
-- `boolean resolveTargets()` — line 488
-- `NBTTagCompound writeToNBT()` — line 504
-- `private void addItemSatellite(PipeItemsPatternSatelliteLogistics satellite, ItemIdentifierStack stack, int inputSlot)` — line 542
-- `private boolean addFluidSatellite(PipeFluidPatternSatelliteLogistics satellite, FluidIdentifier fluid, int amount)` — line 550
-- `boolean canDispatch()` — line 566
-- `DispatchResult dispatch(PatternStackBufferHandler buffer)` — line 628
-- `private void insertLocal(PatternStackBufferHandler buffer)` — line 710
-- `private boolean isComplete()` — line 733
-- `boolean abandon()` — line 755
-- `boolean release()` — line 779
-- `PatternCraftingBlockingHandler.SatelliteBatch satelliteBatch()` — line 787
-- `private boolean hasSatellites()` — line 794
-- `private boolean usesSatelliteReservations()` — line 798
-- `private boolean canRouteToItemSatellite(ItemSatelliteAssignment assignment)` — line 803
-- `private void routeItemSatelliteAssignment(ItemSatelliteAssignment assignment, boolean reserveSatellites)` — line 810
-- `private boolean reserveSatellites(List<PipeItemsPatternSatelliteLogistics> itemSatellites, List<PipeFluidPatternSatelliteLogistics> fluidSatellites)` — line 829
-- `private void releaseSatellites(List<PipeItemsPatternSatelliteLogistics> itemSatellites, List<PipeFluidPatternSatelliteLogistics> fluidSatellites)` — line 846
-
-## logisticspipes.crafting.PatternSatelliteDispatchHandler.SatelliteDispatchBatch
-
-Source: `src/main/java/logisticspipes/crafting/PatternSatelliteDispatchHandler.java:857`
-
-- `private <init>(DispatchPlan plan)` — line 861
-- `@Override public PatternCraftingReference ownerReference()` — line 865
-- `@Override public int patternSlot()` — line 870
-- `@Override public boolean isConsumed()` — line 875
-- `@Override public int size()` — line 891
-- `@Override public void retrieveAndRelease()` — line 901
-- `@Override public void release()` — line 906
-- `@Override public NBTTagCompound writeToNBT()` — line 911
+- `private <init>(PatternCraftingReference ownerReference, int patternSlot, ItemStack pattern, List<PatternIngredientAssignment> assignments)` — line 365
+- `private <init>(PatternCraftingReference ownerReference, PatternCraftingReference batchReference, int patternSlot, ItemStack pattern, List<PatternIngredientAssignment> assignments, ForgeDirection localDirection)` — line 377
+- `List<PatternIngredientAssignment> assignments()` — line 388
+- `int patternSlot()` — line 392
+- `PatternCraftingReference ownerReference()` — line 396
+- `PatternCraftingReference batchReference()` — line 400
+- `ItemStack pattern()` — line 404
+- `logisticspipes.utils.AdjacentTile localTarget()` — line 408
+- `private List<Object> targetInventories()` — line 415
+- `boolean sameRecipe(DispatchPlan other)` — line 451
+- `boolean sharesTargets(DispatchPlan other)` — line 479
+- `private void addLocal(PatternIngredientAssignment assignment)` — line 485
+- `int sets()` — line 490
+- `boolean resolveTargets()` — line 495
+- `NBTTagCompound writeToNBT()` — line 511
+- `private void addItemSatellite(PipeItemsPatternSatelliteLogistics satellite, ItemIdentifierStack stack, int inputSlot)` — line 549
+- `private boolean addFluidSatellite(PipeFluidPatternSatelliteLogistics satellite, FluidIdentifier fluid, int amount)` — line 557
+- `boolean canDispatch()` — line 573
+- `private boolean canFitSharedFluidInputs()` — line 621
+- `private boolean canFitSharedItemInputs()` — line 650
+- `DispatchResult dispatch(PatternStackBufferHandler buffer)` — line 679
+- `private void insertLocal(PatternStackBufferHandler buffer)` — line 758
+- `private boolean isComplete()` — line 781
+- `boolean abandon()` — line 803
+- `boolean release()` — line 827
+- `private boolean hasSatellites()` — line 835
+- `private boolean canRouteToItemSatellite(ItemSatelliteAssignment assignment)` — line 839
+- `private void routeItemSatelliteAssignment(ItemSatelliteAssignment assignment)` — line 846
+- `private boolean reserveSatellites(List<PipeItemsPatternSatelliteLogistics> itemSatellites, List<PipeFluidPatternSatelliteLogistics> fluidSatellites)` — line 864
+- `private void releaseSatellites(List<PipeItemsPatternSatelliteLogistics> itemSatellites, List<PipeFluidPatternSatelliteLogistics> fluidSatellites)` — line 881
 
 ## logisticspipes.crafting.PatternSatelliteInfo
 
@@ -1375,8 +1265,7 @@ Source: `src/main/java/logisticspipes/crafting/PatternStackBufferHandler.java:26
 - `@Override public void writeToNBT(NBTTagCompound tag)` — line 253
 - `public List<Integer> keySet()` — line 268
 - `private void markChanged()` — line 272
-- `long unreservedAmount(java.util.Set<UUID> admitted, boolean fluid)` — line 300
-- `static List<ItemStack> makeItemStacks(IPatternStack patternStack)` — line 310
+- `static List<ItemStack> makeItemStacks(IPatternStack patternStack)` — line 300
 
 ## logisticspipes.crafting.PatternStackBufferHandler.OwnedStacks
 
@@ -1395,86 +1284,84 @@ Source: `src/main/java/logisticspipes/crafting/PatternStackBufferHandler.java:28
 Source: `src/main/java/logisticspipes/crafting/PatternStackRequestHandler.java:28`
 
 - `boolean hasInstance(UUID instance)` — line 39
-- `long unreservedAmount(java.util.Set<UUID> admitted, boolean fluid)` — line 45
-- `<init>(Map<Integer, List<IPatternStack>> requestedIngredients, Runnable changeListener)` — line 55
-- `private static int removeMatching(List<IPatternStack> stacks, int amount, Predicate<IPatternStack> matcher)` — line 60
-- `int amount(int patternSlot, IPatternStack stack)` — line 78
-- `int amount(PatternCraftingReference owner, IPatternStack stack)` — line 82
-- `int amountMatching(PatternCraftingReference owner, Predicate<IPatternStack> matcher)` — line 99
-- `int amount(int patternSlot, ItemIdentifier item)` — line 113
-- `int amountMatching(int patternSlot, Predicate<IPatternStack> matcher)` — line 117
-- `int amount(int patternSlot, FluidIdentifier fluid)` — line 127
-- `void add(PatternCraftingReference owner, int patternSlot, IPatternStack stack)` — line 131
-- `void remove(PatternCraftingReference owner, int patternSlot, IPatternStack stack)` — line 144
-- `int removeMatching(PatternCraftingReference owner, int patternSlot, int amount, Predicate<IPatternStack> matcher)` — line 162
-- `boolean removeAll(PatternCraftingReference owner)` — line 198
-- `boolean removeInstance(UUID instanceId)` — line 211
-- `boolean removeAll(int patternSlot)` — line 221
-- `List<OwnedEntry> entries()` — line 230
-- `private void cleanup(PatternCraftingReference owner, OwnedStacks owned)` — line 240
-- `private void cleanupAggregate(int patternSlot)` — line 247
-- `private List<IPatternStack> getExistingRequested(int patternSlot)` — line 258
-- `private List<IPatternStack> getOrCreateRequested(int patternSlot)` — line 263
-- `@Override public void readFromNBT(NBTTagCompound tag)` — line 267
-- `@Override public void writeToNBT(NBTTagCompound tag)` — line 283
-- `private void markChanged()` — line 301
+- `<init>(Map<Integer, List<IPatternStack>> requestedIngredients, Runnable changeListener)` — line 45
+- `private static int removeMatching(List<IPatternStack> stacks, int amount, Predicate<IPatternStack> matcher)` — line 50
+- `int amount(int patternSlot, IPatternStack stack)` — line 68
+- `int amount(PatternCraftingReference owner, IPatternStack stack)` — line 72
+- `int amountMatching(PatternCraftingReference owner, Predicate<IPatternStack> matcher)` — line 89
+- `int amount(int patternSlot, ItemIdentifier item)` — line 103
+- `int amountMatching(int patternSlot, Predicate<IPatternStack> matcher)` — line 107
+- `int amount(int patternSlot, FluidIdentifier fluid)` — line 117
+- `void add(PatternCraftingReference owner, int patternSlot, IPatternStack stack)` — line 121
+- `void remove(PatternCraftingReference owner, int patternSlot, IPatternStack stack)` — line 134
+- `int removeMatching(PatternCraftingReference owner, int patternSlot, int amount, Predicate<IPatternStack> matcher)` — line 152
+- `boolean removeAll(PatternCraftingReference owner)` — line 188
+- `boolean removeInstance(UUID instanceId)` — line 201
+- `boolean removeAll(int patternSlot)` — line 211
+- `List<OwnedEntry> entries()` — line 220
+- `private void cleanup(PatternCraftingReference owner, OwnedStacks owned)` — line 230
+- `private void cleanupAggregate(int patternSlot)` — line 237
+- `private List<IPatternStack> getExistingRequested(int patternSlot)` — line 248
+- `private List<IPatternStack> getOrCreateRequested(int patternSlot)` — line 253
+- `@Override public void readFromNBT(NBTTagCompound tag)` — line 257
+- `@Override public void writeToNBT(NBTTagCompound tag)` — line 273
+- `private void markChanged()` — line 291
 
 ## logisticspipes.crafting.PatternStackRequestHandler.OwnedEntry
 
-Source: `src/main/java/logisticspipes/crafting/PatternStackRequestHandler.java:307`
+Source: `src/main/java/logisticspipes/crafting/PatternStackRequestHandler.java:297`
 
-- `private <init>(PatternCraftingReference owner, int patternSlot, IPatternStack stack)` — line 313
+- `private <init>(PatternCraftingReference owner, int patternSlot, IPatternStack stack)` — line 303
 
 ## logisticspipes.crafting.PatternStackRequestHandler.OwnedStacks
 
-Source: `src/main/java/logisticspipes/crafting/PatternStackRequestHandler.java:320`
+Source: `src/main/java/logisticspipes/crafting/PatternStackRequestHandler.java:310`
 
-- `private <init>(int patternSlot)` — line 325
+- `private <init>(int patternSlot)` — line 315
 
 ## logisticspipes.crafting.PatternStagedCraftingCoordinator
 
-Source: `src/main/java/logisticspipes/crafting/PatternStagedCraftingCoordinator.java:41`
+Source: `src/main/java/logisticspipes/crafting/PatternStagedCraftingCoordinator.java:42`
 
-- `<init>(ModulePatternCrafting module, PipeItemsPatternCraftingLogistics pipe, PatternHandler patternHandler, PatternStackRequestHandler requestedIngredient)` — line 63
-- `static List<PatternCraftingMonitorEntry> pendingMonitorEntries(NBTTagCompound tag, int restoreAttempts, int maxRestoreAttempts)` — line 72
-- `static int assignMissingStandaloneReferences(NBTTagCompound tag)` — line 91
-- `static Set<UUID> pendingInstanceIds(NBTTagCompound tag)` — line 100
-- `boolean hasPattern(int patternSlot)` — line 108
-- `boolean queuedForWorkspace(int slot)` — line 117
-- `void writeToNBT(NBTTagCompound tag)` — line 123
-- `static boolean removePendingInstance(NBTTagCompound tag, UUID instanceId)` — line 144
-- `static boolean hasPendingOrders(NBTTagCompound tag)` — line 160
-- `static int incomingAmount(NBTTagCompound tag, PatternCraftingReference owner, IPatternStack ingredient)` — line 166
-- `private static int incomingOrderAmount(NBTTagCompound tag, PatternCraftingReference owner, IPatternStack ingredient)` — line 183
-- `private static void appendPendingStagedOrders(NBTTagList list, Map<UUID, List<PatternCraftingMonitorNode>> rootsByInstance)` — line 195
-- `private static int assignMissingStandaloneReferences(NBTTagList list)` — line 202
-- `private static void appendPendingStagedInstanceIds(NBTTagList list, Set<UUID> result)` — line 215
-- `private static void appendPendingInstanceIds(NBTTagList list, Set<UUID> result)` — line 221
-- `private static void appendPendingInstanceId(NBTTagCompound orderTag, Set<UUID> result)` — line 227
-- `private static void appendPendingOrders(NBTTagList list, Map<UUID, List<PatternCraftingMonitorNode>> rootsByInstance)` — line 234
-- `private static void appendPendingOrder(NBTTagCompound orderTag, Map<UUID, List<PatternCraftingMonitorNode>> rootsByInstance)` — line 241
-- `void appendDebugState(StringBuilder out, String prefix)` — line 252
-- `private static boolean removePendingOrders(NBTTagList list, UUID instanceId, boolean staged)` — line 278
-- `IOrderInfoProvider fulfill(IPromise promise, IResource requestType, IAdditionalTargetInformation info, PatternCraftingBranch branch)` — line 292
-- `void requestIngredients()` — line 338
-- `void requestIngredientsAfterCapacityChange()` — line 343
-- `private void removeOutputOrder(IOrderInfoProvider order)` — line 348
-- `private boolean hasRequestTarget(IPromise promise, IResource requestType)` — line 356
-- `private IRequestItems getRequestTarget(IResource requestType)` — line 363
-- `private int resolvePatternSlot(IPromise promise)` — line 373
-- `private int resolveResultAmountPerSet(IPromise promise, int patternSlot)` — line 383
-- `private NBTTagList writeStagedOrders(Set<IOrderInfoProvider> savedOutputOrders, Map<PatternCraftingReference, NBTTagCompound> records)` — line 393
-- `boolean restoreFromNBT(NBTTagCompound tag)` — line 429
-- `int remainingSets(int patternSlot)` — line 501
-- `int remainingOutputAmount(int patternSlot, IPatternStack output)` — line 511
-- `private List<RestoredStagedOrder> readStagedOrders(NBTTagList list, Map<PatternCraftingReference, PatternCraftingBranch> records)` — line 530
-- `private static PatternCraftingBranch resolveBranch(Map<PatternCraftingReference, PatternCraftingBranch> records, PatternCraftingReference reference)` — line 557
-- `private List<PatternCraftingPersistence.RestoredOrder> readOrders(NBTTagList list)` — line 564
-- `private void cleanupCompletedOutputOrders()` — line 579
-- `void releaseAll()` — line 594
-- `Set<UUID> instancesForPattern(int patternSlot)` — line 609
-- `boolean cancelTrackedOrder(PatternCraftingOrder order)` — line 619
-- `private void registerOrder(PatternCraftingReference reference, int patternSlot, int resultAmountPerSet, PatternCraftingBranch branch, IOrderInfoProvider order)` — line 638
+- `<init>(ModulePatternCrafting module, PipeItemsPatternCraftingLogistics pipe, PatternHandler patternHandler, PatternStackRequestHandler requestedIngredient)` — line 64
+- `static List<PatternCraftingMonitorEntry> pendingMonitorEntries(NBTTagCompound tag, int restoreAttempts, int maxRestoreAttempts)` — line 73
+- `static int assignMissingStandaloneReferences(NBTTagCompound tag)` — line 92
+- `static Set<UUID> pendingInstanceIds(NBTTagCompound tag)` — line 101
+- `boolean hasPattern(int patternSlot)` — line 109
+- `void writeToNBT(NBTTagCompound tag)` — line 118
+- `static boolean removePendingInstance(NBTTagCompound tag, UUID instanceId)` — line 139
+- `static boolean hasPendingOrders(NBTTagCompound tag)` — line 155
+- `static int incomingAmount(NBTTagCompound tag, PatternCraftingReference owner, IPatternStack ingredient)` — line 161
+- `private static int incomingOrderAmount(NBTTagCompound tag, PatternCraftingReference owner, IPatternStack ingredient)` — line 178
+- `private static void appendPendingStagedOrders(NBTTagList list, Map<UUID, List<PatternCraftingMonitorNode>> rootsByInstance)` — line 190
+- `private static int assignMissingStandaloneReferences(NBTTagList list)` — line 197
+- `private static void appendPendingStagedInstanceIds(NBTTagList list, Set<UUID> result)` — line 210
+- `private static void appendPendingInstanceIds(NBTTagList list, Set<UUID> result)` — line 216
+- `private static void appendPendingInstanceId(NBTTagCompound orderTag, Set<UUID> result)` — line 222
+- `private static void appendPendingOrders(NBTTagList list, Map<UUID, List<PatternCraftingMonitorNode>> rootsByInstance)` — line 229
+- `private static void appendPendingOrder(NBTTagCompound orderTag, Map<UUID, List<PatternCraftingMonitorNode>> rootsByInstance)` — line 236
+- `void appendDebugState(StringBuilder out, String prefix)` — line 247
+- `private static boolean removePendingOrders(NBTTagList list, UUID instanceId, boolean staged)` — line 273
+- `IOrderInfoProvider fulfill(IPromise promise, IResource requestType, IAdditionalTargetInformation info, PatternCraftingBranch branch)` — line 287
+- `void requestIngredients()` — line 335
+- `void requestIngredientsAfterCapacityChange()` — line 340
+- `private void removeOutputOrder(IOrderInfoProvider order)` — line 345
+- `private boolean hasRequestTarget(IPromise promise, IResource requestType)` — line 353
+- `private IRequestItems getRequestTarget(IResource requestType)` — line 360
+- `private int resolvePatternSlot(IPromise promise)` — line 370
+- `private int resolveResultAmountPerSet(IPromise promise, int patternSlot)` — line 380
+- `private NBTTagList writeStagedOrders(Set<IOrderInfoProvider> savedOutputOrders, Map<PatternCraftingReference, NBTTagCompound> records)` — line 390
+- `boolean restoreFromNBT(NBTTagCompound tag)` — line 426
+- `int remainingSets(int patternSlot)` — line 499
+- `int remainingOutputAmount(int patternSlot, IPatternStack output)` — line 509
+- `private List<RestoredStagedOrder> readStagedOrders(NBTTagList list, Map<PatternCraftingReference, PatternCraftingBranch> records)` — line 528
+- `private static PatternCraftingBranch resolveBranch(Map<PatternCraftingReference, PatternCraftingBranch> records, PatternCraftingReference reference)` — line 555
+- `private List<PatternCraftingPersistence.RestoredOrder> readOrders(NBTTagList list)` — line 562
+- `private void cleanupCompletedOutputOrders()` — line 577
+- `void releaseAll()` — line 592
+- `Set<UUID> instancesForPattern(int patternSlot)` — line 607
+- `boolean cancelTrackedOrder(PatternCraftingOrder order)` — line 617
+- `private void registerOrder(PatternCraftingReference reference, int patternSlot, int resultAmountPerSet, PatternCraftingBranch branch, IOrderInfoProvider order, ItemStack recipe)` — line 636
 - `private NBTTagList writeStandaloneItemOrders(Set<IOrderInfoProvider> savedOutputOrders)` — line 665
 - `private NBTTagList writeStandaloneFluidOrders(Set<IOrderInfoProvider> savedOutputOrders)` — line 680
 - `private void ensureStandaloneReference(LogisticsOrder order)` — line 695
@@ -1487,17 +1374,11 @@ No explicit method declarations.
 
 ## logisticspipes.crafting.PatternStagedCraftingScheduler
 
-Source: `src/main/java/logisticspipes/crafting/PatternStagedCraftingScheduler.java:20`
+Source: `src/main/java/logisticspipes/crafting/PatternStagedCraftingScheduler.java:14`
 
-- `<init>(ModulePatternCrafting module, PipeItemsPatternCraftingLogistics pipe, List<PatternCraftingOrder> stagedCrafts)` — line 28
-- `void requestIngredients(boolean capacityChanged)` — line 38
-- `void requestIngredients(int patternSlot)` — line 59
-- `private void requestIngredientsGuarded(int patternSlot)` — line 71
-- `private boolean removeFinishedOrder(PatternCraftingOrder order)` — line 88
-- `private boolean removeOrderWithoutPattern(PatternCraftingOrder order, ItemStack pattern)` — line 112
-- `private boolean removeFullyRequestedOrder(PatternCraftingOrder order)` — line 126
-- `private void requestOrderIngredients(PatternCraftingOrder order, ItemStack pattern)` — line 141
-- `private int orderableSetsForPattern(PatternCraftingOrder order, ItemStack pattern, int branchSets)` — line 201
+- `<init>(ModulePatternCrafting module, PipeItemsPatternCraftingLogistics pipe, List<PatternCraftingOrder> stagedCrafts)` — line 21
+- `void requestIngredients(boolean capacityChanged)` — line 27
+- `void requestIngredients(int patternSlot)` — line 36
 
 ## logisticspipes.crafting.PatternTargetInformation
 
@@ -1513,125 +1394,118 @@ Source: `src/main/java/logisticspipes/crafting/PatternTargetInformation.java:7`
 
 ## logisticspipes.crafting.PipeFluidPatternSatelliteLogistics
 
-Source: `src/main/java/logisticspipes/crafting/PipeFluidPatternSatelliteLogistics.java:35`
+Source: `src/main/java/logisticspipes/crafting/PipeFluidPatternSatelliteLogistics.java:32`
 
-- `public <init>(Item item)` — line 50
-- `public static void cleanup()` — line 54
-- `public static PipeFluidPatternSatelliteLogistics findById(int satelliteId)` — line 58
-- `public static PipeFluidPatternSatelliteLogistics findById(int satelliteId, IRouter requester)` — line 62
-- `public static PipeFluidPatternSatelliteLogistics findByUuid(String satelliteUuid)` — line 75
-- `static List<PatternByproductExtractionTarget> getRegisteredByproductExtractionTargets()` — line 87
-- `public static List<PatternSatelliteInfo> getKnownSatellitesFor(EntityPlayer player)` — line 91
-- `private static boolean isSelectableSatellite(PipeFluidPatternSatelliteLogistics satellite)` — line 128
-- `private static int getDistance(EntityPlayer player, int playerDimension, PipeFluidPatternSatelliteLogistics satellite, int satelliteDimension)` — line 135
-- `public String getSatelliteUuid()` — line 146
-- `public String getDisplayName()` — line 150
-- `@Override public String getSatelliteName()` — line 155
-- `@Override public boolean canExtractByproductsFor(IRouter requester)` — line 160
-- `@Override public PatternByproductExtractionResult extractItemByproduct(ItemIdentifier item, int amount, int destination, IAdditionalTargetInformation info)` — line 165
-- `@Override public PatternByproductExtractionResult extractFluidByproduct(FluidIdentifier fluid, int amount, int destination, IAdditionalTargetInformation info)` — line 171
-- `public void setSatelliteName(String satelliteName)` — line 177
-- `public boolean canReserveFor(PipeItemsPatternCraftingLogistics owner, PatternCraftingReference reference)` — line 189
-- `public boolean reserveFor(PipeItemsPatternCraftingLogistics owner, PatternCraftingReference reference)` — line 200
-- `public void releaseReservation(PipeItemsPatternCraftingLogistics owner, PatternCraftingReference reference)` — line 213
-- `public boolean isReservationConsumed(PipeItemsPatternCraftingLogistics owner, PatternCraftingReference reference)` — line 228
-- `public boolean canAcceptPatternInput(FluidIdentifier fluid, int amount)` — line 245
-- `public boolean canAcceptPatternInputs(List<PatternFluidStack> fluids)` — line 250
-- `List<TileEntity> patternTargetTanks()` — line 260
-- `public boolean isPatternTargetEmpty()` — line 269
-- `public int insertPatternInput(FluidIdentifier fluid, int amount)` — line 292
-- `public int insertPatternInput(FluidIdentifier fluid, int amount, boolean trackReservation)` — line 299
-- `public int retrieveFluidToStorage(FluidIdentifier fluid, int amount)` — line 317
-- `private void queueFluidToStorage(FluidStack fluid, ForgeDirection from)` — line 359
-- `private int fillPatternInput(FluidIdentifier fluid, int amount, boolean doFill)` — line 367
-- `private int countAdjacentFluid(FluidIdentifier fluid)` — line 386
-- `private UUID ownerRouterId(PipeItemsPatternCraftingLogistics owner)` — line 408
-- `private void markReservationDirty()` — line 412
-- `@Override public void enabledUpdateEntity()` — line 416
-- `@Override protected void ensureAllSatelliteStatus()` — line 424
-- `@Override public void setSatelliteId(int satelliteId)` — line 441
-- `@Override public void onWrenchClicked(EntityPlayer entityplayer)` — line 447
-- `@Override public void readFromNBT(NBTTagCompound nbttagcompound)` — line 453
-- `@Override public void writeToNBT(NBTTagCompound nbttagcompound)` — line 474
-- `@Override public void onAllowedRemoval()` — line 494
-- `private void ensureUniqueDisplayNameInNetwork()` — line 502
-- `private boolean hasDisplayNameConflict(String displayName)` — line 517
-- `private boolean isInSameNetwork(PipeFluidPatternSatelliteLogistics other)` — line 529
+- `public <init>(Item item)` — line 46
+- `public static void cleanup()` — line 50
+- `public static PipeFluidPatternSatelliteLogistics findById(int satelliteId)` — line 54
+- `public static PipeFluidPatternSatelliteLogistics findById(int satelliteId, IRouter requester)` — line 58
+- `public static PipeFluidPatternSatelliteLogistics findByUuid(String satelliteUuid)` — line 71
+- `static List<PatternByproductExtractionTarget> getRegisteredByproductExtractionTargets()` — line 83
+- `public static List<PatternSatelliteInfo> getKnownSatellitesFor(EntityPlayer player)` — line 87
+- `private static boolean isSelectableSatellite(PipeFluidPatternSatelliteLogistics satellite)` — line 124
+- `private static int getDistance(EntityPlayer player, int playerDimension, PipeFluidPatternSatelliteLogistics satellite, int satelliteDimension)` — line 131
+- `public String getSatelliteUuid()` — line 142
+- `public String getDisplayName()` — line 146
+- `@Override public String getSatelliteName()` — line 151
+- `@Override public boolean canExtractByproductsFor(IRouter requester)` — line 156
+- `@Override public PatternByproductExtractionResult extractItemByproduct(ItemIdentifier item, int amount, int destination, IAdditionalTargetInformation info)` — line 161
+- `@Override public PatternByproductExtractionResult extractFluidByproduct(FluidIdentifier fluid, int amount, int destination, IAdditionalTargetInformation info)` — line 167
+- `public void setSatelliteName(String satelliteName)` — line 173
+- `public boolean canReserveFor(PipeItemsPatternCraftingLogistics owner, PatternCraftingReference reference)` — line 185
+- `public boolean reserveFor(PipeItemsPatternCraftingLogistics owner, PatternCraftingReference reference)` — line 195
+- `public void releaseReservation(PipeItemsPatternCraftingLogistics owner, PatternCraftingReference reference)` — line 208
+- `public boolean canAcceptPatternInput(FluidIdentifier fluid, int amount)` — line 222
+- `public boolean canAcceptPatternInputs(List<PatternFluidStack> fluids)` — line 227
+- `List<Pair<IFluidHandler, ForgeDirection>> patternInputTanks()` — line 231
+- `List<TileEntity> patternTargetTanks()` — line 241
+- `public int insertPatternInput(FluidIdentifier fluid, int amount)` — line 250
+- `public int retrieveFluidToStorage(FluidIdentifier fluid, int amount)` — line 263
+- `private void queueFluidToStorage(FluidStack fluid, ForgeDirection from)` — line 305
+- `private int fillPatternInput(FluidIdentifier fluid, int amount, boolean doFill)` — line 313
+- `private int countAdjacentFluid(FluidIdentifier fluid)` — line 332
+- `private UUID ownerRouterId(PipeItemsPatternCraftingLogistics owner)` — line 354
+- `private void markReservationDirty()` — line 358
+- `@Override public void enabledUpdateEntity()` — line 362
+- `@Override protected void ensureAllSatelliteStatus()` — line 370
+- `@Override public void setSatelliteId(int satelliteId)` — line 387
+- `@Override public void onWrenchClicked(EntityPlayer entityplayer)` — line 393
+- `@Override public void readFromNBT(NBTTagCompound nbttagcompound)` — line 399
+- `@Override public void writeToNBT(NBTTagCompound nbttagcompound)` — line 411
+- `@Override public void onAllowedRemoval()` — line 425
+- `private void ensureUniqueDisplayNameInNetwork()` — line 433
+- `private boolean hasDisplayNameConflict(String displayName)` — line 448
+- `private boolean isInSameNetwork(PipeFluidPatternSatelliteLogistics other)` — line 460
 
 ## logisticspipes.crafting.PipeItemsPatternSatelliteLogistics
 
 Source: `src/main/java/logisticspipes/crafting/PipeItemsPatternSatelliteLogistics.java:49`
 
-- `public <init>(Item item)` — line 71
-- `public static void cleanup()` — line 75
-- `public static PipeItemsPatternSatelliteLogistics findById(int satelliteId)` — line 79
-- `public static PipeItemsPatternSatelliteLogistics findById(int satelliteId, IRouter requester)` — line 83
-- `public static PipeItemsPatternSatelliteLogistics findByUuid(String satelliteUuid)` — line 96
-- `static List<PatternByproductExtractionTarget> getRegisteredByproductExtractionTargets()` — line 108
-- `public static List<Integer> getKnownSatelliteIds()` — line 112
-- `public static List<PatternSatelliteInfo> getKnownSatellitesFor(EntityPlayer player)` — line 122
-- `private static boolean isSelectableSatellite(PipeItemsPatternSatelliteLogistics satellite)` — line 164
-- `private static Set<Integer> getFavoriteSatelliteIds(EntityPlayer player)` — line 171
-- `private static Set<String> getFavoriteSatelliteUuids(EntityPlayer player)` — line 186
-- `private static int getDistance(EntityPlayer player, int playerDimension, PipeItemsPatternSatelliteLogistics satellite, int satelliteDimension)` — line 201
-- `public String getDisplayName()` — line 212
-- `@Override public String getSatelliteName()` — line 217
-- `@Override public boolean canExtractByproductsFor(IRouter requester)` — line 222
-- `@Override public PatternByproductExtractionResult extractItemByproduct(ItemIdentifier item, int amount, int destination, IAdditionalTargetInformation info)` — line 227
-- `@Override public PatternByproductExtractionResult extractFluidByproduct(FluidIdentifier fluid, int amount, int destination, IAdditionalTargetInformation info)` — line 233
-- `@Override public boolean isLockedExit(ForgeDirection orientation)` — line 242
-- `@Override public void enabledUpdateEntity()` — line 251
-- `@Override public void setSatelliteName(String satelliteName)` — line 259
-- `public boolean canReserveFor(PipeItemsPatternCraftingLogistics owner, PatternCraftingReference reference)` — line 272
-- `public boolean reserveFor(PipeItemsPatternCraftingLogistics owner, PatternCraftingReference reference)` — line 283
-- `public void releaseReservation(PipeItemsPatternCraftingLogistics owner, PatternCraftingReference reference)` — line 296
-- `public boolean isReservationConsumed(PipeItemsPatternCraftingLogistics owner, PatternCraftingReference reference)` — line 312
-- `private boolean hasActivePatternInputReservation()` — line 331
-- `public boolean canAcceptPatternInput(ItemIdentifierStack stack)` — line 346
-- `public boolean canAcceptPatternInputs(List<ItemIdentifierStack> stacks)` — line 351
-- `public boolean isPatternTargetEmpty()` — line 368
-- `void expectStagedPatternInput(ItemIdentifierStack stack, PatternCraftingReference delivery, boolean tracked)` — line 395
-- `int stagedPatternInputAmount(PatternCraftingReference delivery)` — line 400
-- `int insertStagedPatternInput(PatternCraftingReference delivery, int amount)` — line 405
-- `public void expectPatternInput(ItemIdentifierStack stack, PatternCraftingReference delivery, boolean trackReservation)` — line 420
-- `@Override public void itemLost(ItemIdentifierStack item, IAdditionalTargetInformation info)` — line 434
-- `@Override public void throttledUpdateEntity()` — line 452
-- `private void trimCompletedDeliveries()` — line 478
-- `public int insertPatternInput(ItemIdentifierStack stack)` — line 490
-- `public int insertPatternInput(ItemIdentifierStack stack, boolean trackReservation)` — line 497
-- `public int retrieveOrCancelToStorage(ItemIdentifierStack stack, boolean interceptMissing, PatternCraftingReference deliveryReference)` — line 523
-- `@Override public void itemArrived(ItemIdentifierStack item, IAdditionalTargetInformation info)` — line 548
-- `private void markExpectedInputArrived(ItemIdentifierStack item)` — line 595
-- `private int retrieveLandedItemsToStorage(ItemIdentifierStack stack)` — line 612
-- `private int roomForPatternInput(ItemIdentifierStack stack)` — line 640
-- `private int countAdjacentItem(ItemIdentifier item)` — line 654
-- `AdjacentTile getPatternTargetInventory()` — line 671
-- `private IInventory getInsertableInventory(AdjacentTile target)` — line 690
-- `private UUID ownerRouterId(PipeItemsPatternCraftingLogistics owner)` — line 703
-- `private void markReservationDirty()` — line 707
-- `private void queueToStorage(ItemStack stack, ForgeDirection from)` — line 711
-- `private void addPendingCancelledArrival(ItemIdentifier item, int amount, PatternCraftingReference deliveryReference)` — line 722
-- `private int removePendingCancelledArrival(ItemIdentifierStack arriving, IAdditionalTargetInformation info)` — line 740
-- `private void purgeExpiredCancelledArrivals()` — line 760
-- `@Override protected int findId(int increment)` — line 774
-- `@Override protected void ensureAllSatelliteStatus()` — line 797
-- `private void ensureUniqueDisplayNameInNetwork()` — line 813
-- `private boolean hasDisplayNameConflict(String displayName)` — line 828
-- `private boolean isInSameNetwork(PipeItemsPatternSatelliteLogistics other)` — line 840
-- `@Override public boolean handleClick(EntityPlayer player, SecuritySettings settings)` — line 851
-- `@Override public void setSatelliteId(int satelliteId)` — line 877
-- `@Override public void onWrenchClicked(EntityPlayer entityplayer)` — line 883
-- `@Override public void readFromNBT(NBTTagCompound nbttagcompound)` — line 889
-- `@Override public void writeToNBT(NBTTagCompound nbttagcompound)` — line 945
-- `@Override public void onAllowedRemoval()` — line 988
+- `public <init>(Item item)` — line 69
+- `public static void cleanup()` — line 73
+- `public static PipeItemsPatternSatelliteLogistics findById(int satelliteId)` — line 77
+- `public static PipeItemsPatternSatelliteLogistics findById(int satelliteId, IRouter requester)` — line 81
+- `public static PipeItemsPatternSatelliteLogistics findByUuid(String satelliteUuid)` — line 94
+- `static List<PatternByproductExtractionTarget> getRegisteredByproductExtractionTargets()` — line 106
+- `public static List<Integer> getKnownSatelliteIds()` — line 110
+- `public static List<PatternSatelliteInfo> getKnownSatellitesFor(EntityPlayer player)` — line 120
+- `private static boolean isSelectableSatellite(PipeItemsPatternSatelliteLogistics satellite)` — line 162
+- `private static Set<Integer> getFavoriteSatelliteIds(EntityPlayer player)` — line 169
+- `private static Set<String> getFavoriteSatelliteUuids(EntityPlayer player)` — line 184
+- `private static int getDistance(EntityPlayer player, int playerDimension, PipeItemsPatternSatelliteLogistics satellite, int satelliteDimension)` — line 199
+- `public String getDisplayName()` — line 210
+- `@Override public String getSatelliteName()` — line 215
+- `@Override public boolean canExtractByproductsFor(IRouter requester)` — line 220
+- `@Override public PatternByproductExtractionResult extractItemByproduct(ItemIdentifier item, int amount, int destination, IAdditionalTargetInformation info)` — line 225
+- `@Override public PatternByproductExtractionResult extractFluidByproduct(FluidIdentifier fluid, int amount, int destination, IAdditionalTargetInformation info)` — line 231
+- `@Override public boolean isLockedExit(ForgeDirection orientation)` — line 240
+- `@Override public void enabledUpdateEntity()` — line 249
+- `@Override public void setSatelliteName(String satelliteName)` — line 257
+- `public boolean canReserveFor(PipeItemsPatternCraftingLogistics owner, PatternCraftingReference reference)` — line 270
+- `public boolean reserveFor(PipeItemsPatternCraftingLogistics owner, PatternCraftingReference reference)` — line 280
+- `public void releaseReservation(PipeItemsPatternCraftingLogistics owner, PatternCraftingReference reference)` — line 293
+- `public boolean canAcceptPatternInput(ItemIdentifierStack stack)` — line 307
+- `public boolean canAcceptPatternInputs(List<ItemIdentifierStack> stacks)` — line 312
+- `void expectStagedPatternInput(ItemIdentifierStack stack, PatternCraftingReference delivery)` — line 332
+- `int stagedPatternInputAmount(PatternCraftingReference delivery)` — line 337
+- `int insertStagedPatternInput(PatternCraftingReference delivery, int amount)` — line 342
+- `public void expectPatternInput(ItemIdentifierStack stack, PatternCraftingReference delivery)` — line 356
+- `@Override public void itemLost(ItemIdentifierStack item, IAdditionalTargetInformation info)` — line 365
+- `@Override public void throttledUpdateEntity()` — line 383
+- `private void trimCompletedDeliveries()` — line 409
+- `public int insertPatternInput(ItemIdentifierStack stack)` — line 421
+- `public int retrieveOrCancelToStorage(ItemIdentifierStack stack, boolean interceptMissing, PatternCraftingReference deliveryReference)` — line 442
+- `@Override public void itemArrived(ItemIdentifierStack item, IAdditionalTargetInformation info)` — line 467
+- `private int retrieveLandedItemsToStorage(ItemIdentifierStack stack)` — line 516
+- `private int roomForPatternInput(ItemIdentifierStack stack)` — line 544
+- `private int countAdjacentItem(ItemIdentifier item)` — line 558
+- `AdjacentTile getPatternTargetInventory()` — line 575
+- `IInventory getInsertableInventory(AdjacentTile target)` — line 594
+- `private UUID ownerRouterId(PipeItemsPatternCraftingLogistics owner)` — line 607
+- `private void markReservationDirty()` — line 611
+- `private void queueToStorage(ItemStack stack, ForgeDirection from)` — line 615
+- `private void addPendingCancelledArrival(ItemIdentifier item, int amount, PatternCraftingReference deliveryReference)` — line 626
+- `private int removePendingCancelledArrival(ItemIdentifierStack arriving, IAdditionalTargetInformation info)` — line 644
+- `private void purgeExpiredCancelledArrivals()` — line 664
+- `@Override protected int findId(int increment)` — line 678
+- `@Override protected void ensureAllSatelliteStatus()` — line 701
+- `private void ensureUniqueDisplayNameInNetwork()` — line 717
+- `private boolean hasDisplayNameConflict(String displayName)` — line 732
+- `private boolean isInSameNetwork(PipeItemsPatternSatelliteLogistics other)` — line 744
+- `@Override public boolean handleClick(EntityPlayer player, SecuritySettings settings)` — line 755
+- `@Override public void setSatelliteId(int satelliteId)` — line 781
+- `@Override public void onWrenchClicked(EntityPlayer entityplayer)` — line 787
+- `@Override public void readFromNBT(NBTTagCompound nbttagcompound)` — line 793
+- `@Override public void writeToNBT(NBTTagCompound nbttagcompound)` — line 838
+- `@Override public void onAllowedRemoval()` — line 873
 
 ## logisticspipes.crafting.PipeItemsPatternSatelliteLogistics.PendingCancelledArrival
 
-Source: `src/main/java/logisticspipes/crafting/PipeItemsPatternSatelliteLogistics.java:1002`
+Source: `src/main/java/logisticspipes/crafting/PipeItemsPatternSatelliteLogistics.java:887`
 
-- `private <init>(ItemIdentifier item, int amount, long expires, PatternCraftingReference deliveryReference)` — line 1009
-- `private boolean matches(ItemIdentifier item, PatternCraftingReference deliveryReference)` — line 1017
-- `private boolean matches(ItemIdentifierStack arriving, IAdditionalTargetInformation info)` — line 1021
+- `private <init>(ItemIdentifier item, int amount, long expires, PatternCraftingReference deliveryReference)` — line 894
+- `private boolean matches(ItemIdentifier item, PatternCraftingReference deliveryReference)` — line 902
+- `private boolean matches(ItemIdentifierStack arriving, IAdditionalTargetInformation info)` — line 906
 
 ## logisticspipes.crafting.SatelliteInventoryClearer
 

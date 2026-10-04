@@ -30,6 +30,12 @@ public final class PatternCraftingInstanceRegistry {
 
     private PatternCraftingInstanceRegistry() {}
 
+    static synchronized List<PatternCraftingOrder> ordersForModule(ModulePatternCrafting module) {
+        List<PatternCraftingOrder> result = new ArrayList<>();
+        for (PatternCraftingOrder order : ORDERS.values()) if (order.module() == module) result.add(order);
+        return result;
+    }
+
     static synchronized void register(IOrderInfoProvider outputOrder, PatternCraftingOrder order) {
         if (outputOrder == null || order == null || order.reference() == null) {
             return;

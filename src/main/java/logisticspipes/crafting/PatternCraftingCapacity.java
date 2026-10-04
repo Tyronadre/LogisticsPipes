@@ -10,7 +10,7 @@ import logisticspipes.utils.FluidIdentifier;
 import logisticspipes.utils.item.ItemIdentifier;
 import logisticspipes.utils.item.ItemIdentifierStack;
 
-/** Routing accepts only outstanding deliveries whose space has already been reserved by admission. */
+/** Per-pattern ordering allowance; arrivals consume their existing ingredient claims without another capacity gate. */
 final class PatternCraftingCapacity {
 
     private final ModulePatternCrafting module;
@@ -29,11 +29,22 @@ final class PatternCraftingCapacity {
         this.ingredients = ingredients;
     }
 
+    int orderableSets(PatternCraftingOrder order) {
+        ItemStack pattern = order.pattern();
+        if (pattern == null) return 0;
+        int pending = module.pendingPatternSets(order.patternSlot);
+        int target = module.getEffectiveBlockingMode() == PipeItemsPatternCraftingLogistics.BlockingMode.BLOCKING ? 0
+                : module.maxDispatchablePatternSets(order.reference(), pattern, Integer.MAX_VALUE - 64);
+        if (target > 0 && !module.batchOutputs().canOrderIntoTargets(order)) target = 0;
+        return (int) Math
+                .max(0, Math.min(Integer.MAX_VALUE, Math.max(0L, 64L + target - pending) + order.partialSets()));
+    }
+
     int spaceForItem(ItemIdentifier item, boolean includeInTransit) {
         long amount = module.batchOutputs().incoming(new PatternItemStack(new ItemIdentifierStack(item, 1)));
-        for (int slot = 0; slot < patterns.size(); slot++) {
-            ItemStack pattern = patterns.getConfiguredPatternStack(slot);
-            if (pattern != null) amount += ingredients.requestedItemAmount(slot, pattern, item);
+        for (PatternCraftingOrder order : PatternCraftingInstanceRegistry.ordersForModule(module)) {
+            if (order.pattern() != null)
+                amount += ingredients.requestedItemAmount(order.reference(), order.pattern(), item);
         }
         if (includeInTransit) amount -= pipe.countOnRoute(item);
         return (int) Math.max(0, Math.min(Integer.MAX_VALUE, amount));

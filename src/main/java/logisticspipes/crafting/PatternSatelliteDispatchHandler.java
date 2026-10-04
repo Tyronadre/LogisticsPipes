@@ -1,9 +1,7 @@
 package logisticspipes.crafting;
 
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
@@ -47,6 +45,12 @@ final class PatternSatelliteDispatchHandler {
     DispatchPlan findInsertableBufferedPlan(PatternCraftingReference ownerReference, int patternSlot, ItemStack pattern,
             int maxSets) {
         maxSets = Math.min(64, maxSets);
+        PatternRecipeSnapshot recipe = module.getPatternRecipe(pattern);
+        for (int slot = 0; slot < recipe.getResultSlotCount(); slot++) {
+            IPatternStack output = recipe.getOutput(slot);
+            if (output != null && output.getAmount() > 0)
+                maxSets = Math.min(maxSets, Integer.MAX_VALUE / output.getAmount());
+        }
         for (int sets = maxSets; sets > 0; sets--) {
             List<PatternIngredientAssignment> assignments = module
                     .buildBufferedIngredientPlan(ownerReference, patternSlot, pattern, sets);
@@ -104,6 +108,11 @@ final class PatternSatelliteDispatchHandler {
             }
         }
         return low;
+    }
+
+    DispatchPlan orderingPlan(PatternCraftingReference owner, int slot, ItemStack pattern) {
+        List<PatternIngredientAssignment> assignments = buildPatternAssignments(pattern, 1);
+        return assignments == null ? null : buildDispatchPlan(owner, slot, pattern, assignments);
     }
 
     private List<PatternIngredientAssignment> buildPatternAssignments(ItemStack pattern, int sets) {
@@ -443,17 +452,19 @@ final class PatternSatelliteDispatchHandler {
             if (pattern.getItem() != other.pattern.getItem() || pattern.getItemDamage() != other.pattern.getItemDamage()
                     || assignments.size() != other.assignments.size())
                 return false;
-            int leftSets = sets();
-            int rightSets = other.sets();
-            for (int i = 0; i < assignments.size(); i++) {
-                PatternIngredientAssignment left = assignments.get(i);
-                PatternIngredientAssignment right = other.assignments.get(i);
-                if (left.inputSlot() != right.inputSlot() || !left.stack().canMerge(right.stack())
-                        || (long) left.stack().getAmount() * rightSets != (long) right.stack().getAmount() * leftSets)
-                    return false;
-            }
             PatternRecipeSnapshot left = module.getPatternRecipe(pattern);
             PatternRecipeSnapshot right = module.getPatternRecipe(other.pattern);
+            if (left.getIngredientSlotCount() != right.getIngredientSlotCount()
+                    || left.isIgnoreNbtEnabled() != right.isIgnoreNbtEnabled()
+                    || left.isOreDictSubstitutionEnabled() != right.isOreDictSubstitutionEnabled())
+                return false;
+            for (int i = 0; i < left.getIngredientSlotCount(); i++) {
+                IPatternStack a = left.getInput(i);
+                IPatternStack b = right.getInput(i);
+                if (a == null || b == null) {
+                    if (a != b) return false;
+                } else if (!a.canMerge(b) || a.getAmount() != b.getAmount()) return false;
+            }
             if (left.getResultSlotCount() != right.getResultSlotCount()) return false;
             for (int i = 0; i < left.getResultSlotCount(); i++) {
                 IPatternStack a = left.getOutput(i);
@@ -474,10 +485,6 @@ final class PatternSatelliteDispatchHandler {
         private void addLocal(PatternIngredientAssignment assignment) {
             usesLocalInventory = true;
             localAssignments.add(assignment);
-        }
-
-        boolean usesLocalInventory() {
-            return usesLocalInventory;
         }
 
         int sets() {
@@ -569,29 +576,20 @@ final class PatternSatelliteDispatchHandler {
             if (hasSatellites() && !pipe.hasAdvancedSatelliteUpgrade()) {
                 return false;
             }
-            if (usesLocalInventory
-                    && module.getEffectiveBlockingMode() == PipeItemsPatternCraftingLogistics.BlockingMode.BLOCKING
-                    && !adjacentInventory.isEmpty(adjacentInventory.getConnected())) {
-                return false;
-            }
             if (!localAssignments.isEmpty()
                     && !adjacentInventory.canInsertPatternIngredients(pattern, localAssignments)) {
                 return false;
             }
             boolean instantItems = module.hasInstantSatelliteUpgrade();
-            boolean reserveSatellites = usesSatelliteReservations();
             for (ItemSatelliteAssignment assignment : itemSatelliteAssignments) {
-                if ((reserveSatellites && !assignment.satellite.canReserveFor(pipe, batchReference))
-                        || (module.getEffectiveBlockingMode() == PipeItemsPatternCraftingLogistics.BlockingMode.BLOCKING
-                                && !assignment.satellite.isPatternTargetEmpty())
+                if (!assignment.satellite.canReserveFor(pipe, batchReference)
+
                         || (!instantItems && !canRouteToItemSatellite(assignment))) {
                     return false;
                 }
             }
             for (FluidSatelliteAssignment assignment : fluidSatelliteAssignments) {
-                if ((reserveSatellites && !assignment.satellite.canReserveFor(pipe, batchReference))
-                        || (module.getEffectiveBlockingMode() == PipeItemsPatternCraftingLogistics.BlockingMode.BLOCKING
-                                && !assignment.satellite.isPatternTargetEmpty())) {
+                if (!assignment.satellite.canReserveFor(pipe, batchReference)) {
                     return false;
                 }
             }
@@ -617,13 +615,66 @@ final class PatternSatelliteDispatchHandler {
                     return false;
                 }
             }
+            return canFitSharedItemInputs() && canFitSharedFluidInputs();
+        }
+
+        private boolean canFitSharedFluidInputs() {
+            List<List<logisticspipes.utils.tuples.Pair<net.minecraftforge.fluids.IFluidHandler, ForgeDirection>>> targets = new ArrayList<>();
+            List<PatternFluidStack> fluids = new ArrayList<>();
+            var connected = adjacentInventory.getConnected();
+            if (connected != null && connected.tile instanceof net.minecraftforge.fluids.IFluidHandler handler) {
+                for (PatternIngredientAssignment assignment : localAssignments) {
+                    if (!(assignment.stack() instanceof PatternFluidStack fluid)) continue;
+                    targets.add(
+                            java.util.Collections.singletonList(
+                                    new logisticspipes.utils.tuples.Pair<>(
+                                            handler,
+                                            adjacentInventory.getFluidInsertionOrientation(connected))));
+                    fluids.add(fluid);
+                }
+            }
+            for (FluidSatelliteAssignment assignment : fluidSatelliteAssignments) {
+                targets.add(assignment.satellite.patternInputTanks());
+                fluids.add(new PatternFluidStack(assignment.fluid, assignment.amount));
+            }
+            java.util.Set<net.minecraftforge.fluids.IFluidHandler> seen = java.util.Collections
+                    .newSetFromMap(new java.util.IdentityHashMap<>());
+            for (var group : targets) {
+                for (var target : group) if (!seen.add(target.getValue1()))
+                    return AdjacentInventoryHandler.canFitFluidInputs(targets, fluids);
+            }
+            return true;
+        }
+
+        /** Two satellite connections to one inventory must not each simulate spending the same empty slots. */
+        private boolean canFitSharedItemInputs() {
+            java.util.Map<Object, net.minecraft.inventory.IInventory> inventories = new java.util.IdentityHashMap<>();
+            java.util.Map<Object, List<ItemIdentifierStack>> inputs = new java.util.IdentityHashMap<>();
+            var connected = adjacentInventory.getConnected();
+            if (connected != null && !localAssignments.isEmpty()
+                    && !adjacentInventory.isConnectedToPatternCraftingTable()) {
+                for (PatternIngredientAssignment assignment : localAssignments) {
+                    ItemIdentifierStack stack = PatternStackHelper.asSolidStack(assignment.stack());
+                    if (stack == null) continue;
+                    inventories.put(connected.tile, adjacentInventory.getInsertableInventory(connected));
+                    inputs.computeIfAbsent(connected.tile, ignored -> new ArrayList<>()).add(stack);
+                }
+            }
+            for (ItemSatelliteAssignment assignment : itemSatelliteAssignments) {
+                var target = assignment.satellite.getPatternTargetInventory();
+                if (target == null) return false;
+                inventories.put(target.tile, assignment.satellite.getInsertableInventory(target));
+                inputs.computeIfAbsent(target.tile, ignored -> new ArrayList<>()).add(assignment.stack);
+            }
+            for (Object target : inputs.keySet()) if (!AdjacentInventoryHandler
+                    .canFitPatternSetsDisregardingSlots(inventories.get(target), inputs.get(target), 1))
+                return false;
             return true;
         }
 
         /**
-         * Inserts whatever is still missing and takes exactly that out of {@code buffer}. The full room check and the
-         * satellite reservations only happen before the first attempt; once part of the set is in, the rest is inserted
-         * as room appears.
+         * Stage the complete plan, check every target again, and commit without yielding the server thread. Unexpected
+         * short inserts retain recovery progress; partial sets are never deliberately dispatched.
          */
         DispatchResult dispatch(PatternStackBufferHandler buffer) {
             if (!resolveTargets() || (!localAssignments.isEmpty() && (adjacentInventory.getConnected() == null
@@ -633,8 +684,7 @@ final class PatternSatelliteDispatchHandler {
             if (!started && !canDispatch()) {
                 return DispatchResult.NONE;
             }
-            boolean reserveSatellites = usesSatelliteReservations();
-            if (!started && reserveSatellites) {
+            if (!started) {
                 List<PipeItemsPatternSatelliteLogistics> reservedItemSatellites = new ArrayList<>();
                 List<PipeFluidPatternSatelliteLogistics> reservedFluidSatellites = new ArrayList<>();
                 if (!reserveSatellites(reservedItemSatellites, reservedFluidSatellites)) {
@@ -646,7 +696,7 @@ final class PatternSatelliteDispatchHandler {
             if (!committing) {
                 for (ItemSatelliteAssignment assignment : itemSatelliteAssignments) {
                     if (assignment.routed || instantItems) continue;
-                    routeItemSatelliteAssignment(assignment, reserveSatellites);
+                    routeItemSatelliteAssignment(assignment);
                     assignment.routed = true;
                     buffer.remove(ownerReference, new PatternItemStack(assignment.stack), assignment.remaining);
                     started = true;
@@ -665,8 +715,7 @@ final class PatternSatelliteDispatchHandler {
                 if (assignment.remaining <= 0) {
                     continue;
                 }
-                int inserted = assignment.satellite
-                        .insertPatternInput(assignment.fluid, assignment.remaining, reserveSatellites);
+                int inserted = assignment.satellite.insertPatternInput(assignment.fluid, assignment.remaining);
                 if (inserted > 0) {
                     assignment.remaining -= inserted;
                     buffer.remove(ownerReference, new PatternFluidStack(assignment.fluid, inserted), inserted);
@@ -683,8 +732,7 @@ final class PatternSatelliteDispatchHandler {
                             .insertStagedPatternInput(assignment.deliveryReference, assignment.remaining);
                 } else {
                     inserted = assignment.satellite.insertPatternInput(
-                            new ItemIdentifierStack(assignment.stack.getItem(), assignment.remaining),
-                            reserveSatellites);
+                            new ItemIdentifierStack(assignment.stack.getItem(), assignment.remaining));
                 }
                 if (inserted > 0) {
                     assignment.remaining -= inserted;
@@ -784,20 +832,8 @@ final class PatternSatelliteDispatchHandler {
             return true;
         }
 
-        PatternCraftingBlockingHandler.SatelliteBatch satelliteBatch() {
-            if (!hasSatellites()) {
-                return null;
-            }
-            return new SatelliteDispatchBatch(this);
-        }
-
         private boolean hasSatellites() {
             return !itemSatelliteAssignments.isEmpty() || !fluidSatelliteAssignments.isEmpty();
-        }
-
-        private boolean usesSatelliteReservations() {
-            // Protect the preparation/commit phase in every mode. Running batches are governed by output leases.
-            return true;
         }
 
         private boolean canRouteToItemSatellite(ItemSatelliteAssignment assignment) {
@@ -807,12 +843,11 @@ final class PatternSatelliteDispatchHandler {
                             .hasRoute(assignment.satellite.getRouter().getSimpleID(), true, assignment.stack.getItem());
         }
 
-        private void routeItemSatelliteAssignment(ItemSatelliteAssignment assignment, boolean reserveSatellites) {
+        private void routeItemSatelliteAssignment(ItemSatelliteAssignment assignment) {
             PatternTargetInformation target = PatternTargetInformation
                     .delivery(patternSlot, assignment.inputSlot, batchReference);
             assignment.deliveryReference = target.deliveryReference();
-            assignment.satellite
-                    .expectStagedPatternInput(assignment.stack, assignment.deliveryReference, reserveSatellites);
+            assignment.satellite.expectStagedPatternInput(assignment.stack, assignment.deliveryReference);
             int remaining = assignment.stack.getStackSize();
             int maxStackSize = Math.max(1, assignment.stack.getItem().getMaxStackSize());
             while (remaining > 0) {
@@ -854,63 +889,4 @@ final class PatternSatelliteDispatchHandler {
         }
     }
 
-    private final class SatelliteDispatchBatch implements PatternCraftingBlockingHandler.SatelliteBatch {
-
-        private final DispatchPlan plan;
-
-        private SatelliteDispatchBatch(DispatchPlan plan) {
-            this.plan = plan;
-        }
-
-        @Override
-        public PatternCraftingReference ownerReference() {
-            return plan.batchReference;
-        }
-
-        @Override
-        public int patternSlot() {
-            return plan.patternSlot;
-        }
-
-        @Override
-        public boolean isConsumed() {
-            if (!plan.resolveTargets()) return false;
-            for (PipeItemsPatternSatelliteLogistics satellite : uniqueItemSatellites(plan.itemSatelliteAssignments)) {
-                if (!satellite.isReservationConsumed(pipe, plan.batchReference)) {
-                    return false;
-                }
-            }
-            for (PipeFluidPatternSatelliteLogistics satellite : uniqueFluidSatellites(plan.fluidSatelliteAssignments)) {
-                if (!satellite.isReservationConsumed(pipe, plan.batchReference)) {
-                    return false;
-                }
-            }
-            return true;
-        }
-
-        @Override
-        public int size() {
-            Set<String> satellites = new HashSet<>();
-            for (ItemSatelliteAssignment assignment : plan.itemSatelliteAssignments)
-                satellites.add(assignment.satelliteUuid);
-            for (FluidSatelliteAssignment assignment : plan.fluidSatelliteAssignments)
-                satellites.add(assignment.satelliteUuid);
-            return satellites.size();
-        }
-
-        @Override
-        public void retrieveAndRelease() {
-            if (!plan.abandon()) module.deferDispatchCleanup(plan, true);
-        }
-
-        @Override
-        public void release() {
-            if (!plan.release()) module.deferDispatchCleanup(plan, false);
-        }
-
-        @Override
-        public NBTTagCompound writeToNBT() {
-            return plan.writeToNBT();
-        }
-    }
 }

@@ -1,5 +1,7 @@
 package logisticspipes.crafting;
 
+import net.minecraft.item.ItemStack;
+
 import logisticspipes.interfaces.routing.IProvideFluids;
 import logisticspipes.routing.FluidLogisticsPromise;
 import logisticspipes.routing.order.IOrderInfoProvider.ResourceType;
@@ -12,6 +14,11 @@ public class PatternFluidCraftingPromise extends FluidLogisticsPromise implement
     private final int patternSlot;
     private final int resultAmountPerSet;
     private PatternByproductTarget byproductTarget;
+    private ItemStack recipe;
+
+    public void setRecipe(ItemStack recipe) {
+        this.recipe = recipe == null ? null : recipe.copy();
+    }
 
     public void setByproductTarget(PatternByproductTarget target) {
         byproductTarget = target;
@@ -54,6 +61,7 @@ public class PatternFluidCraftingPromise extends FluidLogisticsPromise implement
                 patternSlot,
                 resultAmountPerSet);
         copy.setByproductTarget(byproductTarget);
+        copy.setRecipe(recipe);
         return copy;
     }
 }

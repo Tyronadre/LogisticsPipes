@@ -85,6 +85,7 @@ class PatternCraftingTemplateBuilder {
                     0,
                     slot,
                     recipe.getIngredientSlotCount());
+            template.setRecipe(recipe.getPatternStack());
             addPatternIngredients(template, recipe, slot);
             template.setOutputTarget(itemByproductTarget(recipe, slot, outputSlot));
             addItemResultByproducts(template, recipe, outputSlot);
@@ -114,6 +115,7 @@ class PatternCraftingTemplateBuilder {
                     module,
                     0,
                     slot);
+            template.setRecipe(recipe.getPatternStack());
             addPatternIngredients(template, recipe, slot);
             template.setOutputTarget(fluidByproductTarget(recipe, slot, outputSlot));
             addFluidResultByproducts(template, recipe, outputSlot);

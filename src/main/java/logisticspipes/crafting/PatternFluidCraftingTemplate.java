@@ -3,6 +3,8 @@ package logisticspipes.crafting;
 import java.util.ArrayList;
 import java.util.List;
 
+import net.minecraft.item.ItemStack;
+
 import logisticspipes.interfaces.routing.ICraftFluids;
 import logisticspipes.interfaces.routing.IProvideItems;
 import logisticspipes.request.FluidCraftingTemplate;
@@ -17,6 +19,11 @@ public class PatternFluidCraftingTemplate extends FluidCraftingTemplate {
     private final ICraftFluids crafter;
     private final int patternSlot;
     private PatternByproductTarget outputTarget;
+    private ItemStack recipe;
+
+    public void setRecipe(ItemStack recipe) {
+        this.recipe = recipe == null ? null : recipe.copy();
+    }
 
     public void setOutputTarget(PatternByproductTarget target) {
         outputTarget = target;
@@ -51,6 +58,7 @@ public class PatternFluidCraftingTemplate extends FluidCraftingTemplate {
                 patternSlot,
                 result.getRequestedAmount());
         promise.setByproductTarget(outputTarget);
+        promise.setRecipe(recipe);
         return promise;
     }
 

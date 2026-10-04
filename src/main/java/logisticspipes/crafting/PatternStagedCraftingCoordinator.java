@@ -10,6 +10,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
+import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.nbt.NBTTagList;
 
@@ -111,12 +112,6 @@ class PatternStagedCraftingCoordinator {
                 return true;
             }
         }
-        return false;
-    }
-
-    boolean queuedForWorkspace(int slot) {
-        for (PatternCraftingOrder order : stagedCrafts)
-            if (order.patternSlot == slot && module.workspace().queued(order.reference().instanceId())) return true;
         return false;
     }
 
@@ -330,7 +325,9 @@ class PatternStagedCraftingCoordinator {
                 reference = parentReference == null ? PatternCraftingReference.createInstance()
                         : parentReference.createChild();
             }
-            registerOrder(reference, patternSlot, resultAmountPerSet, branch, order);
+            ItemStack recipe = promise instanceof PatternCraftingPromise item ? item.getRecipe()
+                    : promise instanceof PatternFluidCraftingPromise fluid ? fluid.getRecipe() : null;
+            registerOrder(reference, patternSlot, resultAmountPerSet, branch, order, recipe);
         }
         return order;
     }
@@ -482,6 +479,7 @@ class PatternStagedCraftingCoordinator {
                     }
                 }
                 PatternCraftingInstanceRegistry.register(outputOrder, order);
+                if (order.usesBatchExecution()) module.batchOutputs().manageJob(order.reference().instanceId());
                 module.debugEvent(
                         "STAGED",
                         "restored staged craft slot=%d remainingSets=%d branches=%d output=%s",
@@ -636,7 +634,7 @@ class PatternStagedCraftingCoordinator {
     }
 
     private void registerOrder(PatternCraftingReference reference, int patternSlot, int resultAmountPerSet,
-            PatternCraftingBranch branch, IOrderInfoProvider order) {
+            PatternCraftingBranch branch, IOrderInfoProvider order, ItemStack recipe) {
         PatternCraftingOrder stagedOrder = new PatternCraftingOrder(
                 reference,
                 patternSlot,
@@ -644,10 +642,12 @@ class PatternStagedCraftingCoordinator {
                 branch,
                 order,
                 module,
-                requestedIngredient);
+                requestedIngredient,
+                recipe);
         stagedCrafts.add(stagedOrder);
         outputOrders.add(stagedOrder);
         PatternCraftingInstanceRegistry.register(order, stagedOrder);
+        module.batchOutputs().manageJob(reference.instanceId());
         module.markCraftingStateDirty();
         module.debugEvent(
                 "STAGED",
