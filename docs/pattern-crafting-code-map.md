@@ -362,59 +362,59 @@ Source: `src/main/java/logisticspipes/crafting/PatternCraftingArrivalHandler.jav
 
 ## logisticspipes.crafting.PatternCraftingBatchOutputs
 
-Source: `src/main/java/logisticspipes/crafting/PatternCraftingBatchOutputs.java:26`
+Source: `src/main/java/logisticspipes/crafting/PatternCraftingBatchOutputs.java:27`
 
-- `<init>(ModulePatternCrafting module, PipeItemsPatternCraftingLogistics pipe, AdjacentInventoryHandler adjacent)` — line 37
-- `boolean prepare(PatternSatelliteDispatchHandler.DispatchPlan plan)` — line 46
-- `boolean canUseTargets(PatternSatelliteDispatchHandler.DispatchPlan plan)` — line 83
-- `boolean canOrderIntoTargets(PatternCraftingOrder order)` — line 108
-- `int firstActivePattern()` — line 122
-- `List<Integer> activePatternSlots()` — line 127
-- `void committed(PatternSatelliteDispatchHandler.DispatchPlan plan)` — line 134
-- `void discardPrepared(PatternSatelliteDispatchHandler.DispatchPlan plan)` — line 142
-- `void collect()` — line 150
-- `boolean arrival(ItemIdentifierStack arrived, PatternTargetInformation info)` — line 214
-- `private void returnArrivalToStorage(ItemIdentifierStack stack)` — line 257
-- `int missing(PatternTargetInformation info, IPatternStack stack)` — line 266
-- `boolean lost(PatternTargetInformation info, IPatternStack stack)` — line 275
-- `int incoming(IPatternStack stack)` — line 289
-- `IPatternStack take(LogisticsOrder order, int maxAmount)` — line 296
-- `private boolean matches(Batch batch, Output output, LogisticsOrder order)` — line 311
-- `int futureClaims(LogisticsOrder order)` — line 324
-- `int futureClaims(PatternByproductTarget target, IPatternStack output)` — line 336
-- `private int futureClaims(PatternByproductTarget target, IPatternStack output, UUID producingJob)` — line 341
-- `boolean manages(LogisticsOrder order)` — line 354
-- `void manageJob(UUID instance)` — line 367
-- `logisticspipes.logisticspipes.IRoutedItem sendToStorage(IPatternStack stack)` — line 371
-- `boolean hasInstance(UUID instance)` — line 379
-- `boolean cancelInstance(UUID instance)` — line 384
-- `List<PatternCraftingMonitorEntry> monitorEntries()` — line 400
-- `boolean activePattern(int slot)` — line 418
-- `String patternStatus(int slot)` — line 423
-- `void cleanup()` — line 434
-- `void returnUnclaimedOutputs()` — line 448
-- `private int unclaimedAmount(Batch batch, Output output)` — line 481
-- `void dropContents(net.minecraft.world.World world, int x, int y, int z)` — line 498
-- `void readFromNBT(NBTTagCompound tag, PatternSatelliteDispatchHandler dispatcher)` — line 509
-- `void writeToNBT(NBTTagCompound tag)` — line 543
-- `void appendDebugState(StringBuilder out)` — line 575
-- `static void clear()` — line 656
+- `<init>(ModulePatternCrafting module, PipeItemsPatternCraftingLogistics pipe, AdjacentInventoryHandler adjacent)` — line 39
+- `boolean prepare(PatternSatelliteDispatchHandler.DispatchPlan plan)` — line 48
+- `boolean canUseTargets(PatternSatelliteDispatchHandler.DispatchPlan plan)` — line 85
+- `boolean canOrderIntoTargets(PatternCraftingOrder order)` — line 111
+- `int firstActivePattern()` — line 125
+- `List<Integer> activePatternSlots()` — line 130
+- `void committed(PatternSatelliteDispatchHandler.DispatchPlan plan)` — line 137
+- `void discardPrepared(PatternSatelliteDispatchHandler.DispatchPlan plan)` — line 145
+- `void collect()` — line 153
+- `boolean arrival(ItemIdentifierStack arrived, PatternTargetInformation info)` — line 217
+- `private void returnArrivalToStorage(ItemIdentifierStack stack)` — line 260
+- `int missing(PatternTargetInformation info, IPatternStack stack)` — line 269
+- `boolean lost(PatternTargetInformation info, IPatternStack stack)` — line 278
+- `int incoming(IPatternStack stack)` — line 292
+- `IPatternStack take(LogisticsOrder order, int maxAmount)` — line 299
+- `private boolean matches(Batch batch, Output output, LogisticsOrder order)` — line 314
+- `int futureClaims(LogisticsOrder order)` — line 327
+- `int futureClaims(PatternByproductTarget target, IPatternStack output)` — line 339
+- `private int futureClaims(PatternByproductTarget target, IPatternStack output, UUID producingJob)` — line 344
+- `boolean manages(LogisticsOrder order)` — line 357
+- `void manageJob(UUID instance)` — line 370
+- `logisticspipes.logisticspipes.IRoutedItem sendToStorage(IPatternStack stack)` — line 374
+- `boolean hasInstance(UUID instance)` — line 382
+- `boolean cancelInstance(UUID instance)` — line 387
+- `List<PatternCraftingMonitorEntry> monitorEntries()` — line 403
+- `boolean activePattern(int slot)` — line 421
+- `String patternStatus(int slot)` — line 426
+- `void cleanup()` — line 437
+- `void returnUnclaimedOutputs()` — line 451
+- `private int unclaimedAmount(Batch batch, Output output)` — line 484
+- `void dropContents(net.minecraft.world.World world, int x, int y, int z)` — line 501
+- `void readFromNBT(NBTTagCompound tag, PatternSatelliteDispatchHandler dispatcher)` — line 512
+- `void writeToNBT(NBTTagCompound tag)` — line 546
+- `void appendDebugState(StringBuilder out)` — line 578
+- `static void clear()` — line 659
 
 ## logisticspipes.crafting.PatternCraftingBatchOutputs.Batch
 
-Source: `src/main/java/logisticspipes/crafting/PatternCraftingBatchOutputs.java:590`
+Source: `src/main/java/logisticspipes/crafting/PatternCraftingBatchOutputs.java:593`
 
-- `<init>(PatternSatelliteDispatchHandler.DispatchPlan plan, PipeItemsPatternCraftingLogistics.BlockingMode mode)` — line 598
-- `int completedSets()` — line 605
-- `int deliverable(Output output)` — line 618
-- `boolean drained()` — line 626
-- `boolean empty()` — line 632
+- `<init>(PatternSatelliteDispatchHandler.DispatchPlan plan, PipeItemsPatternCraftingLogistics.BlockingMode mode)` — line 601
+- `int completedSets()` — line 608
+- `int deliverable(Output output)` — line 621
+- `boolean drained()` — line 629
+- `boolean empty()` — line 635
 
 ## logisticspipes.crafting.PatternCraftingBatchOutputs.Output
 
-Source: `src/main/java/logisticspipes/crafting/PatternCraftingBatchOutputs.java:640`
+Source: `src/main/java/logisticspipes/crafting/PatternCraftingBatchOutputs.java:643`
 
-- `<init>(IPatternStack stack, PatternByproductTarget target)` — line 649
+- `<init>(IPatternStack stack, PatternByproductTarget target)` — line 652
 
 ## logisticspipes.crafting.PatternCraftingBranch
 

@@ -7,6 +7,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
@@ -25,7 +26,8 @@ import logisticspipes.utils.item.ItemIdentifierStack;
 /** Reserves and drains whole producing batches, independently of the lifetime of their consumer orders. */
 final class PatternCraftingBatchOutputs {
 
-    private static final List<WeakReference<PatternCraftingBatchOutputs>> STORES = new ArrayList<>();
+    // Pipe modules are registered from both client and server threads.
+    private static final List<WeakReference<PatternCraftingBatchOutputs>> STORES = new CopyOnWriteArrayList<>();
 
     private final ModulePatternCrafting module;
     private final PipeItemsPatternCraftingLogistics pipe;
@@ -81,14 +83,15 @@ final class PatternCraftingBatchOutputs {
 
     /** All pipes sharing a physical input inventory participate in the mode check. */
     boolean canUseTargets(PatternSatelliteDispatchHandler.DispatchPlan plan) {
-        Iterator<WeakReference<PatternCraftingBatchOutputs>> stores = STORES.iterator();
-        while (stores.hasNext()) {
-            PatternCraftingBatchOutputs store = stores.next().get();
+        for (WeakReference<PatternCraftingBatchOutputs> reference : STORES) {
+            PatternCraftingBatchOutputs store = reference.get();
             if (store == null) {
-                stores.remove();
+                STORES.remove(reference);
                 continue;
             }
-            if (store.pipe.container == null || store.pipe.container.isInvalid()) continue;
+            if (store.pipe.container == null || store.pipe.container.isInvalid()
+                    || store.pipe.getWorld() != pipe.getWorld())
+                continue;
             for (Batch active : store.batches.values()) {
                 if (!active.drained() && !active.plan.batchReference().equals(plan.batchReference())
                         && plan.sharesTargets(active.plan)) {
