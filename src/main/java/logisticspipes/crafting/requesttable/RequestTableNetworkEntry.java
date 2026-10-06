@@ -1,6 +1,11 @@
 package logisticspipes.crafting.requesttable;
 
+import logisticspipes.crafting.patternStack.PatternFluidStack;
+import logisticspipes.proxy.SimpleServiceLocator;
+import logisticspipes.utils.FluidIdentifier;
 import logisticspipes.utils.item.ItemIdentifierStack;
+import net.minecraft.item.ItemStack;
+import net.minecraftforge.fluids.FluidStack;
 
 /**
  * A requestable stack in the new request table list.
@@ -57,10 +62,21 @@ public class RequestTableNetworkEntry implements Comparable<RequestTableNetworkE
     }
 
     /**
-     * @return the stack used for rendering and packet submission
+     * @return the original stack used for request and interaction packets
      */
     public ItemIdentifierStack getStack() {
         return stack;
+    }
+
+    /** Returns the client display item; request packets continue to use the original identifier. */
+    public ItemStack getDisplayStack() {
+        if (fluid) {
+            FluidStack stored = SimpleServiceLocator.logisticsFluidManager.getFluidFromContainer(stack);
+            if (stored != null) {
+                return new PatternFluidStack(FluidIdentifier.get(stored), getTotalAmount()).makeDisplayItemStack();
+            }
+        }
+        return stack.makeNormalStack();
     }
 
     /**

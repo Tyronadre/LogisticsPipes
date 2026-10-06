@@ -1,14 +1,14 @@
 package logisticspipes.crafting.requesttable;
 
-import net.minecraft.client.gui.FontRenderer;
-import net.minecraft.client.gui.GuiTextField;
-
-import org.lwjgl.input.Keyboard;
-
 import logisticspipes.utils.Color;
 import logisticspipes.utils.gui.LogisticsBaseGuiScreen;
+import logisticspipes.utils.item.ItemIdentifierStack;
 import logisticspipes.utils.item.ItemStackRenderer;
 import logisticspipes.utils.item.ItemStackRenderer.DisplayAmount;
+import net.minecraft.client.gui.FontRenderer;
+import net.minecraft.client.gui.Gui;
+import net.minecraft.client.gui.GuiTextField;
+import org.lwjgl.input.Keyboard;
 
 /**
  * Small modal request editor opened by clicking a network entry.
@@ -121,7 +121,8 @@ public class RequestTableRequestOverlay {
             drawDeltaButton(screen, i, false);
         }
 
-        new ItemStackRenderer(left + 29, top + 35, 250.0F, true, true, true).setItemIdentifierStack(entry.getStack())
+        new ItemStackRenderer(left + 29, top + 35, 250.0F, true, true, true)
+            .setItemIdentifierStack(ItemIdentifierStack.getFromStack(entry.getDisplayStack()))
                 .setDisplayAmount(DisplayAmount.NEVER).renderInGui();
 
         amountField.drawTextBox();
@@ -142,11 +143,11 @@ public class RequestTableRequestOverlay {
             boolean enabled) {
         int fill = enabled ? 0xffc6c6c6 : 0xff7f7f7f;
         screen.drawRect(x, y, x + width, y + height, Color.BLACK);
-        screen.drawRect(x + 1, y + 1, x + width - 1, y + height - 1, fill);
-        screen.drawRect(x + 1, y + 1, x + width - 2, y + 2, 0xffffffff);
-        screen.drawRect(x + 1, y + 1, x + 2, y + height - 2, 0xffffffff);
-        screen.drawRect(x + 1, y + height - 2, x + width - 1, y + height - 1, 0xff555555);
-        screen.drawRect(x + width - 2, y + 1, x + width - 1, y + height - 1, 0xff555555);
+        Gui.drawRect(x + 1, y + 1, x + width - 1, y + height - 1, fill);
+        Gui.drawRect(x + 1, y + 1, x + width - 2, y + 2, 0xffffffff);
+        Gui.drawRect(x + 1, y + 1, x + 2, y + height - 2, 0xffffffff);
+        Gui.drawRect(x + 1, y + height - 2, x + width - 1, y + height - 1, 0xff555555);
+        Gui.drawRect(x + width - 2, y + 1, x + width - 1, y + height - 1, 0xff555555);
     }
 
     /**

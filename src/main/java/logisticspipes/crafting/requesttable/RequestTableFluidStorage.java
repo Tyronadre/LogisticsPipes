@@ -1,5 +1,10 @@
 package logisticspipes.crafting.requesttable;
 
+import logisticspipes.proxy.SimpleServiceLocator;
+import logisticspipes.utils.FluidIdentifier;
+import logisticspipes.utils.ISimpleInventoryEventHandler;
+import logisticspipes.utils.item.ItemIdentifierInventory;
+import logisticspipes.utils.item.ItemIdentifierStack;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.inventory.IInventory;
 import net.minecraft.item.ItemStack;
@@ -8,19 +13,18 @@ import net.minecraft.nbt.NBTTagList;
 import net.minecraft.world.World;
 import net.minecraftforge.fluids.FluidStack;
 
-import logisticspipes.config.Configs;
-import logisticspipes.proxy.SimpleServiceLocator;
-import logisticspipes.utils.FluidIdentifier;
-import logisticspipes.utils.item.ItemIdentifierInventory;
-import logisticspipes.utils.item.ItemIdentifierStack;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Fixed-slot fluid storage for the new request table.
  * <p>
- * The storage exposes an {@link IInventory} view for GUI synchronization. The returned item stacks are display
- * containers only; the authoritative data stays in the {@link FluidStack} array.
+ * The storage exposes an {@link IInventory} view for GUI slots. The returned item stacks are display containers only;
+ * synchronization and authoritative storage use the {@link FluidStack} array.
  */
 public class RequestTableFluidStorage implements IInventory {
+
+    static final int BASE_SLOT_CAPACITY = 64_000;
 
     private static final String NBT_FLUIDS = "fluids";
     private static final String NBT_INDEX = "index";
@@ -30,6 +34,7 @@ public class RequestTableFluidStorage implements IInventory {
     private FluidStack[] fluids;
     private int slotCapacity;
     private final String name;
+    private final List<ISimpleInventoryEventHandler> listeners = new ArrayList<>();
 
     /**
      * Creates a new fixed-size fluid storage.
@@ -48,10 +53,7 @@ public class RequestTableFluidStorage implements IInventory {
      * Creates the default one-row request-table fluid storage.
      */
     public static RequestTableFluidStorage createDefault() {
-        return new RequestTableFluidStorage(
-                9,
-                "Request Table Fluids",
-                Configs.MAX_LOGISTICS_FLUID_TRANSPORT_INNER_CAPACITY);
+        return new RequestTableFluidStorage(9, "Request Table Fluids", BASE_SLOT_CAPACITY);
     }
 
     /**
@@ -218,6 +220,41 @@ public class RequestTableFluidStorage implements IInventory {
         return fluids[slot].copy();
     }
 
+    /** Creates an isolated storage for planning cell transfers without notifying live viewers. */
+    RequestTableFluidStorage copy() {
+        RequestTableFluidStorage copy = new RequestTableFluidStorage(fluids.length, name, slotCapacity);
+        for (int slot = 0; slot < fluids.length; slot++) {
+            copy.fluids[slot] = getFluid(slot);
+        }
+        return copy;
+    }
+
+    void copyFrom(RequestTableFluidStorage source) {
+        fluids = new FluidStack[source.fluids.length];
+        slotCapacity = source.slotCapacity;
+        for (int slot = 0; slot < fluids.length; slot++) {
+            fluids[slot] = source.getFluid(slot);
+        }
+        markDirty();
+    }
+
+    /** Replaces client storage with a server snapshot without compacting its slots. */
+    public void applySnapshot(int capacity, List<FluidStack> contents) {
+        slotCapacity = Math.max(1, capacity);
+        fluids = new FluidStack[contents.size()];
+        for (int slot = 0; slot < fluids.length; slot++) {
+            FluidStack fluid = contents.get(slot);
+            fluids[slot] = fluid == null ? null : fluid.copy();
+        }
+        markDirty();
+    }
+
+    public void addListener(ISimpleInventoryEventHandler listener) {
+        if (!listeners.contains(listener)) {
+            listeners.add(listener);
+        }
+    }
+
     /**
      * @return currently stored fluid amount in millibuckets
      */
@@ -352,7 +389,11 @@ public class RequestTableFluidStorage implements IInventory {
     }
 
     @Override
-    public void markDirty() {}
+    public void markDirty() {
+        for (ISimpleInventoryEventHandler listener : listeners) {
+            listener.InventoryChanged(this);
+        }
+    }
 
     @Override
     public boolean isUseableByPlayer(EntityPlayer player) {

@@ -1,18 +1,17 @@
 package logisticspipes.crafting.requesttable;
 
-import java.util.ArrayList;
-import java.util.List;
-
-import net.minecraft.item.ItemStack;
-
-import org.lwjgl.input.Keyboard;
-import org.lwjgl.opengl.GL11;
-
 import logisticspipes.utils.Color;
 import logisticspipes.utils.gui.LogisticsBaseGuiScreen;
+import logisticspipes.utils.item.ItemIdentifierStack;
 import logisticspipes.utils.item.ItemStackRenderer;
 import logisticspipes.utils.item.ItemStackRenderer.DisplayAmount;
 import logisticspipes.utils.string.StringUtils;
+import net.minecraft.item.ItemStack;
+import org.lwjgl.input.Keyboard;
+import org.lwjgl.opengl.GL11;
+
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Scrollable icon grid for requestable network items and fluids.
@@ -94,8 +93,7 @@ public class RequestTableNetworkGrid {
             if (hover) {
                 screen.drawRect(x - 1, y - 1, x + 19, y + 19, Color.BLACK);
                 screen.drawRect(x, y, x + 18, y + 18, Color.DARKER_GREY);
-                ItemStack tooltipStack = entry.getStack().unsafeMakeNormalStack();
-                tooltipStack.stackSize = entry.getTotalAmount();
+                ItemStack tooltipStack = entry.getDisplayStack();
                 List<String> details = new ArrayList<>();
                 String unit = entry.isFluid() ? " mB" : "";
                 details.add("\u00a77Network: " + entry.getNetworkAmount() + unit);
@@ -109,7 +107,9 @@ public class RequestTableNetworkGrid {
                 screen.drawRect(x + 14, y, x + 18, y + 4, Color.BLUE);
             }
             GL11.glColor4f(1.0F, 1.0F, 1.0F, 1.0F);
-            new ItemStackRenderer(x + 1, y + 1, 100.0F, true, false, true).setItemIdentifierStack(entry.getStack())
+            ItemIdentifierStack display = ItemIdentifierStack.getFromStack(entry.getDisplayStack());
+            display.setStackSize(entry.getTotalAmount());
+            new ItemStackRenderer(x + 1, y + 1, 100.0F, true, false, true).setItemIdentifierStack(display)
                     .setDisplayAmount(DisplayAmount.HIDE_ONE).renderInGui();
             drawInternalAmount(screen, entry, x, y);
         }

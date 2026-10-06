@@ -1,19 +1,5 @@
 package logisticspipes.crafting.requesttable;
 
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.List;
-
-import net.minecraft.client.gui.Gui;
-import net.minecraft.client.gui.GuiButton;
-import net.minecraft.client.gui.GuiTextField;
-import net.minecraft.entity.player.EntityPlayer;
-import net.minecraft.util.EnumChatFormatting;
-
-import org.lwjgl.input.Keyboard;
-import org.lwjgl.input.Mouse;
-import org.lwjgl.opengl.GL11;
-
 import cpw.mods.fml.relauncher.Side;
 import cpw.mods.fml.relauncher.SideOnly;
 import logisticspipes.gui.popup.GuiRequestPopup;
@@ -24,6 +10,7 @@ import logisticspipes.network.packets.crafting.requesttable.RequestTableNetworkI
 import logisticspipes.network.packets.crafting.requesttable.RequestTableRefreshPacket;
 import logisticspipes.network.packets.crafting.requesttable.RequestTableRequestIngredientsPacket;
 import logisticspipes.network.packets.crafting.requesttable.RequestTableSendStoragePacket;
+import logisticspipes.network.packets.crafting.requesttable.RequestTableShiftClickPacket;
 import logisticspipes.network.packets.crafting.requesttable.RequestTableSubmitPacket;
 import logisticspipes.proxy.MainProxy;
 import logisticspipes.request.resources.IResource;
@@ -32,6 +19,19 @@ import logisticspipes.utils.gui.GuiGraphics;
 import logisticspipes.utils.gui.GuiSearchBar;
 import logisticspipes.utils.gui.ISubGuiControler;
 import logisticspipes.utils.gui.LogisticsBaseGuiScreen;
+import net.minecraft.client.gui.Gui;
+import net.minecraft.client.gui.GuiButton;
+import net.minecraft.client.gui.GuiTextField;
+import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.inventory.Slot;
+import net.minecraft.util.EnumChatFormatting;
+import org.lwjgl.input.Keyboard;
+import org.lwjgl.input.Mouse;
+import org.lwjgl.opengl.GL11;
+
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.List;
 
 /**
  * Redesigned request table GUI with a combined item/fluid network list, internal storage views and fake crafting grid.
@@ -427,6 +427,20 @@ public class RequestTableGui extends LogisticsBaseGuiScreen {
             }
         }
         super.mouseClicked(mouseX, mouseY, button);
+    }
+
+    @Override
+    protected void handleMouseClick(Slot slot, int slotId, int mouseButton, int mode) {
+        // Wait for the server's layout before sending container slot indexes.
+        if (container.isInventoryReady()) {
+            if (mode == 1 && slot != null && slot.inventory == player.inventory) {
+                MainProxy.sendPacketToServer(
+                    PacketHandler.getPacket(RequestTableShiftClickPacket.class)
+                        .setClick(container.windowId, slot.getSlotIndex(), view));
+                return;
+            }
+            super.handleMouseClick(slot, slotId, mouseButton, mode);
+        }
     }
 
     @Override

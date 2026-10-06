@@ -51,7 +51,8 @@ because it inherits all of that from `PipeBlockRequestTable`.
     That item goes into item storage if there is room, and is dropped in the world otherwise.
   - **Normal items** go into item storage with `addCompressed(stack, true)`, which ignores the item's max stack size.
     Anything that doesn't fit is dropped in the world. The old table instead left the remainder on the routed item.
-  - After each arrival the full network list is sent again to everyone who has the GUI open.
+  - Arrivals mark the network list for a refresh to everyone who has the GUI open. Storage changes are batched into
+    one refresh per server tick.
 - `sendFailed(FluidIdentifier, Integer)` does nothing. Failures reach the player through the normal
   `MissingItems` popup/chat path.
 - `onAllowedRemoval` first calls the parent, which drops `inv`, `toSortInv` and `diskInv`. It then drops every
@@ -106,7 +107,55 @@ space-separated words against the localized fluid name, the display name and the
 - When the list is sent:
   - **Client asks:** when the GUI opens, after a sub-GUI closes, after a request is submitted, after an ingredient
     request, and when switching back to the network view.
-  - **Server pushes to all viewers:** after each arrival, network-entry click, Send all, or storage resize.
+  - **Server pushes to all viewers:** after arrivals, player insertion/removal (including shift-click), crafting,
+    network-entry clicks, Send all, or storage resize. Changes are batched once per server tick.
+
+## Inventory synchronization
+
+- `RequestTableContainer` sends a complete
+  [`RequestTableInventoryPacket`](../../src/main/java/logisticspipes/network/packets/crafting/requesttable/RequestTableInventoryPacket.java)
+  when the GUI opens, after clicks, and when its contents or cursor change. The snapshot includes the item/fluid
+  slot counts and capacities, item slots, the actual `FluidStack` contents, and the cursor. Item counts use integers, including compressed
+  stacks above 127. Vanilla slot and window-content updates are ignored by this container.
+- The client accepts snapshots only for the currently open window and table coordinates. It applies the server's
+  storage sizes and rebuilds its slots before applying contents. Slot clicks wait for the initial snapshot. Storage
+  upgrades are applied only on the server;
+  drawing the GUI cannot resize or drop client storage.
+- Item and fluid inventory listeners mark the tile dirty and schedule a combined-list refresh. Container change
+  detection also catches direct slot mutations and compares fluid type, amount and NBT. Each open viewer receives
+  the current contents, including pipe deliveries and fluid filled/drained through cells.
+- Fluid transfers from held containers run on the server. Both fluid-storage slots and combined-list entries use
+  the same cursor-stack handling: left-click converts the whole stack and keeps the resulting full or empty stack
+  on the cursor. If fluid storage cannot handle the whole stack, the converted cells stay on the cursor and the
+  untouched cells return to the player inventory. If those leftovers cannot fit, nothing changes.
+  Right-click converts one cell into the player inventory, leaving the remaining cells of the original kind on the
+  cursor. If the converted cell cannot fit, fluid storage and the cursor are left untouched. Transfers are planned
+  against an isolated copy of fluid storage before committing. Existing Forge registry cell and `IFluidContainerItem`
+  transfer support is retained.
+- Shift-clicking a filled cell stack in fluid storage empties its fluids into the table and keeps the returned
+  containers in the player inventory. Other items do nothing in this view. Item storage uses normal item transfers,
+  including for filled cells. The main/network view empties filled cells into fluid storage and transfers other items
+  into item storage. A
+  [`RequestTableShiftClickPacket`](../../src/main/java/logisticspipes/network/packets/crafting/requesttable/RequestTableShiftClickPacket.java)
+  carries the view, window ID, and player inventory index together; the client waits for the server snapshot instead
+  of predicting a transfer into the wrong storage. Shift-click transfers stop when fluid or inventory space runs out,
+  preserving unconverted cells. A complete conversion reuses the source slot, including with a full player inventory.
+- Fluid-storage slots, combined-list icons/tooltips, and request-popup icons use the same NEI fluid display as
+  pattern crafting. Requests and transport still use LP fluid identifiers. Display items are never applied to fluid
+  storage; snapshots preserve the real fluids, amounts, tags, and empty slot indexes.
+- Withdrawals to the cursor, player inventory, or an empty hotbar slot are limited to the item's normal stack size.
+  Any compressed remainder stays in the table. Dragging cannot reduce an existing compressed stack.
+
+**Multiplayer checks still to run.** Open the same table with two players; insert and remove items with left/right
+click, shift-click, dragging, and hotbar keys. Deliver items from another pipe while both GUIs are open. Check the
+storage slots, internal amounts in the combined list, cursor, and player inventories on both clients. Repeat with
+item-slot upgrades and a 192-item compressed stack, with a full player inventory and full table, and after closing
+and reopening the GUI. Also check crafting and fluid-container clicks, which share the container snapshot.
+For fluids, repeat filling and draining with one cell and a 64-cell stack in both the fluid-storage and network
+views. Check whole-stack left-click and single-cell right-click, including cursor and returned-container placement.
+Shift-click filled cells, empty cells and ordinary items in all three views, including with a full player inventory
+and storage that can accept only part of the stack. Test empty/full storage, fluid arrivals from pipes, and different fluid/NBT variants.
+Check the NEI icons and tooltips in storage, the combined list, and the request popup.
 
 ## Request popup (request overlay)
 
@@ -153,9 +202,7 @@ What the player can do:
   - Empty cursor: left-click takes up to a stack from storage, right-click takes about half (at most half a stack),
     shift+left moves up to a stack into the player inventory, shift+right takes 1.
   - Fluid entries with a container on the cursor: fill the container from storage, or empty it into storage.
-  - Afterwards the server sends the new cursor stack with
-    [`RequestTableSetCursorPacket`](../../src/main/java/logisticspipes/network/packets/crafting/requesttable/RequestTableSetCursorPacket.java),
-    which is ignored if it reaches the server.
+  - Afterwards the server sends the inventory snapshot, including the new cursor stack.
 - **Send all:** [`RequestTableSendStoragePacket`](../../src/main/java/logisticspipes/network/packets/crafting/requesttable/RequestTableSendStoragePacket.java)
   (integer 0 = items, 1 = fluids).
   - `sendStoredItemsToNetwork` sends at most one max-size stack at a time, using `assignDestinationFor` (default
@@ -168,14 +215,15 @@ What the player can do:
 - **Fluids** use
   [`RequestTableFluidStorage`](../../src/main/java/logisticspipes/crafting/requesttable/RequestTableFluidStorage.java).
   It holds a fixed `FluidStack[]` and shows it as an `IInventory`: each slot looks like an LP fluid container item,
-  so vanilla container sync works. The `FluidStack`s are the real data. `fill` tops up slots that already hold the
+  for container snapshots. The `FluidStack`s are the real data. `fill` tops up slots that already hold the
   same fluid first, then uses empty slots. `fillSlot`/`drain` work on one slot. `resize` moves the contents into the
   new layout and drops overflow as fluid container items.
 - **Container:** [`RequestTableContainer`](../../src/main/java/logisticspipes/crafting/requesttable/RequestTableContainer.java)
-  creates every slot once: item storage, fluid storage (`UnmodifiableSlot`), crafting ghost slots (`DummySlot`),
+  creates slots for item storage, fluid storage (`UnmodifiableSlot`), crafting ghost slots (`DummySlot`),
   result (`HandelableSlot`), and player inventory. The client moves them each frame through `layout(...)`. Slots
   that are hidden or scrolled out of view are parked at (-5000, -5000). Clicks on fluid slots and on the result slot
-  are handled in `slotClick`, shift-click moves in `transferStackInSlot`.
+  are handled in `slotClick`, shift-click moves in `transferStackInSlot`. Storage slots are rebuilt when the server's
+  storage sizes change, retaining the crafting and player slots.
 - **Views and layout:** [`RequestTableView`](../../src/main/java/logisticspipes/crafting/requesttable/RequestTableView.java)
   (NETWORK / ITEM_STORAGE / FLUID_STORAGE) and
   [`RequestTableLayout`](../../src/main/java/logisticspipes/crafting/requesttable/RequestTableLayout.java). The GUI is
@@ -186,12 +234,15 @@ What the player can do:
 
 **For the player.** Four new upgrade items. They fit only in the new table, not in modules:
 
-| Upgrade (damage) | Effect per upgrade item |
-|---|---|
-| Request Table Item Slot Upgrade (45) | +9 item slots (base 27) |
-| Request Table Item Stack Upgrade (46) | +64 to the per-slot item limit (base 64) |
-| Request Table Fluid Slot Upgrade (47) | +9 fluid slots (base 9) |
-| Request Table Fluid Capacity Upgrade (48) | +1 × `MAX_LOGISTICS_FLUID_TRANSPORT_INNER_CAPACITY` (config, default 10 000 mB) per fluid slot (base 1×) |
+| Upgrade (damage)                          | Effect per upgrade item                    |
+|-------------------------------------------|--------------------------------------------|
+| Request Table Item Slot Upgrade (45)      | +9 item slots (base 27)                    |
+| Request Table Item Stack Upgrade (46)     | +64 to the per-slot item limit (base 64)   |
+| Request Table Fluid Slot Upgrade (47)     | +9 fluid slots (base 9)                    |
+| Request Table Fluid Capacity Upgrade (48) | +64 000 mB per fluid slot (base 64 000 mB) |
+
+Per-slot capacity is the base capacity multiplied by `1 + upgrade count`: 64, 128, 192, … items and
+64 000, 128 000, 192 000, … mB. Fluid capacity is independent of the transport tank configuration.
 
 **How it works.**
 - [`RequestTableStorageUpgrade`](../../src/main/java/logisticspipes/crafting/requesttable/upgrades/RequestTableStorageUpgrade.java)
@@ -207,7 +258,7 @@ What the player can do:
   inventory (9 slots × 16) and resizes `inv` and the fluid storage. Nothing listens for upgrade changes; this
   method is called from many places instead: open GUI, container constructor, every arrival, network click, Send all,
   NBT read/write, building the list, and the fill-level/amount getters. Those getters are also called while the
-  client draws the GUI.
+  client draws the GUI, where upgrade updates now return without changing storage.
 - When storage shrinks, item contents are compacted back in and the overflow is **dropped in the world**. Fluid
   overflow is dropped as fluid container items.
 - Upgrade sizes use `SimpleStackInventory.setSizeInventory`/`setInventoryStackLimit`. Those methods were added in
@@ -326,24 +377,22 @@ given.
 
 1. **Stacks over 127 are not save-safe (D4).** The item stack upgrade raises the per-slot limit above 64. With two
    upgrades it is 192, and there is no cap other than the 9×16 upgrade inventory. `SimpleStackInventory.writeToNBT`
-   still uses vanilla `ItemStack.writeToNBT` (byte `Count`), and vanilla slot sync also sends the count as a byte.
-   Big stacks can be truncated or wrap around on save or sync.
+   still uses vanilla `ItemStack.writeToNBT` (byte `Count`). Big stacks can be truncated or wrap around on save.
+   The new table's container sync uses integer counts, so this remaining issue is limited to persistence.
 2. **Unstackable items stack (D11).** Arrivals, shift-click into storage and network-entry inserts use
    `addCompressed(stack, true)`, which ignores the item's max stack size. 64 swords can sit in one slot.
    `moveInternalItemToPlayerInventory` puts back what the player inventory didn't take with `addCompressed`, and
    anything that doesn't fit back is lost. A room check runs first, so this is unlikely.
 3. **Performance (F3, F4).** Each craft scans the full recipe list again, and the preview runs twice (ore-dict and
-   strict pass). A 64-item shift-craft does this for every craft. Each arriving item or fluid, and each click,
-   rebuilds the whole network list (`getAvailableItems` + `getCraftableItems` + `getAvailableFluid`) and sends it to
-   every viewer, with no batching.
+   strict pass). A 64-item shift-craft does this for every craft. Each storage-change refresh rebuilds the whole
+   network list (`getAvailableItems` + `getCraftableItems` + `getAvailableFluid`) and sends
+   it to every viewer. Storage changes are now batched once per server tick; each craft still scans recipes.
 4. **`RequestTableDisplaySettingsPacket` reads client coordinates.** It uses `getPipe(player.worldObj)`, not
    `PacketGuards.getOpenRequestTable`. That doesn't match the S4 note ("all request table C→S packets resolve the
    table from `player.openContainer`"). The only effect is that a player can set their own display settings on any
    loaded table in their world.
-5. **Client/server slot counts can differ (G2).** Each side builds its own `RequestTableContainer` slot list from its
-   own `inv` and fluid storage sizes, which come from `updateStorageUpgrades()` on that side. The client also calls
-   `updateStorageUpgrades()` every frame (through `getItemStorageFillLevel`/`getFluidStorageFillLevel`), and that
-   method can resize and drop items with no server-side check.
+5. **Storage sync retest (G2).** Slot counts and contents now come from server snapshots, and client upgrade
+   calculations cannot resize or drop storage. Dedicated-server testing with upgraded storage is still required.
 6. **Storage upgrades apply late.** Upgrade changes take effect only the next time `updateStorageUpgrades()` runs,
    not when the upgrade is inserted or removed. Removing upgrades drops the overflow items and fluids **in the
    world**; nothing protects the contents.

@@ -18,5 +18,13 @@ public enum RequestTableView {
     /**
      * Shows the request table's internal fluid inventory.
      */
-    FLUID_STORAGE
+    FLUID_STORAGE;
+
+    boolean transfersFluids(boolean filledCell) {
+        return this != ITEM_STORAGE && filledCell;
+    }
+
+    boolean transfersItems(boolean filledCell) {
+        return this == ITEM_STORAGE || (this == NETWORK && !filledCell);
+    }
 }
