@@ -1,19 +1,9 @@
 package logisticspipes.pipes.upgrades;
 
-import java.util.EnumSet;
-import java.util.UUID;
-
-import net.minecraft.entity.player.EntityPlayer;
-import net.minecraft.inventory.IInventory;
-import net.minecraft.item.ItemStack;
-import net.minecraft.nbt.NBTTagCompound;
-import net.minecraft.world.World;
-import net.minecraftforge.common.util.ForgeDirection;
-
 import com.cleanroommc.modularui.utils.item.IItemHandlerModifiable;
 import com.cleanroommc.modularui.utils.item.InvWrapper;
-
 import logisticspipes.LogisticsPipes;
+import logisticspipes.crafting.requesttable.RequestTablePipe;
 import logisticspipes.interfaces.IGuiOpenControler;
 import logisticspipes.interfaces.IPipeUpgradeManager;
 import logisticspipes.interfaces.ISlotUpgradeManager;
@@ -31,6 +21,15 @@ import logisticspipes.utils.PlayerCollectionList;
 import logisticspipes.utils.gui.DummyContainer;
 import logisticspipes.utils.item.SimpleStackInventory;
 import lombok.Getter;
+import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.inventory.IInventory;
+import net.minecraft.item.ItemStack;
+import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.world.World;
+import net.minecraftforge.common.util.ForgeDirection;
+
+import java.util.EnumSet;
+import java.util.UUID;
 
 public class UpgradeManager implements ISimpleInventoryEventHandler, ISlotUpgradeManager, IPipeUpgradeManager {
 
@@ -302,16 +301,8 @@ public class UpgradeManager implements ISimpleInventoryEventHandler, ISlotUpgrad
 
         // Pipe slots
         for (int pipeSlot = 0; pipeSlot < 8; pipeSlot++) {
-            dummy.addRestrictedSlot(pipeSlot, inv, 8 + pipeSlot * 18, 18, itemStack -> {
-                if (itemStack == null) {
-                    return false;
-                }
-                if (itemStack.getItem() == LogisticsPipes.UpgradeItem) {
-                    return LogisticsPipes.UpgradeItem.getUpgradeForItem(itemStack, null).isAllowedForPipe(pipe);
-                } else {
-                    return false;
-                }
-            });
+            int slot = pipeSlot;
+            dummy.addRestrictedSlot(pipeSlot, inv, 8 + pipeSlot * 18, 18, stack -> isUpgradeAllowed(slot, stack));
         }
         // Static slot for Security Cards
         dummy.addStaticRestrictedSlot(0, secInv, 8 + 8 * 18, 18, itemStack -> {
@@ -372,7 +363,7 @@ public class UpgradeManager implements ISimpleInventoryEventHandler, ISlotUpgrad
             }
             IPipeUpgrade upgrade = LogisticsPipes.UpgradeItem
                     .getUpgradeForItem(entityplayer.getCurrentEquippedItem(), null);
-            if (upgrade.isAllowedForPipe(pipe)) {
+            if (upgrade != null && upgrade.isAllowedForPipe(pipe)) {
                 if (isCombinedSneakyUpgrade) {
                     if (upgrade instanceof SneakyUpgrade) {
                         if (insertIntInv(entityplayer, sneakyInv)) {
@@ -403,6 +394,9 @@ public class UpgradeManager implements ISimpleInventoryEventHandler, ISlotUpgrad
 
     private boolean insertIntInv(EntityPlayer entityplayer, SimpleStackInventory inv) {
         for (int i = 0; i < inv.getSizeInventory(); i++) {
+            if (inv == this.inv && !isUpgradeAllowed(i, entityplayer.getCurrentEquippedItem())) {
+                continue;
+            }
             ItemStack item = inv.getStackInSlot(i);
             if (item == null) {
                 inv.setInventorySlotContents(i, entityplayer.getCurrentEquippedItem().splitStack(1));
@@ -419,6 +413,18 @@ public class UpgradeManager implements ISimpleInventoryEventHandler, ISlotUpgrad
             }
         }
         return false;
+    }
+
+    /** Uses the pipe's slot restrictions for both GUI clicks and held-upgrade insertion. */
+    public boolean isUpgradeAllowed(int slot, ItemStack stack) {
+        if (slot < 0 || slot >= inv.getSizeInventory()
+            || stack == null
+            || stack.getItem() != LogisticsPipes.UpgradeItem) {
+            return false;
+        }
+        IPipeUpgrade upgrade = LogisticsPipes.UpgradeItem.getUpgradeForItem(stack, null);
+        return upgrade != null && upgrade.isAllowedForPipe(pipe)
+            && (!(pipe instanceof RequestTablePipe table) || table.isUpgradeAllowed(slot, stack));
     }
 
     public UUID getSecurityID() {

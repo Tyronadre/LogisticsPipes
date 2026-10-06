@@ -6,11 +6,14 @@ package logisticspipes.crafting.requesttable;
 public class RequestTableLayout {
 
     public static final int SLOT = 18;
-    public static final int PANEL_CELL = 20;
+    public static final int PANEL_CELL = 18;
+    public static final int INVENTORY_COLUMNS = 9;
+    public static final int TAB_HEIGHT = 26;
+    public static final int MAIN_TAB_WIDTH = 56;
+    public static final int STORAGE_TAB_WIDTH = 64;
+    public static final int UPGRADE_SLOT_COUNT = 9;
 
-    private static final int HEADER_HEIGHT = 30;
     private static final int PLAYER_HEIGHT = 76;
-    private static final int CRAFTING_HEIGHT = 68;
     private static final int BOTTOM_MARGIN = 8;
 
     public final int guiLeft;
@@ -18,8 +21,6 @@ public class RequestTableLayout {
     public final int xSize;
     public final int ySize;
 
-    public final int titleX;
-    public final int titleY;
     public final int searchX;
     public final int searchY;
     public final int searchWidth;
@@ -30,14 +31,27 @@ public class RequestTableLayout {
     public final int sendButtonHeight;
     public final int itemButtonX;
     public final int fluidButtonX;
-    public final int storageButtonY;
-    public final int storageButtonSize;
     public final int displayButtonX;
     public final int sortModeButtonY;
     public final int sortDirectionButtonY;
     public final int filterModeButtonY;
+    public final int requestMessagesButtonY;
     public final int displayButtonWidth;
     public final int displayButtonHeight;
+    public final int networkButtonY;
+    public final int networkButtonX;
+    public final int itemButtonY;
+    public final int fluidButtonY;
+    public final int centralLeft;
+    public final int centralWidth;
+    public final int centralTop;
+    public final int upgradeLeft;
+    public final int upgradeTop;
+    public final int upgradePanelLeft;
+    public final int upgradePanelWidth;
+    public final int upgradePanelTop;
+    public final int upgradePanelHeight;
+    public final boolean compact;
 
     public final int panelLeft;
     public final int panelTop;
@@ -73,54 +87,66 @@ public class RequestTableLayout {
         this.xSize = xSize;
         this.ySize = ySize;
 
-        titleX = guiLeft + 12;
-        titleY = guiTop + 9;
-        storageButtonSize = 20;
-        storageButtonY = guiTop + 5;
-        fluidButtonX = guiLeft + xSize - 28;
-        itemButtonX = fluidButtonX - storageButtonSize - 4;
+        compact = ySize < 268;
+        centralLeft = guiLeft + 34;
+        centralWidth = 190;
+        centralTop = guiTop + 22;
+        networkButtonX = centralLeft + 1;
+        itemButtonX = networkButtonX + MAIN_TAB_WIDTH + 2;
+        fluidButtonX = itemButtonX + STORAGE_TAB_WIDTH + 2;
+        networkButtonY = guiTop;
+        itemButtonY = guiTop;
+        fluidButtonY = guiTop;
 
-        displayButtonWidth = 44;
-        displayButtonHeight = 18;
-        displayButtonX = Math.max(2, guiLeft - displayButtonWidth - 2);
-        sortModeButtonY = guiTop + HEADER_HEIGHT;
-        sortDirectionButtonY = sortModeButtonY + displayButtonHeight + 3;
-        filterModeButtonY = sortDirectionButtonY + displayButtonHeight + 3;
+        displayButtonWidth = 20;
+        displayButtonHeight = 20;
+        displayButtonX = guiLeft + 7;
+        sortModeButtonY = centralTop + 8;
+        sortDirectionButtonY = sortModeButtonY + 24;
+        filterModeButtonY = sortDirectionButtonY + 24;
+        requestMessagesButtonY = filterModeButtonY + 24;
 
-        searchHeight = 14;
-        searchY = guiTop + 8;
-        searchX = guiLeft + 92;
-        searchWidth = Math.max(60, itemButtonX - searchX - 10);
+        searchHeight = compact ? 12 : 16;
+        searchY = guiTop + (compact ? 27 : 28);
+        searchX = centralLeft + 6;
+        searchWidth = 176;
 
-        sendButtonHeight = 16;
-        sendButtonWidth = 70;
-        sendButtonX = itemButtonX - sendButtonWidth - 10;
-        sendButtonY = guiTop + 7;
+        sendButtonHeight = 20;
+        sendButtonWidth = 20;
+        sendButtonX = displayButtonX;
+        sendButtonY = sortModeButtonY;
 
-        playerLeft = guiLeft + (xSize - 162) / 2;
+        playerLeft = centralLeft + 14;
         playerTop = guiTop + ySize - PLAYER_HEIGHT - BOTTOM_MARGIN;
 
-        craftingTop = playerTop - CRAFTING_HEIGHT - 6;
-        craftingLeft = guiLeft + 8;
-        craftingResultX = craftingLeft + 94;
-        craftingResultY = craftingTop + 25;
-        craftingClearSize = 10;
-        craftingClearX = craftingLeft + SLOT * 3 + 2;
-        craftingClearY = craftingTop + 3;
-        craftingAmountWidth = 34;
-        craftingAmountHeight = 14;
-        craftingAmountX = craftingResultX + SLOT + 6;
-        craftingAmountY = craftingResultY + 2;
-        craftingRequestWidth = 34;
-        craftingRequestHeight = 16;
+        craftingTop = playerTop - (compact ? 80 : 102);
+        craftingLeft = centralLeft + 6;
+        craftingResultX = centralLeft + 78;
+        craftingResultY = craftingTop + (compact ? 30 : 37);
+        craftingClearSize = 12;
+        craftingClearX = centralLeft + 67;
+        craftingClearY = craftingTop;
+        craftingAmountWidth = 30;
+        craftingAmountHeight = 16;
+        craftingAmountX = centralLeft + 114;
+        craftingAmountY = craftingResultY;
+        craftingRequestWidth = 28;
+        craftingRequestHeight = 20;
         craftingRequestX = craftingAmountX + craftingAmountWidth + 4;
-        craftingRequestY = craftingResultY + 1;
+        craftingRequestY = craftingResultY - 2;
 
-        panelLeft = guiLeft + 10;
-        panelTop = guiTop + HEADER_HEIGHT;
-        panelWidth = xSize - 20;
-        panelHeight = Math.max(PANEL_CELL, craftingTop - panelTop - 6);
-        scrollbarX = panelLeft + panelWidth - 7;
+        panelLeft = playerLeft - 1;
+        panelTop = guiTop + (compact ? 42 : 50);
+        panelWidth = INVENTORY_COLUMNS * SLOT;
+        panelHeight = Math.max(PANEL_CELL, (craftingTop - panelTop - 4) / PANEL_CELL * PANEL_CELL);
+        scrollbarX = panelLeft + panelWidth + 3;
+
+        upgradePanelLeft = centralLeft + centralWidth + 6;
+        upgradePanelWidth = 28;
+        upgradePanelTop = centralTop;
+        upgradePanelHeight = UPGRADE_SLOT_COUNT * SLOT + 10;
+        upgradeLeft = upgradePanelLeft + 6;
+        upgradeTop = upgradePanelTop + 6;
     }
 
     /**
@@ -134,13 +160,26 @@ public class RequestTableLayout {
      * @return number of item cells per row in the network panel
      */
     public int getNetworkColumns() {
-        return Math.max(1, (panelWidth - 9) / PANEL_CELL);
+        return INVENTORY_COLUMNS;
     }
 
     /**
      * @return number of complete storage rows that fit into the adaptive panel
      */
     public int getVisibleStorageRows() {
-        return Math.max(1, (panelHeight - 3) / SLOT);
+        return Math.max(1, panelHeight / SLOT);
+    }
+
+    public int getCraftingGridTop() {
+        return craftingTop + (compact ? 11 : 18);
+    }
+
+    public int getCraftableLabelY() {
+        return craftingTop + (compact ? 68 : 77);
+    }
+
+    /** Packs the upgrade slots in one column along the detached bar. */
+    public int getUpgradeSlotY(int index) {
+        return upgradeTop + index * SLOT;
     }
 }

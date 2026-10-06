@@ -1,13 +1,14 @@
 package logisticspipes.crafting.requesttable;
 
+import lombok.AllArgsConstructor;
+import lombok.Value;
 import net.minecraft.nbt.NBTTagCompound;
 
-import lombok.Value;
-
 /**
- * Immutable sort and filter state for one player at one request table.
+ * Immutable display and request-message preferences for one player at one request table.
  */
 @Value
+@AllArgsConstructor
 public class RequestTableDisplaySettings {
 
     public static final RequestTableDisplaySettings DEFAULT = new RequestTableDisplaySettings(
@@ -17,22 +18,35 @@ public class RequestTableDisplaySettings {
     private static final String NBT_SORT_MODE = "sortMode";
     private static final String NBT_SORT_DIRECTION = "sortDirection";
     private static final String NBT_FILTER_MODE = "filterMode";
+    private static final String NBT_REQUEST_MESSAGES = "requestMessages";
     SortMode sortMode;
     SortDirection sortDirection;
     FilterMode filterMode;
+    boolean requestMessagesEnabled;
+
+    public RequestTableDisplaySettings(SortMode sortMode, SortDirection sortDirection, FilterMode filterMode) {
+        this(sortMode, sortDirection, filterMode, true);
+    }
 
     public static RequestTableDisplaySettings readFromNBT(NBTTagCompound tag) {
         return fromOrdinals(
                 tag.getInteger(NBT_SORT_MODE),
                 tag.getInteger(NBT_SORT_DIRECTION),
-                tag.getInteger(NBT_FILTER_MODE));
+            tag.getInteger(NBT_FILTER_MODE),
+            !tag.hasKey(NBT_REQUEST_MESSAGES) || tag.getBoolean(NBT_REQUEST_MESSAGES));
     }
 
     public static RequestTableDisplaySettings fromOrdinals(int sortMode, int sortDirection, int filterMode) {
+        return fromOrdinals(sortMode, sortDirection, filterMode, true);
+    }
+
+    public static RequestTableDisplaySettings fromOrdinals(int sortMode, int sortDirection, int filterMode,
+                                                           boolean requestMessagesEnabled) {
         return new RequestTableDisplaySettings(
                 valueOrDefault(SortMode.values(), sortMode, DEFAULT.sortMode),
                 valueOrDefault(SortDirection.values(), sortDirection, DEFAULT.sortDirection),
-                valueOrDefault(FilterMode.values(), filterMode, DEFAULT.filterMode));
+            valueOrDefault(FilterMode.values(), filterMode, DEFAULT.filterMode),
+            requestMessagesEnabled);
     }
 
     private static <T> T valueOrDefault(T[] values, int ordinal, T defaultValue) {
@@ -40,21 +54,26 @@ public class RequestTableDisplaySettings {
     }
 
     public RequestTableDisplaySettings nextSortMode() {
-        return new RequestTableDisplaySettings(sortMode.next(), sortDirection, filterMode);
+        return new RequestTableDisplaySettings(sortMode.next(), sortDirection, filterMode, requestMessagesEnabled);
     }
 
     public RequestTableDisplaySettings nextSortDirection() {
-        return new RequestTableDisplaySettings(sortMode, sortDirection.next(), filterMode);
+        return new RequestTableDisplaySettings(sortMode, sortDirection.next(), filterMode, requestMessagesEnabled);
     }
 
     public RequestTableDisplaySettings nextFilterMode() {
-        return new RequestTableDisplaySettings(sortMode, sortDirection, filterMode.next());
+        return new RequestTableDisplaySettings(sortMode, sortDirection, filterMode.next(), requestMessagesEnabled);
+    }
+
+    public RequestTableDisplaySettings toggleRequestMessages() {
+        return new RequestTableDisplaySettings(sortMode, sortDirection, filterMode, !requestMessagesEnabled);
     }
 
     public void writeToNBT(NBTTagCompound tag) {
         tag.setInteger(NBT_SORT_MODE, sortMode.ordinal());
         tag.setInteger(NBT_SORT_DIRECTION, sortDirection.ordinal());
         tag.setInteger(NBT_FILTER_MODE, filterMode.ordinal());
+        tag.setBoolean(NBT_REQUEST_MESSAGES, requestMessagesEnabled);
     }
 
     public enum SortMode {

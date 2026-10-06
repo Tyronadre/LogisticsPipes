@@ -1,11 +1,5 @@
 package logisticspipes.network.packets.crafting.requesttable;
 
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
-
-import net.minecraft.entity.player.EntityPlayer;
-
 import cpw.mods.fml.client.FMLClientHandler;
 import logisticspipes.crafting.requesttable.RequestTableDisplaySettings;
 import logisticspipes.crafting.requesttable.RequestTableGui;
@@ -14,6 +8,11 @@ import logisticspipes.network.LPDataInputStream;
 import logisticspipes.network.LPDataOutputStream;
 import logisticspipes.network.abstractpackets.CoordinatesPacket;
 import logisticspipes.network.abstractpackets.ModernPacket;
+import net.minecraft.entity.player.EntityPlayer;
+
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Sends the combined item/fluid request list to the new request table GUI.
@@ -71,6 +70,7 @@ public class RequestTableContentPacket extends CoordinatesPacket {
         data.writeEnum(displaySettings.getSortMode());
         data.writeEnum(displaySettings.getSortDirection());
         data.writeEnum(displaySettings.getFilterMode());
+        data.writeBoolean(displaySettings.isRequestMessagesEnabled());
     }
 
     @Override
@@ -88,6 +88,7 @@ public class RequestTableContentPacket extends CoordinatesPacket {
                             data.readInt(),
                             data.readBoolean()));
         }
-        displaySettings = RequestTableDisplaySettings.fromOrdinals(data.readInt(), data.readInt(), data.readInt());
+        displaySettings = RequestTableDisplaySettings
+            .fromOrdinals(data.readInt(), data.readInt(), data.readInt(), data.readBoolean());
     }
 }

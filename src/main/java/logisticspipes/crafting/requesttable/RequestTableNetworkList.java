@@ -1,16 +1,15 @@
 package logisticspipes.crafting.requesttable;
 
+import logisticspipes.proxy.SimpleServiceLocator;
+import net.minecraft.item.ItemStack;
+import net.minecraftforge.fluids.FluidStack;
+
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
-
-import net.minecraft.item.ItemStack;
-import net.minecraftforge.fluids.FluidStack;
-
-import logisticspipes.proxy.SimpleServiceLocator;
 
 /**
  * Cached presentation model for the request table's network entries.
@@ -45,7 +44,11 @@ public class RequestTableNetworkList {
         }
         boolean sortingChanged = settings.getSortMode() != newSettings.getSortMode()
                 || settings.getSortDirection() != newSettings.getSortDirection();
+        boolean filterChanged = settings.getFilterMode() != newSettings.getFilterMode();
         settings = newSettings;
+        if (!sortingChanged && !filterChanged) {
+            return false;
+        }
         if (sortingChanged) {
             rebuildSortedEntries();
         }

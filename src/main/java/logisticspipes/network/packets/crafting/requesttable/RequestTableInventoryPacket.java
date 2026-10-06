@@ -24,6 +24,7 @@ public class RequestTableInventoryPacket extends CoordinatesPacket {
     private int itemStackLimit;
     private int fluidSlots;
     private int fluidSlotCapacity;
+    private int craftableAmount;
     private List<ItemStack> contents = new ArrayList<>();
     private List<FluidStack> fluids = new ArrayList<>();
     private ItemStack cursor;
@@ -39,6 +40,7 @@ public class RequestTableInventoryPacket extends CoordinatesPacket {
         itemStackLimit = table.inv.getInventoryStackLimit();
         fluidSlots = table.getFluidStorage().getSizeInventory();
         fluidSlotCapacity = table.getFluidStorage().getSlotCapacity();
+        craftableAmount = container.getCraftableAmount();
         contents = new ArrayList<>();
         for (Object entry : container.inventorySlots) {
             Slot slot = (Slot) entry;
@@ -73,7 +75,7 @@ public class RequestTableInventoryPacket extends CoordinatesPacket {
         if (fluids.size() != fluidSlots) {
             return;
         }
-        container.applyInventory(itemSlots, itemStackLimit, fluidSlotCapacity, contents, fluids);
+        container.applyInventory(itemSlots, itemStackLimit, fluidSlotCapacity, craftableAmount, contents, fluids);
         player.inventory.setItemStack(cursor);
     }
 
@@ -85,6 +87,7 @@ public class RequestTableInventoryPacket extends CoordinatesPacket {
         data.writeInt(itemStackLimit);
         data.writeInt(fluidSlots);
         data.writeInt(fluidSlotCapacity);
+        data.writeInt(craftableAmount);
         data.writeList(contents, LPDataOutputStream::writeItemStack);
         data.writeList(fluids, LPDataOutputStream::writeFluidStack);
         data.writeItemStack(cursor);
@@ -98,6 +101,7 @@ public class RequestTableInventoryPacket extends CoordinatesPacket {
         itemStackLimit = data.readInt();
         fluidSlots = data.readInt();
         fluidSlotCapacity = data.readInt();
+        craftableAmount = data.readInt();
         contents = data.readList(LPDataInputStream::readItemStack);
         fluids = data.readList(LPDataInputStream::readFluidStack);
         cursor = data.readItemStack();

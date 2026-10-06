@@ -1,9 +1,5 @@
 package logisticspipes.network.packets.crafting.requesttable;
 
-import java.io.IOException;
-
-import net.minecraft.entity.player.EntityPlayer;
-
 import logisticspipes.crafting.requesttable.RequestTablePipe;
 import logisticspipes.network.LPDataInputStream;
 import logisticspipes.network.LPDataOutputStream;
@@ -11,6 +7,9 @@ import logisticspipes.network.PacketGuards;
 import logisticspipes.network.abstractpackets.ModernPacket;
 import logisticspipes.network.abstractpackets.RequestPacket;
 import logisticspipes.request.RequestHandler;
+import net.minecraft.entity.player.EntityPlayer;
+
+import java.io.IOException;
 
 /**
  * Submits an item or fluid request from the redesigned request table overlay.
@@ -42,10 +41,11 @@ public class RequestTableSubmitPacket extends RequestPacket {
         if (table == null) {
             return;
         }
+        boolean messages = table.getDisplaySettings(player).isRequestMessagesEnabled();
         if (fluid) {
-            RequestHandler.requestFluid(player, getStack(), table, table);
+            RequestHandler.requestFluid(player, getStack(), table, table, messages);
         } else {
-            RequestHandler.request(player, getStack(), table);
+            RequestHandler.request(player, getStack(), table, messages);
         }
     }
 

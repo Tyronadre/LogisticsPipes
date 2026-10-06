@@ -164,12 +164,27 @@ public class RequestTablePipe extends PipeBlockRequestTable implements IRequestF
     public void setDisplaySettings(EntityPlayer player, RequestTableDisplaySettings settings) {
         if (displaySettingsStore.set(player.getUniqueID(), settings) && container != null) {
             container.markDirty();
+            sendNetworkContentToPlayer(player);
         }
     }
 
-    /**
-     * Applies installed request-table storage upgrades to the item and fluid backing stores.
-     */
+    /** Reserves the first upgrade slot for crafting monitoring and the remaining slots for storage upgrades. */
+    public boolean isUpgradeAllowed(int slot, ItemStack stack) {
+        if (slot < 0 || slot >= getOriginalUpgradeManager().getInv().getSizeInventory()
+            || stack == null
+            || stack.getItem() != LogisticsPipes.UpgradeItem) {
+            return false;
+        }
+        if (slot == 0) {
+            return stack.getItemDamage() == ItemUpgrade.CRAFTING_MONITORING;
+        }
+        return switch (stack.getItemDamage()) {
+            case ItemUpgrade.REQUEST_TABLE_ITEM_INVENTORY, ItemUpgrade.REQUEST_TABLE_ITEM_STACK, ItemUpgrade.REQUEST_TABLE_FLUID_INVENTORY, ItemUpgrade.REQUEST_TABLE_FLUID_CAPACITY -> true;
+            default -> false;
+        };
+    }
+
+    /** Applies installed request-table storage upgrades to the item and fluid backing stores. */
     public void updateStorageUpgrades() {
         if (container == null || getWorld() == null || MainProxy.isClient(getWorld())) return;
 
@@ -769,7 +784,7 @@ public class RequestTablePipe extends PipeBlockRequestTable implements IRequestF
     public void requestCraftingIngredients(EntityPlayer player, int multiplier) {
         List<ItemIdentifierStack> request = getCraftingIngredientRequest(multiplier);
         if (!request.isEmpty()) {
-            RequestHandler.requestList(player, request, this);
+            RequestHandler.requestList(player, request, this, getDisplaySettings(player).isRequestMessagesEnabled());
         }
     }
 
@@ -803,6 +818,49 @@ public class RequestTablePipe extends PipeBlockRequestTable implements IRequestF
             }
         }
         return result;
+    }
+
+    /** Counts output items from table storage followed by this player's main inventory, including the hotbar. */
+    public int getCraftableAmount(EntityPlayer player) {
+        IRecipe recipe = getCurrentRecipe();
+        ItemStack expectedResult = resultInv.getStackInSlot(0);
+        if (recipe == null || expectedResult == null) {
+            return 0;
+        }
+        int internalSlots = inv.getSizeInventory();
+        ItemStack[] stored = new ItemStack[internalSlots + player.inventory.mainInventory.length];
+        ItemStack[] pattern = new ItemStack[matrix.getSizeInventory()];
+        for (int i = 0; i < internalSlots; i++) {
+            stored[i] = inv.getStackInSlot(i);
+        }
+        System.arraycopy(player.inventory.mainInventory, 0, stored, internalSlots + 0, player.inventory.mainInventory.length);
+        for (int i = 0; i < pattern.length; i++) {
+            pattern[i] = matrix.getStackInSlot(i);
+        }
+        return RequestTableCraftingCounter.count(
+            stored,
+            pattern,
+            (expected, candidate) -> matchesIngredient(
+                ItemIdentifier.get(expected),
+                ItemIdentifier.get(candidate),
+                true),
+            (expected, candidate) -> matchesIngredient(
+                ItemIdentifier.get(expected),
+                ItemIdentifier.get(candidate),
+                false),
+            inputs -> {
+                AutoCraftingInventory preview = new AutoCraftingInventory(null);
+                for (int i = 0; i < inputs.length; i++) {
+                    preview.setInventorySlotContents(i, inputs[i]);
+                }
+                if (!recipe.matches(preview, getWorld())) {
+                    return null;
+                }
+                ItemStack result = recipe.getCraftingResult(preview);
+                return result != null
+                    && ItemIdentifier.get(expectedResult).equalsWithoutNBT(ItemIdentifier.get(result)) ? result
+                    : null;
+            });
     }
 
     private CraftingPreview getCraftingPreview(EntityPlayer player) {

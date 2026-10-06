@@ -1,9 +1,5 @@
 package logisticspipes.network.packets.crafting.requesttable;
 
-import java.io.IOException;
-
-import net.minecraft.entity.player.EntityPlayer;
-
 import logisticspipes.crafting.requesttable.RequestTableDisplaySettings;
 import logisticspipes.crafting.requesttable.RequestTablePipe;
 import logisticspipes.network.LPDataInputStream;
@@ -11,9 +7,12 @@ import logisticspipes.network.LPDataOutputStream;
 import logisticspipes.network.abstractpackets.CoordinatesPacket;
 import logisticspipes.network.abstractpackets.ModernPacket;
 import logisticspipes.pipes.basic.LogisticsTileGenericPipe;
+import net.minecraft.entity.player.EntityPlayer;
+
+import java.io.IOException;
 
 /**
- * Saves a player's sort and filter state at one redesigned request table.
+ * Saves a player's display and request-message preferences at one redesigned request table.
  */
 public class RequestTableDisplaySettingsPacket extends CoordinatesPacket {
 
@@ -36,10 +35,10 @@ public class RequestTableDisplaySettingsPacket extends CoordinatesPacket {
     @Override
     public void processPacket(EntityPlayer player) {
         LogisticsTileGenericPipe tile = getPipe(player.worldObj);
-        if (tile == null || !(tile.pipe instanceof RequestTablePipe)) {
+        if (tile == null || !(tile.pipe instanceof RequestTablePipe table)) {
             return;
         }
-        ((RequestTablePipe) tile.pipe).setDisplaySettings(player, settings);
+        table.setDisplaySettings(player, settings);
     }
 
     @Override
@@ -48,11 +47,13 @@ public class RequestTableDisplaySettingsPacket extends CoordinatesPacket {
         data.writeEnum(settings.getSortMode());
         data.writeEnum(settings.getSortDirection());
         data.writeEnum(settings.getFilterMode());
+        data.writeBoolean(settings.isRequestMessagesEnabled());
     }
 
     @Override
     public void readData(LPDataInputStream data) throws IOException {
         super.readData(data);
-        settings = RequestTableDisplaySettings.fromOrdinals(data.readInt(), data.readInt(), data.readInt());
+        settings = RequestTableDisplaySettings
+            .fromOrdinals(data.readInt(), data.readInt(), data.readInt(), data.readBoolean());
     }
 }

@@ -1,6 +1,7 @@
 package logisticspipes.crafting.requesttable;
 
 import logisticspipes.utils.Color;
+import logisticspipes.utils.gui.GuiGraphics;
 import logisticspipes.utils.gui.LogisticsBaseGuiScreen;
 import logisticspipes.utils.item.ItemIdentifierStack;
 import logisticspipes.utils.item.ItemStackRenderer;
@@ -110,11 +111,12 @@ public class RequestTableRequestOverlay {
         if (!isOpen()) {
             return;
         }
-        screen.drawRect(left, top, left + WIDTH, top + HEIGHT, Color.BLACK);
-        screen.drawRect(left + 1, top + 1, left + WIDTH - 1, top + HEIGHT - 1, Color.LIGHTER_GREY);
+        GuiGraphics.drawGuiBackGround(screen.getMC(), left, top, left + WIDTH, top + HEIGHT, 250, true);
         drawMinecraftButton(screen, left + WIDTH - 13, top + 3, 10, 10, true);
-        screen.getMC().fontRenderer.drawString("x", left + WIDTH - 10, top + 4, 0xffffff);
-        screen.getMC().fontRenderer.drawString("In table: " + internalAmount, left + 8, top + 5, 0x404040);
+        screen.getMC().fontRenderer.drawString("x", left + WIDTH - 10, top + 4, 0x404040);
+        screen.getMC().fontRenderer
+            .drawString("In table: " + internalAmount, left + 8, top + 5, RequestTableGuiStyle.TEXT);
+        GuiGraphics.drawBigSlotBackground(screen.getMC(), left + 24, top + 30);
 
         for (int i = 0; i < DELTAS.length; i++) {
             drawDeltaButton(screen, i, true);
@@ -127,7 +129,7 @@ public class RequestTableRequestOverlay {
 
         amountField.drawTextBox();
         drawMinecraftButton(screen, left + 124, top + 34, 28, 18, hasValidAmount());
-        screen.getMC().fontRenderer.drawString("OK", left + 131, top + 39, hasValidAmount() ? 0xffffff : 0xa0a0a0);
+        screen.getMC().fontRenderer.drawString("OK", left + 131, top + 39, hasValidAmount() ? 0x404040 : 0x808080);
     }
 
     private void drawDeltaButton(LogisticsBaseGuiScreen screen, int index, boolean plus) {
@@ -136,7 +138,7 @@ public class RequestTableRequestOverlay {
         drawMinecraftButton(screen, x, y, 34, 14, true);
         String label = (plus ? "+" : "-") + DELTAS[index];
         screen.getMC().fontRenderer
-                .drawString(label, x + 17 - screen.getMC().fontRenderer.getStringWidth(label) / 2, y + 3, 0xffffff);
+            .drawString(label, x + 17 - screen.getMC().fontRenderer.getStringWidth(label) / 2, y + 3, 0x404040);
     }
 
     private void drawMinecraftButton(LogisticsBaseGuiScreen screen, int x, int y, int width, int height,
