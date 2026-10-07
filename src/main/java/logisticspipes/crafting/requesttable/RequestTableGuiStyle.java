@@ -67,10 +67,18 @@ final class RequestTableGuiStyle {
         int y = layout.panelTop;
         int height = layout.panelHeight;
         inset(x, y, 7, height);
-        int rows = layout.getVisiblePanelRows();
-        int thumbHeight = Math.max(12, height * rows / Math.max(1, rows + maxScroll));
-        int travel = Math.max(0, height - thumbHeight);
-        int top = y + (maxScroll == 0 ? 0 : travel * scrollRow / maxScroll);
+        int thumbHeight = getScrollbarThumbHeight(layout, maxScroll);
+        int top = getScrollbarThumbTop(layout, scrollRow, maxScroll);
         raised(x, top, 7, thumbHeight, false);
+    }
+
+    static int getScrollbarThumbHeight(RequestTableLayout layout, int maxScroll) {
+        int rows = layout.getVisiblePanelRows();
+        return Math.max(12, layout.panelHeight * rows / Math.max(1, rows + maxScroll));
+    }
+
+    static int getScrollbarThumbTop(RequestTableLayout layout, int scrollRow, int maxScroll) {
+        int travel = layout.panelHeight - getScrollbarThumbHeight(layout, maxScroll);
+        return layout.panelTop + (maxScroll == 0 ? 0 : travel * scrollRow / maxScroll);
     }
 }

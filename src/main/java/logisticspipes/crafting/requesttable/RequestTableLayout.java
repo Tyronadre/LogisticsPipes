@@ -5,13 +5,26 @@ package logisticspipes.crafting.requesttable;
  */
 public class RequestTableLayout {
 
+    public static final int GUI_WIDTH = 286;
     public static final int SLOT = 18;
     public static final int PANEL_CELL = 18;
     public static final int INVENTORY_COLUMNS = 9;
-    public static final int TAB_HEIGHT = 26;
+    public static final int TAB_HEIGHT = 22;
     public static final int MAIN_TAB_WIDTH = 56;
     public static final int STORAGE_TAB_WIDTH = 64;
     public static final int UPGRADE_SLOT_COUNT = 9;
+    public static final int SMALL_ROWS = 4;
+    public static final int SMALL_HEIGHT = 200 + SMALL_ROWS * SLOT;
+    public static final int NEI_TOP_MARGIN = 20;
+    public static final int NEI_BOTTOM_MARGIN = 20;
+    public static final int TALL_HEIGHT_TRIM = 8;
+    public static final int CONTENT_CRAFTING_GAP = 5;
+    public static final int SIDEBAR_COLUMN_GAP = 2;
+    public static final int SIDEBAR_ROW_GAP = 3;
+    public static final int SIDEBAR_GUI_GAP = 7;
+    private static final int MIN_GUI_HEIGHT = 198;
+    private static final int TIGHT_HEIGHT = 216;
+    private static final int COMPACT_HEIGHT = 242;
 
     private static final int PLAYER_HEIGHT = 76;
     private static final int BOTTOM_MARGIN = 8;
@@ -32,6 +45,7 @@ public class RequestTableLayout {
     public final int itemButtonX;
     public final int fluidButtonX;
     public final int displayButtonX;
+    public final int visibilityButtonX;
     public final int sortModeButtonY;
     public final int sortDirectionButtonY;
     public final int filterModeButtonY;
@@ -52,6 +66,7 @@ public class RequestTableLayout {
     public final int upgradePanelTop;
     public final int upgradePanelHeight;
     public final boolean compact;
+    public final boolean tight;
 
     public final int panelLeft;
     public final int panelTop;
@@ -87,10 +102,15 @@ public class RequestTableLayout {
         this.xSize = xSize;
         this.ySize = ySize;
 
-        compact = ySize < 268;
-        centralLeft = guiLeft + 34;
+        compact = ySize < 266;
+        tight = ySize < 226;
+        displayButtonWidth = 20;
+        displayButtonHeight = 20;
+        visibilityButtonX = guiLeft + 7;
+        displayButtonX = visibilityButtonX + displayButtonWidth + SIDEBAR_COLUMN_GAP;
+        centralLeft = displayButtonX + displayButtonWidth + SIDEBAR_GUI_GAP;
         centralWidth = 190;
-        centralTop = guiTop + 22;
+        centralTop = guiTop + TAB_HEIGHT - 4;
         networkButtonX = centralLeft + 1;
         itemButtonX = networkButtonX + MAIN_TAB_WIDTH + 2;
         fluidButtonX = itemButtonX + STORAGE_TAB_WIDTH + 2;
@@ -98,18 +118,14 @@ public class RequestTableLayout {
         itemButtonY = guiTop;
         fluidButtonY = guiTop;
 
-        displayButtonWidth = 20;
-        displayButtonHeight = 20;
-        displayButtonX = guiLeft + 7;
         sortModeButtonY = centralTop + 8;
-        sortDirectionButtonY = sortModeButtonY + 24;
-        filterModeButtonY = sortDirectionButtonY + 24;
-        requestMessagesButtonY = filterModeButtonY + 24;
+        sortDirectionButtonY = sortModeButtonY + displayButtonHeight + SIDEBAR_ROW_GAP;
+        filterModeButtonY = sortModeButtonY;
+        requestMessagesButtonY = sortModeButtonY + 5 * (displayButtonHeight + SIDEBAR_ROW_GAP);
 
-        searchHeight = compact ? 12 : 16;
-        searchY = guiTop + (compact ? 27 : 28);
-        searchX = centralLeft + 6;
-        searchWidth = 176;
+        searchHeight = 12;
+        int headerMargin = tight ? 1 : compact ? 2 : 4;
+        searchY = guiTop + TAB_HEIGHT + headerMargin;
 
         sendButtonHeight = 20;
         sendButtonWidth = 20;
@@ -117,28 +133,31 @@ public class RequestTableLayout {
         sendButtonY = sortModeButtonY;
 
         playerLeft = centralLeft + 14;
-        playerTop = guiTop + ySize - PLAYER_HEIGHT - BOTTOM_MARGIN;
-
-        craftingTop = playerTop - (compact ? 80 : 102);
-        craftingLeft = centralLeft + 6;
-        craftingResultX = centralLeft + 78;
-        craftingResultY = craftingTop + (compact ? 30 : 37);
-        craftingClearSize = 12;
-        craftingClearX = centralLeft + 67;
-        craftingClearY = craftingTop;
-        craftingAmountWidth = 30;
-        craftingAmountHeight = 16;
-        craftingAmountX = centralLeft + 114;
-        craftingAmountY = craftingResultY;
-        craftingRequestWidth = 28;
-        craftingRequestHeight = 20;
-        craftingRequestX = craftingAmountX + craftingAmountWidth + 4;
-        craftingRequestY = craftingResultY - 2;
-
+        playerTop = guiTop + ySize - PLAYER_HEIGHT - (tight ? 6 : BOTTOM_MARGIN);
         panelLeft = playerLeft - 1;
-        panelTop = guiTop + (compact ? 42 : 50);
         panelWidth = INVENTORY_COLUMNS * SLOT;
-        panelHeight = Math.max(PANEL_CELL, (craftingTop - panelTop - 4) / PANEL_CELL * PANEL_CELL);
+
+        craftingTop = playerTop - (tight ? 56 : compact ? 60 : 68);
+        craftingLeft = playerLeft;
+        craftingResultX = centralLeft + 88;
+        craftingResultY = craftingTop + 19;
+        craftingClearSize = 10;
+        craftingClearX = centralLeft + 72;
+        craftingClearY = craftingTop - 1;
+        craftingAmountWidth = 34;
+        craftingAmountHeight = 16;
+        craftingAmountY = craftingTop + 17;
+        craftingRequestWidth = 18;
+        craftingRequestHeight = 18;
+        craftingRequestX = panelLeft + panelWidth - craftingRequestWidth;
+        craftingRequestY = craftingAmountY - 1;
+        craftingAmountX = craftingRequestX - 4 - craftingAmountWidth;
+
+        panelTop = searchY + searchHeight + headerMargin;
+        searchX = panelLeft;
+        searchWidth = panelWidth;
+        panelHeight = Math
+            .max(PANEL_CELL, (craftingTop - 1 - panelTop - CONTENT_CRAFTING_GAP) / PANEL_CELL * PANEL_CELL);
         scrollbarX = panelLeft + panelWidth + 3;
 
         upgradePanelLeft = centralLeft + centralWidth + 6;
@@ -147,6 +166,21 @@ public class RequestTableLayout {
         upgradePanelHeight = UPGRADE_SLOT_COUNT * SLOT + 10;
         upgradeLeft = upgradePanelLeft + 6;
         upgradeTop = upgradePanelTop + 6;
+    }
+
+    /** Leaves room for NEI's top controls and bottom search bar in both terminal styles. */
+    public static int getGuiHeight(int screenHeight, RequestTableDisplaySettings.TerminalStyle style) {
+        int available = Math.max(MIN_GUI_HEIGHT, screenHeight - NEI_TOP_MARGIN - NEI_BOTTOM_MARGIN);
+        int target = style == RequestTableDisplaySettings.TerminalStyle.SMALL ? Math.min(SMALL_HEIGHT, available)
+            : Math.max(MIN_GUI_HEIGHT, available - TALL_HEIGHT_TRIM);
+        // Whole rows keep the crafting gap at five pixels in each spacing mode.
+        if (target >= SMALL_HEIGHT) {
+            return SMALL_HEIGHT + (target - SMALL_HEIGHT) / SLOT * SLOT;
+        }
+        if (target >= COMPACT_HEIGHT) {
+            return COMPACT_HEIGHT + (target - COMPACT_HEIGHT) / SLOT * SLOT;
+        }
+        return target >= TIGHT_HEIGHT ? TIGHT_HEIGHT : MIN_GUI_HEIGHT;
     }
 
     /**
@@ -171,11 +205,15 @@ public class RequestTableLayout {
     }
 
     public int getCraftingGridTop() {
-        return craftingTop + (compact ? 11 : 18);
+        return craftingTop;
     }
 
     public int getCraftableLabelY() {
-        return craftingTop + (compact ? 68 : 77);
+        return craftingTop + 45;
+    }
+
+    public int getCraftableLabelX() {
+        return centralLeft + 80;
     }
 
     /** Packs the upgrade slots in one column along the detached bar. */

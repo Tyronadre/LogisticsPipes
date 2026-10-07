@@ -12,7 +12,7 @@ the separate fluid request pipe and `FluidGuiOrderer`, and that list shows only 
 "New Request Table" with the display name "Logistics Request Table Mk2". It extends `PipeBlockRequestTable` and adds:
 
 - one network list that shows items **and** fluids, with network, internal and craftable amounts for each entry,
-  per-player sort/filter and request-message settings, and a search bar;
+  per-player sorting, visibility, search, terminal-size and request-message settings;
 - internal item storage **and** internal fluid storage, both larger with four new storage upgrades;
 - a request popup with typed amounts and +/- buttons in place of the old request buttons;
 - a ghost (fake) 3x3 crafting grid that crafts from internal storage and then from the player's inventory, plus a
@@ -71,8 +71,9 @@ like the old table.
   - `newRequestTableFluidStoragefluids` (list of FluidStack + `index`), `newRequestTableFluidStoragesize` and
     `newRequestTableFluidStoragecapacity`. The key prefix and suffix are joined with no separator.
   - `newRequestTableDisplaySettings`: a list of `{player: UUID string, settings: {sortMode, sortDirection,
-    filterMode, requestMessages}}`. Only non-default settings are stored, and bad UUIDs are skipped. Older saves
-    without `requestMessages` keep request messages enabled.
+    filterMode, requestMessages, searchBoxMode, saveSearch, savedSearch, terminalStyle, showItems, showFluids}}`.
+    Only non-default settings are stored, and bad UUIDs are skipped. Older saves keep request messages, items
+    and fluids enabled, with Standard search, no remembered text and Small terminal size.
 - `SimpleStackInventory` (changed in another area) now also writes `<prefix>itemsCount` and grows itself on load when
   the saved count is larger. This keeps slots added by upgrades through a reload: at load time `container` is still
   `null`, so `updateStorageUpgrades()` returns early. Old saves without `itemsCount` read as 0 and keep the default
@@ -87,7 +88,8 @@ drawn small and gold in the top-right corner of the icon. Item totals use NEI fl
 at the bottom-left: half size normally, three-quarter size with Unicode fonts. Counts use compact suffixes such as
 `1k`, `1M`, and `1G`; the gold internal count uses the same size and format. Internal item-storage slots use the same
 count overlay while retaining native slot interactions and durability bars. Fluid display items draw their own
-amount, with no additional total-count overlay. Tooltips retain exact amounts. The mouse wheel scrolls the list. The search bar matches
+amount, with no additional total-count overlay. Tooltips retain exact amounts. The mouse wheel and a draggable
+scrollbar scroll the list. The search bar matches
 space-separated words against the localized fluid name, the display name and the item's friendly name.
 
 **How it works.**
@@ -106,7 +108,7 @@ space-separated words against the localized fluid name, the display name and the
   `RequestTableGui` is for the same coordinates (`isForTable`).
 - On the client, [`RequestTableNetworkList`](../../src/main/java/logisticspipes/crafting/requesttable/RequestTableNetworkList.java)
   caches names and the sorted and filtered lists. Sorting reruns only when entries or sort settings change, filtering
-  only when entries, the filter or the search text change.
+  only when entries, the stored/craftable or item/fluid filters, or the search text change.
   [`RequestTableNetworkGrid`](../../src/main/java/logisticspipes/crafting/requesttable/RequestTableNetworkGrid.java)
   draws the list and finds which entry is under the mouse.
 - When the list is sent:
@@ -146,6 +148,12 @@ space-separated words against the localized fluid name, the display name and the
   carries the view, window ID, and player inventory index together; the client waits for the server snapshot instead
   of predicting a transfer into the wrong storage. Shift-click transfers stop when fluid or inventory space runs out,
   preserving unconverted cells. A complete conversion reuses the source slot, including with a full player inventory.
+- Clicking the Main grid with a held stack uses the same mixed routing, including empty grid cells: filled cells
+  empty into fluid storage, compatible upgrades go into upgrade slots, and other items go into item storage.
+  The held item need not match the clicked entry. Empty cells clicked on a fluid fill from internal fluid storage,
+  retaining the whole-stack left-click and single-cell right-click cursor/inventory placement described above.
+  The interaction packet carries an optional clicked entry and distinguishes held-stack transfers from withdrawals;
+  all transfers use the server's actual cursor stack.
 - Fluid-storage slots, combined-list icons/tooltips, and request-popup icons use the same NEI fluid display as
   pattern crafting. Requests and transport still use LP fluid identifiers. Display items are never applied to fluid
   storage; snapshots preserve the real fluids, amounts, tags, and empty slot indexes.
@@ -186,8 +194,10 @@ closes. The popup takes all mouse and key input while it is open.
 ## Internal item & fluid storage
 
 **For the player.** Three tabs at the top select **Main**, **Items** and **Fluids**. The storage tabs show a
-rendered Minecraft chest and BuildCraft tank, with brown/blue fill bars that are three pixels high inside a
-five-pixel frame. They switch the upper panel between the network list and a scrollable 9-column slot grid.
+rendered Minecraft chest and BuildCraft tank, with brown/blue fill bars below their text labels, beside the icons.
+The bars are three pixels high inside a five-pixel frame, with two pixels between the letters and bar;
+the tabs are 22 px tall. They switch the upper panel
+between the network list and a scrollable 9-column slot grid.
 The content grid in every tab aligns with the player inventory: both are exactly nine slots wide, with the
 scrollbar beside the content grid on its right. Slot borders meet the light-gray GUI background directly, without
 an additional dark panel around the inventory.
@@ -211,10 +221,14 @@ What the player can do:
   [`RequestTableNetworkInteractPacket`](../../src/main/java/logisticspipes/network/packets/crafting/requesttable/RequestTableNetworkInteractPacket.java)
   → `RequestTablePipe.handleNetworkEntryInteraction`. These clicks only touch the **internal** storage, never the
   network:
-  - Holding the same item: left-click puts the whole cursor stack into storage, right-click puts in one.
+  - Holding an item: left-click inserts the whole cursor stack, right-click inserts one, regardless of the entry
+    clicked. Compatible upgrades use upgrade slots, like shift-click. Empty grid cells also accept insertion.
   - Empty cursor: left-click takes up to a stack from storage, right-click takes about half (at most half a stack),
     shift+left moves up to a stack into the player inventory, shift+right takes 1.
-  - Fluid entries with a container on the cursor: fill the container from storage, or empty it into storage.
+  - Holding filled cells: deposit their fluid into internal storage, regardless of the clicked entry. Left-click
+    converts the stack on the cursor; right-click converts one into the player inventory.
+  - Fluid entries with empty cells on the cursor: fill from internal storage using the same cursor/inventory
+    placement as the fluid-storage view. Empty cells clicked elsewhere insert as items, like shift-click.
   - Afterwards the server sends the inventory snapshot, including the new cursor stack.
 - **Send all:** [`RequestTableSendStoragePacket`](../../src/main/java/logisticspipes/network/packets/crafting/requesttable/RequestTableSendStoragePacket.java)
   (integer 0 = items, 1 = fluids).
@@ -241,14 +255,24 @@ What the player can do:
 - **Views and layout:** [`RequestTableView`](../../src/main/java/logisticspipes/crafting/requesttable/RequestTableView.java)
   (NETWORK / ITEM_STORAGE / FLUID_STORAGE) and
   [`RequestTableLayout`](../../src/main/java/logisticspipes/crafting/requesttable/RequestTableLayout.java). The GUI is
-  264 px wide overall, with a 190 px central panel, and between 232 and 352 px tall (`height - 12`). Below 268 px
-  tall it uses compact spacing. The
+  286 px wide overall, with a 190 px central panel. Small size is up to 272 px tall (four content rows), while
+  Tall uses the screen height minus 48 px. Both round down to complete rows in the applicable spacing mode,
+  keeping exactly 5 px between the storage-grid border and crafting-grid border. Both leave at least 20 px
+  above and below at the minimum Minecraft scaled screen height of 240 px, keeping NEI's controls visible.
+  Below 266 px tall it uses compact spacing; below 226 px it reduces the crafting area's bottom margin. The
   network panel fills whatever space is left above the crafting grid and the player inventory.
 - **Style and icons:** `RequestTableGuiStyle` draws Minecraft bevels, inset panels and scrollbars;
-  `RequestTableIconButton` draws icons from `textures/gui/requesttable_icons.png` or native block item renderers.
+  `RequestTableIconButton` draws icons from `textures/gui/requesttable_icons.png`, native pixel shapes, or block item renderers.
   Native item icons use depth testing and depth writes so the chest lid and base occlude correctly; labels and
-  fill bars render as overlays afterwards. The left buttons have no shared panel behind them.
-  The tank is resolved by registry name `BuildCraft|Factory:tankBlock`; a water bucket is the fallback if it is
+  fill bars render as overlays afterwards. Inactive tabs use a darker face and render before the main panel,
+  which covers their lower edge. The selected tab renders afterwards and omits both bottom-border pixels,
+  joining the panel.
+  The left buttons have no shared panel behind them. All three views support grabbing the scrollbar thumb
+  without a jump, clicking its track to reposition it, and dragging past either end with clamped scrolling.
+  Scrolling storage repositions client slots immediately; scrollbar clicks and releases bypass inventory clicks.
+  Visibility controls (stored/craftable, items, fluids) occupy the outer left column; the other controls use the
+  column beside the main panel. Columns are separated by 2 px, buttons vertically by 3 px, and the main panel
+  by 7 px. The tank is resolved by registry name `BuildCraft|Factory:tankBlock`; a water bucket is the fallback if it is
   unavailable. The request popup uses the same Minecraft background and slot textures.
 
 ## Storage upgrades
@@ -299,28 +323,54 @@ Per-slot capacity is the base capacity multiplied by `1 + upgrade count`: 64, 12
 - Upgrade sizes use `SimpleStackInventory.setSizeInventory`/`setInventoryStackLimit`. Those methods were added in
   another area.
 
-## Display settings (sort / filter / request messages, per player)
+## Display settings (per player and table)
 
-**For the player.** In the network view, three floating buttons on the left cycle through:
+**For the player.** Floating icon buttons on the left control:
 - sort mode: **Name** / **Amount** (total amount, ties broken by name);
 - direction: **Asc** / **Desc**;
-- filter: **Both** / **Stored** (network + internal > 0) / **Craft** (craftable).
+- filter: **Both** / **Stored** (network + internal > 0) / **Craft** (craftable);
+- **Show items** and **Show fluids**, independently, in the Main list;
+- search mode: **Standard**, **Auto**, **NEI synced auto**, **NEI synced standard**. Auto focuses the terminal
+  search when opening the GUI. Standard opens unfocused. Synced modes copy terminal search edits to NEI;
+  editing NEI's search never replaces the terminal text;
+- **Save search text: Yes / No**. Yes restores the text when reopening this table, including after reload;
+- terminal size: **Small / Tall**. Small shows up to four content rows. Tall uses the available screen height
+  while leaving space for NEI at the top and bottom.
 
 Each button has a tooltip. The choice is remembered **per player, per table**, and survives reloads.
+Defaults are Standard search, no saved search text, Small size, and both items and fluids visible. Sort, filter,
+visibility and search buttons are shown only in Main; terminal size and request messages remain available in
+storage views alongside Send all. Inactive buttons are hidden, and the remaining 20 px buttons are packed
+vertically in their columns. Both columns fit even the smallest layout. Off visibility toggles stay clickable
+so they can be reenabled.
 The speech-bubble button toggles request messages in all views. Messages start enabled. Turning them off suppresses
 request success, missing-resource and insufficient-energy notifications for item, fluid and ingredient requests,
 including both result popups and chat output. Requests still run and crafting-monitor orders are still recorded.
 
 **How it works.**
 - [`RequestTableDisplaySettings`](../../src/main/java/logisticspipes/crafting/requesttable/RequestTableDisplaySettings.java)
-  is an immutable value (Lombok `@Value`) with three enums and a request-message boolean. Enum ordinals out of range
-  fall back to the default. NBT without the boolean defaults to enabled.
+  is an immutable value (Lombok `@Value` / `@With`). Enum ordinals out of range fall back to defaults, and missing
+  NBT keys preserve the defaults above. Remembered text is limited to 256 characters, matching NEI's field.
 - [`RequestTableDisplaySettingsStore`](../../src/main/java/logisticspipes/crafting/requesttable/RequestTableDisplaySettingsStore.java)
   is a UUID → settings map saved in the table's NBT.
 - The client changes its settings right away and sends
   [`RequestTableDisplaySettingsPacket`](../../src/main/java/logisticspipes/network/packets/crafting/requesttable/RequestTableDisplaySettingsPacket.java).
   The server saves them, marks the tile dirty and sends back the current network contents with the saved state.
-  Every `RequestTableContentPacket` carries that player's settings back. Toggling messages keeps the list's scroll
+  Both settings packets use the same NBT representation as persistence. Every `RequestTableContentPacket` carries
+  that player's settings back. Initial settings restore search and focus once, preserving edits made before the
+  first packet and after subsequent refreshes. Search edits filter locally and update NEI immediately in synced
+  modes; remembered text is saved on close or another preference change, without a packet per character.
+  BuildCraft compatibility mixins preserve facade block metadata as an integer when it cannot fit in a signed byte,
+  so GregTech frame material IDs survive facade creation and do not break NEI name filtering. Ordinary facade NBT
+  and legacy byte reads are preserved. Already malformed facade variants use a registry-name/metadata fallback
+  when their underlying item throws during name lookup; valid localized names and hollow suffixes stay intact.
+  Restored text places the caret at the end. The terminal search uses the same inset border and gray fill as
+  inventory slots, with a darker gray fill while focused; long restored text scrolls to its end. Both edges of
+  the search bar align with the nine-column content grid, excluding its scrollbar. The bar is 12 px tall,
+  with two pixels above and below its text and no placeholder. Its vertical gaps to the
+  tabs and grid match: 4 px normally, 2 px on compact screens, and 1 px on the smallest screens.
+  Changing terminal size rebuilds the client layout in place, retaining search text and crafting-request amount.
+  Toggling messages keeps the list's scroll
   position. Item/fluid submission and ingredient requests pass the saved preference to `RequestHandler`, which
   gates notification delivery separately from requests and monitor callbacks. Other request handlers keep their
   existing default behavior.
@@ -330,7 +380,13 @@ including both result popups and chat output. Requests still run and crafting-mo
 **For the player.**
 - The 3x3 grid holds ghost items only (like the old table's matrix), and the result shows the matching recipe output.
   The NEI "?" recipe transfer works on this GUI (the overlay handler is registered in another area).
-- The small red **x** icon next to the grid clears it.
+- The grid aligns with the player inventory. Output, set count, the 18×18 px request button, and the craftable
+  count sit beside the grid, without separate title or count rows. The request button's right edge aligns with
+  the rightmost content-grid slot. The crafting area reserves 68 px above the
+  player inventory (60 px on compact screens, 56 px on the smallest), down from 102 px in the regular layout.
+- The 10×10 px **x** button next to the grid clears it and aligns with the grid's top border. A separate
+  128×128 px white X with a black outline is scaled to 8×8 px inside the button.
+  Its texture uses linear filtering and clamped edges, without red pixels.
 - Clicking the result crafts once onto the cursor, if the cursor is empty or holds the same item with room left.
   Shift-clicking crafts up to 64 items straight into the player inventory.
 - Ingredients come from the table's **internal storage first, then the player's main inventory**.

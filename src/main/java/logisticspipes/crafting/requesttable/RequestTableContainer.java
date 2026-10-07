@@ -480,6 +480,33 @@ public class RequestTableContainer extends DummyContainer {
         return transferPlayerStackToInternalStorage(player, slot);
     }
 
+    /** Inserts held items with the same storage/upgrade routing as a Main-view shift-click. */
+    boolean insertCursorItem(EntityPlayer player, int mouseButton) {
+        if (MainProxy.isClient(player.worldObj) || this.player != player || (mouseButton != 0 && mouseButton != 1)) {
+            return false;
+        }
+        ItemStack cursor = player.inventory.getItemStack();
+        if (cursor == null || cursor.stackSize <= 0) {
+            return false;
+        }
+        ItemStack moving = cursor.copy();
+        moving.stackSize = mouseButton == 0 ? cursor.stackSize : 1;
+        int amount = moving.stackSize;
+        if (isAllowedUpgrade(moving)) {
+            insertIntoUpgradeSlots(moving);
+        } else {
+            moving.stackSize = table.inv.addCompressed(moving, true);
+        }
+        int moved = amount - moving.stackSize;
+        if (moved <= 0) {
+            return false;
+        }
+        cursor.stackSize -= moved;
+        player.inventory.setItemStack(cursor.stackSize == 0 ? null : cursor);
+        syncRequired = true;
+        return true;
+    }
+
     private void handleFluidStorageClick(int fluidSlot, int mouseButton, EntityPlayer player) {
         RequestTableFluidContainers.interact(
             player.inventory,
@@ -643,6 +670,17 @@ public class RequestTableContainer extends DummyContainer {
     private ItemStack transferPlayerStackToUpgrades(EntityPlayer player, Slot sourceSlot) {
         ItemStack source = sourceSlot.getStack();
         ItemStack original = source.copy();
+        insertIntoUpgradeSlots(source);
+        if (source.stackSize == original.stackSize) {
+            return null;
+        }
+        sourceSlot.putStack(source.stackSize == 0 ? null : source);
+        sourceSlot.onSlotChanged();
+        player.inventory.markDirty();
+        return original;
+    }
+
+    private void insertIntoUpgradeSlots(ItemStack source) {
         for (int pass = 0; pass < 2; pass++) {
             for (Slot target : upgradeSlots) {
                 ItemStack stored = target.getStack();
@@ -670,13 +708,6 @@ public class RequestTableContainer extends DummyContainer {
                 break;
             }
         }
-        if (source.stackSize == original.stackSize) {
-            return null;
-        }
-        sourceSlot.putStack(source.stackSize == 0 ? null : source);
-        sourceSlot.onSlotChanged();
-        player.inventory.markDirty();
-        return original;
     }
 
     private ItemStack transferStackToRange(EntityPlayer player, Slot sourceSlot, int start, int end, boolean reverse) {

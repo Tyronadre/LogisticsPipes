@@ -58,7 +58,15 @@ public class RequestTableNetworkGrid {
      * Scrolls the grid by whole rows.
      */
     public void scroll(int rows, RequestTableLayout layout) {
-        scrollRow = Math.max(0, Math.min(getMaxScrollRow(layout), scrollRow + rows));
+        setScrollRow(scrollRow + rows, layout);
+    }
+
+    public int getScrollRow() {
+        return scrollRow;
+    }
+
+    public void setScrollRow(int row, RequestTableLayout layout) {
+        scrollRow = Math.max(0, Math.min(getMaxScrollRow(layout), row));
     }
 
     /**
@@ -157,7 +165,7 @@ public class RequestTableNetworkGrid {
         return filtered.get(index);
     }
 
-    private int getMaxScrollRow(RequestTableLayout layout) {
+    public int getMaxScrollRow(RequestTableLayout layout) {
         int columns = layout.getNetworkColumns();
         int rows = (entries.getVisibleEntries().size() + columns - 1) / columns;
         return Math.max(0, rows - layout.getVisiblePanelRows());

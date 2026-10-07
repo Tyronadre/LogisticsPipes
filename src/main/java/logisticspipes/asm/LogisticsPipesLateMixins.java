@@ -1,14 +1,13 @@
 package logisticspipes.asm;
 
+import com.gtnewhorizon.gtnhmixins.ILateMixinLoader;
+import com.gtnewhorizon.gtnhmixins.LateMixin;
+import cpw.mods.fml.relauncher.FMLLaunchHandler;
+import cpw.mods.fml.relauncher.Side;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
-
-import com.gtnewhorizon.gtnhmixins.ILateMixinLoader;
-import com.gtnewhorizon.gtnhmixins.LateMixin;
-
-import cpw.mods.fml.relauncher.FMLLaunchHandler;
-import cpw.mods.fml.relauncher.Side;
 
 @LateMixin
 public class LogisticsPipesLateMixins implements ILateMixinLoader {
@@ -21,6 +20,12 @@ public class LogisticsPipesLateMixins implements ILateMixinLoader {
     @Override
     public List<String> getMixins(Set<String> loadedMods) {
         List<String> mixins = new ArrayList<>();
+        if (loadedMods.contains("BuildCraft|Transport")) {
+            mixins.add("buildcraft.MixinFacadeState");
+            if (FMLLaunchHandler.side() == Side.CLIENT) {
+                mixins.add("buildcraft.MixinItemFacade");
+            }
+        }
         if (loadedMods.contains("ComputerCraft")) {
             mixins.add("computercraft.MixinLuaJLuaMachine");
         }

@@ -8,6 +8,7 @@ import logisticspipes.network.abstractpackets.CoordinatesPacket;
 import logisticspipes.network.abstractpackets.ModernPacket;
 import logisticspipes.pipes.basic.LogisticsTileGenericPipe;
 import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.nbt.NBTTagCompound;
 
 import java.io.IOException;
 
@@ -44,16 +45,14 @@ public class RequestTableDisplaySettingsPacket extends CoordinatesPacket {
     @Override
     public void writeData(LPDataOutputStream data) throws IOException {
         super.writeData(data);
-        data.writeEnum(settings.getSortMode());
-        data.writeEnum(settings.getSortDirection());
-        data.writeEnum(settings.getFilterMode());
-        data.writeBoolean(settings.isRequestMessagesEnabled());
+        NBTTagCompound tag = new NBTTagCompound();
+        settings.writeToNBT(tag);
+        data.writeNBTTagCompound(tag);
     }
 
     @Override
     public void readData(LPDataInputStream data) throws IOException {
         super.readData(data);
-        settings = RequestTableDisplaySettings
-            .fromOrdinals(data.readInt(), data.readInt(), data.readInt(), data.readBoolean());
+        settings = RequestTableDisplaySettings.readFromNBT(data.readNBTTagCompound());
     }
 }

@@ -1,5 +1,6 @@
 package logisticspipes.crafting.requesttable;
 
+import codechicken.nei.LayoutManager;
 import cpw.mods.fml.common.registry.GameRegistry;
 import cpw.mods.fml.relauncher.Side;
 import cpw.mods.fml.relauncher.SideOnly;
@@ -57,6 +58,11 @@ public class RequestTableGui extends LogisticsBaseGuiScreen {
     private static final int NETWORK_VIEW_BUTTON = 7;
     private static final int CLEAR_CRAFTING_BUTTON = 8;
     private static final int REQUEST_MESSAGES_BUTTON = 9;
+    private static final int SEARCH_MODE_BUTTON = 10;
+    private static final int SAVE_SEARCH_BUTTON = 11;
+    private static final int TERMINAL_STYLE_BUTTON = 12;
+    private static final int SHOW_ITEMS_BUTTON = 13;
+    private static final int SHOW_FLUIDS_BUTTON = 14;
     private static final ResourceLocation UPGRADE_SLOT = new ResourceLocation(
         "logisticspipes",
         "textures/gui/upgrade_slot.png");
@@ -80,6 +86,11 @@ public class RequestTableGui extends LogisticsBaseGuiScreen {
     private RequestTableIconButton sortDirectionButton;
     private RequestTableIconButton filterModeButton;
     private RequestTableIconButton requestMessagesButton;
+    private RequestTableIconButton searchModeButton;
+    private RequestTableIconButton saveSearchButton;
+    private RequestTableIconButton terminalStyleButton;
+    private RequestTableIconButton showItemsButton;
+    private RequestTableIconButton showFluidsButton;
     private RequestTableIconButton networkButton;
     private RequestTableIconButton itemButton;
     private RequestTableIconButton fluidButton;
@@ -87,13 +98,20 @@ public class RequestTableGui extends LogisticsBaseGuiScreen {
     private RequestTableView view = RequestTableView.NETWORK;
     private RequestTableDisplaySettings displaySettings = RequestTableDisplaySettings.DEFAULT;
     private int storageScrollRow;
+    private boolean scrollbarDragging;
+    private int scrollbarDragOffset;
+    private boolean settingsReceived;
+    private boolean searchInitialized;
+    private boolean searchEdited;
+    private boolean searchFocusChosen;
+    private boolean restoringSearch;
     private final int dimension;
 
     /**
      * Creates the client GUI for the new request table.
      */
     public RequestTableGui(EntityPlayer player, RequestTablePipe table) {
-        super(new RequestTableContainer(player, table), 264, 300, 0, 0);
+        super(new RequestTableContainer(player, table), RequestTableLayout.GUI_WIDTH, 300, 0, 0);
         this.player = player;
         this.table = table;
         this.container = (RequestTableContainer) inventorySlots;
@@ -103,8 +121,8 @@ public class RequestTableGui extends LogisticsBaseGuiScreen {
 
     @Override
     public void initGui() {
-        xSize = 264;
-        ySize = Math.max(232, Math.min(352, height - 12));
+        xSize = RequestTableLayout.GUI_WIDTH;
+        ySize = RequestTableLayout.getGuiHeight(height, displaySettings.getTerminalStyle());
         super.initGui();
         updateLayout();
         buttonList.clear();
@@ -142,7 +160,7 @@ public class RequestTableGui extends LogisticsBaseGuiScreen {
         buttonList.add(sortDirectionButton);
         filterModeButton = new RequestTableIconButton(
                 FILTER_MODE_BUTTON,
-                layout.displayButtonX,
+            layout.visibilityButtonX,
                 layout.filterModeButtonY,
                 layout.displayButtonWidth,
                 layout.displayButtonHeight,
@@ -156,6 +174,11 @@ public class RequestTableGui extends LogisticsBaseGuiScreen {
             layout.displayButtonHeight,
             Icon.MESSAGES_ON);
         buttonList.add(requestMessagesButton);
+        searchModeButton = addSidebarButton(SEARCH_MODE_BUTTON, Icon.SEARCH_STANDARD);
+        saveSearchButton = addSidebarButton(SAVE_SEARCH_BUTTON, Icon.SAVE_SEARCH_OFF);
+        terminalStyleButton = addSidebarButton(TERMINAL_STYLE_BUTTON, Icon.TERMINAL_SMALL);
+        showItemsButton = addSidebarButton(SHOW_ITEMS_BUTTON, Icon.ITEMS_ON);
+        showFluidsButton = addSidebarButton(SHOW_FLUIDS_BUTTON, Icon.FLUIDS_ON);
         networkButton = new RequestTableIconButton(
             NETWORK_VIEW_BUTTON,
             layout.networkButtonX,
@@ -196,11 +219,63 @@ public class RequestTableGui extends LogisticsBaseGuiScreen {
         buttonList.add(clearCraftingButton);
         updateDisplayButtons();
         if (search == null) {
-            search = new GuiSearchBar("new_request_table_search");
+            search = new GuiSearchBar("new_request_table_search") {
+
+                @Override
+                public void reposition(int left, int top, int width, int height) {
+                    super.reposition(left, top, width, height);
+                    setDimensionsAndColor();
+                }
+
+                @Override
+                protected void setDimensionsAndColor() {
+                    field.setEnableBackgroundDrawing(false);
+                    field.setCanLoseFocus(false);
+                    field.xPosition = x + 3;
+                    field.yPosition = y + Math.max(1, (h - 8) / 2);
+                    field.width = w - 6;
+                    field.height = 8;
+                    field.setTextColor(0xffe0e0e0);
+                }
+
+                @Override
+                public void draw(int mouseX, int mouseY) {
+                    RequestTableGuiStyle.inset(x, y, w, h);
+                    if (isFocused()) {
+                        Gui.drawRect(x + 1, y + 1, x + w - 1, y + h - 1, 0xff555555);
+                    }
+                    super.draw(mouseX, mouseY);
+                }
+
+                @Override
+                public void setText(String text) {
+                    super.setText(text);
+                    field.setCursorPositionEnd();
+                }
+
+                @Override
+                public void onTextChange(String oldText) {
+                    handleSearchTextChange(oldText);
+                }
+            };
         }
         search.reposition(layout.searchX, layout.searchY, layout.searchWidth, layout.searchHeight);
+        initializeSearch();
         initIngredientAmountField();
         updateContainerLayout();
+        updateDisplayButtonLayout();
+    }
+
+    private RequestTableIconButton addSidebarButton(int id, Icon icon) {
+        RequestTableIconButton button = new RequestTableIconButton(
+            id,
+            layout.displayButtonX,
+            layout.sortModeButtonY,
+            layout.displayButtonWidth,
+            layout.displayButtonHeight,
+            icon);
+        buttonList.add(button);
+        return button;
     }
 
     /**
@@ -208,7 +283,13 @@ public class RequestTableGui extends LogisticsBaseGuiScreen {
      */
     public void handleNetworkContent(List<RequestTableNetworkEntry> entries,
             RequestTableDisplaySettings displaySettings) {
+        boolean styleChanged = this.displaySettings.getTerminalStyle() != displaySettings.getTerminalStyle();
         this.displaySettings = displaySettings;
+        settingsReceived = true;
+        if (styleChanged && mc != null) {
+            initGui();
+        }
+        initializeSearch();
         networkGrid.setDisplaySettings(displaySettings);
         networkGrid.setEntries(entries);
         requestOverlay.updateEntry(entries);
@@ -257,6 +338,11 @@ public class RequestTableGui extends LogisticsBaseGuiScreen {
         clearCraftingButton.yPosition = layout.craftingClearY;
         clearCraftingButton.enabled = hasCraftingInputs();
 
+        networkButton.drawBehindPanel(mc, mouseX, mouseY);
+        itemButton.drawBehindPanel(mc, mouseX, mouseY);
+        fluidButton.drawBehindPanel(mc, mouseX, mouseY);
+        GL11.glPushAttrib(GL11.GL_DEPTH_BUFFER_BIT);
+        GL11.glDisable(GL11.GL_DEPTH_TEST);
         GuiGraphics.drawGuiBackGround(
             mc,
             layout.centralLeft,
@@ -265,6 +351,7 @@ public class RequestTableGui extends LogisticsBaseGuiScreen {
             bottom,
             zLevel,
             true);
+        GL11.glPopAttrib();
         drawHeader();
         drawMainPanel(mouseX, mouseY);
         drawCraftingArea();
@@ -280,13 +367,13 @@ public class RequestTableGui extends LogisticsBaseGuiScreen {
         if (view == RequestTableView.NETWORK) {
             search.reposition(layout.searchX, layout.searchY, layout.searchWidth, layout.searchHeight);
             search.renderSearchBar();
-            if (search.isEmpty() && !search.isFocused()) {
-                mc.fontRenderer
-                    .drawString("Search items and fluids...", layout.searchX + 3, layout.searchY + 3, 0xaaaaaa);
-            }
         } else {
             String title = view == RequestTableView.ITEM_STORAGE ? "Item storage" : "Fluid storage";
-            mc.fontRenderer.drawString(title, layout.searchX, layout.searchY + 3, RequestTableGuiStyle.TEXT);
+            mc.fontRenderer.drawString(
+                title,
+                layout.searchX,
+                layout.searchY + (layout.searchHeight - 8) / 2,
+                RequestTableGuiStyle.TEXT);
         }
     }
 
@@ -324,7 +411,6 @@ public class RequestTableGui extends LogisticsBaseGuiScreen {
     }
 
     private void drawCraftingArea() {
-        mc.fontRenderer.drawString("Crafting", layout.craftingLeft, layout.craftingTop + 2, RequestTableGuiStyle.TEXT);
         for (int y = 0; y < 3; y++) {
             for (int x = 0; x < 3; x++) {
                 GuiGraphics.drawSlotBackground(
@@ -348,7 +434,7 @@ public class RequestTableGui extends LogisticsBaseGuiScreen {
         String amount = StringUtils.getFormatedStackSize(container.getCraftableAmount(), true);
         mc.fontRenderer.drawString(
             "Craftable: " + amount,
-            layout.craftingLeft,
+            layout.getCraftableLabelX(),
             layout.getCraftableLabelY(),
             container.getCraftableAmount() > 0 ? 0x37622e : RequestTableGuiStyle.MUTED);
     }
@@ -398,6 +484,9 @@ public class RequestTableGui extends LogisticsBaseGuiScreen {
 
     @Override
     public void drawScreen(int mouseX, int mouseY, float partialTicks) {
+        if (scrollbarDragging && (!Mouse.isButtonDown(0) || requestOverlay.isOpen() || hasSubGui())) {
+            scrollbarDragging = false;
+        }
         super.drawScreen(mouseX, mouseY, partialTicks);
         if (requestOverlay.isOpen()) {
             GL11.glDisable(GL11.GL_DEPTH_TEST);
@@ -434,6 +523,16 @@ public class RequestTableGui extends LogisticsBaseGuiScreen {
             applyDisplaySettings(displaySettings.nextFilterMode());
         } else if (button.id == REQUEST_MESSAGES_BUTTON) {
             applyDisplaySettings(displaySettings.toggleRequestMessages());
+        } else if (button.id == SEARCH_MODE_BUTTON) {
+            applyDisplaySettings(displaySettings.nextSearchBoxMode());
+        } else if (button.id == SAVE_SEARCH_BUTTON) {
+            applyDisplaySettings(displaySettings.toggleSaveSearch());
+        } else if (button.id == TERMINAL_STYLE_BUTTON) {
+            applyDisplaySettings(displaySettings.nextTerminalStyle());
+        } else if (button.id == SHOW_ITEMS_BUTTON) {
+            applyDisplaySettings(displaySettings.toggleItems());
+        } else if (button.id == SHOW_FLUIDS_BUTTON) {
+            applyDisplaySettings(displaySettings.toggleFluids());
         } else if (button.id == NETWORK_VIEW_BUTTON) {
             setView(RequestTableView.NETWORK);
         } else if (button.id == ITEM_VIEW_BUTTON) {
@@ -449,8 +548,15 @@ public class RequestTableGui extends LogisticsBaseGuiScreen {
 
     @Override
     protected void mouseClicked(int mouseX, int mouseY, int button) {
+        if (scrollbarDragging) {
+            return;
+        }
         if (requestOverlay.mouseClicked(mouseX, mouseY, button, this::submitOverlayRequest)) {
             return;
+        }
+        searchFocusChosen = true;
+        if (search != null) {
+            search.onGuiClick(mouseX, mouseY);
         }
         if (ingredientAmountField != null) {
             ingredientAmountField.mouseClicked(mouseX, mouseY, button);
@@ -464,23 +570,104 @@ public class RequestTableGui extends LogisticsBaseGuiScreen {
                 return;
             }
         }
+        if (inside(mouseX, mouseY, layout.scrollbarX, layout.panelTop, 7, layout.panelHeight)) {
+            if (button == 0) {
+                startScrollbarDrag(mouseY);
+            }
+            return;
+        }
         if (view == RequestTableView.NETWORK) {
-            search.handleClick(mouseX, mouseY, button);
+            if (inside(mouseX, mouseY, layout.searchX, layout.searchY, layout.searchWidth, layout.searchHeight)) {
+                focusSearch(true);
+                search.handleClick(mouseX, mouseY, button);
+                return;
+            }
             networkGrid.setSearch(getSearchText());
             RequestTableNetworkEntry entry = networkGrid.getEntryAt(layout, mouseX, mouseY);
+            if ((button == 0 || button == 1) && !shouldOpenRequestOverlay(button)
+                && mc.thePlayer.inventory.getItemStack() != null
+                && inside(
+                mouseX,
+                mouseY,
+                layout.panelLeft,
+                layout.panelTop,
+                layout.panelWidth,
+                layout.panelHeight)) {
+                MainProxy.sendPacketToServer(
+                    PacketHandler.getPacket(RequestTableNetworkInteractPacket.class).setCursorInteraction(true)
+                        .setFluid(entry != null && entry.isFluid()).setMouseButton(button)
+                        .setShift(isShiftDown()).setStack(entry == null ? null : entry.getStack())
+                        .setTilePos(table.container));
+                return;
+            }
             if (entry != null) {
                 if (shouldOpenRequestOverlay(button)) {
                     requestOverlay.open(entry, mc.fontRenderer, width, height, button == 0 ? 64 : 1);
                 } else if (button == 0 || button == 1) {
                     MainProxy.sendPacketToServer(
                             PacketHandler.getPacket(RequestTableNetworkInteractPacket.class).setFluid(entry.isFluid())
-                                    .setMouseButton(button).setShift(isShiftDown()).setDimension(dimension)
-                                    .setStack(entry.getStack()).setTilePos(table.container));
+                                .setMouseButton(button).setShift(isShiftDown()).setStack(entry.getStack())
+                                .setTilePos(table.container));
                 }
                 return;
             }
         }
         super.mouseClicked(mouseX, mouseY, button);
+    }
+
+    @Override
+    protected void mouseClickMove(int mouseX, int mouseY, int button, long timeSinceLastClick) {
+        if (scrollbarDragging) {
+            if (button == 0) {
+                dragScrollbar(mouseY);
+            }
+            return;
+        }
+        super.mouseClickMove(mouseX, mouseY, button, timeSinceLastClick);
+    }
+
+    @Override
+    protected void mouseMovedOrUp(int mouseX, int mouseY, int button) {
+        if (scrollbarDragging) {
+            if (button == 0) {
+                scrollbarDragging = false;
+            }
+            return;
+        }
+        super.mouseMovedOrUp(mouseX, mouseY, button);
+    }
+
+    private void startScrollbarDrag(int mouseY) {
+        int maxScroll = getMaxScrollRow();
+        if (maxScroll == 0) {
+            return;
+        }
+        int scrollRow = view == RequestTableView.NETWORK ? networkGrid.getScrollRow() : storageScrollRow;
+        int thumbHeight = RequestTableGuiStyle.getScrollbarThumbHeight(layout, maxScroll);
+        int thumbTop = RequestTableGuiStyle.getScrollbarThumbTop(layout, Math.min(scrollRow, maxScroll), maxScroll);
+        boolean onThumb = mouseY >= thumbTop && mouseY < thumbTop + thumbHeight;
+        scrollbarDragOffset = onThumb ? mouseY - thumbTop : thumbHeight / 2;
+        scrollbarDragging = true;
+        if (!onThumb) {
+            dragScrollbar(mouseY);
+        }
+    }
+
+    private void dragScrollbar(int mouseY) {
+        int maxScroll = getMaxScrollRow();
+        int travel = layout.panelHeight - RequestTableGuiStyle.getScrollbarThumbHeight(layout, maxScroll);
+        int position = Math.max(0, Math.min(travel, mouseY - layout.panelTop - scrollbarDragOffset));
+        int row = travel <= 0 ? 0 : Math.round((float) position * maxScroll / travel);
+        if (view == RequestTableView.NETWORK) {
+            networkGrid.setScrollRow(row, layout);
+        } else {
+            storageScrollRow = row;
+            updateContainerLayout();
+        }
+    }
+
+    private int getMaxScrollRow() {
+        return view == RequestTableView.NETWORK ? networkGrid.getMaxScrollRow(layout) : getMaxStorageScrollRow();
     }
 
     @Override
@@ -520,7 +707,7 @@ public class RequestTableGui extends LogisticsBaseGuiScreen {
             sanitizeIngredientAmountField();
             return;
         }
-        if (view == RequestTableView.NETWORK && keyCode != 1 && search.handleKey(typed, keyCode)) {
+        if (view == RequestTableView.NETWORK && search.handleKey(typed, keyCode)) {
             networkGrid.setSearch(getSearchText());
             return;
         }
@@ -535,7 +722,7 @@ public class RequestTableGui extends LogisticsBaseGuiScreen {
             return;
         }
         int wheel = Mouse.getEventDWheel();
-        if (wheel != 0) {
+        if (wheel != 0 && !scrollbarDragging) {
             int rows = wheel > 0 ? -1 : 1;
             if (view == RequestTableView.NETWORK) {
                 networkGrid.setSearch(getSearchText());
@@ -588,6 +775,10 @@ public class RequestTableGui extends LogisticsBaseGuiScreen {
             return;
         }
         view = newView;
+        scrollbarDragging = false;
+        if (view != RequestTableView.NETWORK) {
+            search.setFocus(false);
+        }
         storageScrollRow = 0;
         if (view == RequestTableView.NETWORK) {
             refreshNetwork();
@@ -602,12 +793,84 @@ public class RequestTableGui extends LogisticsBaseGuiScreen {
     }
 
     private void applyDisplaySettings(RequestTableDisplaySettings newSettings) {
-        displaySettings = newSettings;
-        networkGrid.setDisplaySettings(newSettings);
+        boolean styleChanged = displaySettings.getTerminalStyle() != newSettings.getTerminalStyle();
+        boolean searchModeChanged = displaySettings.getSearchBoxMode() != newSettings.getSearchBoxMode();
+        displaySettings = newSettings.rememberSearch(getSearchText());
+        networkGrid.setDisplaySettings(displaySettings);
+        if (styleChanged) {
+            initGui();
+        }
+        if (searchModeChanged) {
+            focusSearch(displaySettings.getSearchBoxMode().isAutoFocus());
+            syncNeiSearch();
+        }
         updateDisplayButtons();
+        sendDisplaySettings();
+    }
+
+    private void sendDisplaySettings() {
         MainProxy.sendPacketToServer(
-                PacketHandler.getPacket(RequestTableDisplaySettingsPacket.class).setSettings(newSettings)
+            PacketHandler.getPacket(RequestTableDisplaySettingsPacket.class).setSettings(displaySettings)
                         .setTilePos(table.container));
+    }
+
+    private void initializeSearch() {
+        if (search == null || !settingsReceived || searchInitialized) {
+            return;
+        }
+        if (!searchEdited) {
+            restoringSearch = true;
+            search.setText(displaySettings.isSaveSearch() ? displaySettings.getSavedSearchText() : "");
+            restoringSearch = false;
+        }
+        if (!searchFocusChosen) {
+            focusSearch(displaySettings.getSearchBoxMode().isAutoFocus());
+        }
+        searchInitialized = true;
+        syncNeiSearch();
+    }
+
+    private void focusSearch(boolean focused) {
+        boolean focusTerminal = focused && view == RequestTableView.NETWORK;
+        if (focusTerminal && LayoutManager.searchField != null) {
+            LayoutManager.searchField.setFocus(false);
+        }
+        search.setFocus(focusTerminal);
+    }
+
+    private void handleSearchTextChange(String oldText) {
+        if (oldText.equals(getSearchText())) {
+            return;
+        }
+        networkGrid.setSearch(getSearchText());
+        if (!restoringSearch) {
+            searchEdited = true;
+            syncNeiSearch();
+        }
+    }
+
+    /** Only terminal edits are sent to NEI; changes made in NEI never replace terminal text. */
+    private void syncNeiSearch() {
+        if (displaySettings.getSearchBoxMode().isNeiSynced() && LayoutManager.searchField != null
+            && !getSearchText().equals(LayoutManager.searchField.text())) {
+            LayoutManager.searchField.setText(getSearchText());
+        }
+    }
+
+    @Override
+    public void onGuiClosed() {
+        scrollbarDragging = false;
+        if (search != null) {
+            search.setFocus(false);
+        }
+        if (settingsReceived) {
+            RequestTableDisplaySettings saved = displaySettings.rememberSearch(getSearchText());
+            if (!saved.equals(displaySettings)) {
+                displaySettings = saved;
+                sendDisplaySettings();
+            }
+        }
+        super.onGuiClosed();
     }
 
     private void updateDisplayButtons() {
@@ -617,6 +880,30 @@ public class RequestTableGui extends LogisticsBaseGuiScreen {
         requestMessagesButton
             .setIcon(displaySettings.isRequestMessagesEnabled() ? Icon.MESSAGES_ON : Icon.MESSAGES_OFF);
         requestMessagesButton.setSelected(displaySettings.isRequestMessagesEnabled());
+        switch (displaySettings.getSearchBoxMode()) {
+            case AUTO:
+                searchModeButton.setIcon(Icon.SEARCH_AUTO);
+                break;
+            case NEI_SYNC_AUTO:
+                searchModeButton.setIcon(Icon.SEARCH_NEI_AUTO);
+                break;
+            case NEI_SYNC_STANDARD:
+                searchModeButton.setIcon(Icon.SEARCH_NEI_STANDARD);
+                break;
+            case STANDARD:
+            default:
+                searchModeButton.setIcon(Icon.SEARCH_STANDARD);
+                break;
+        }
+        saveSearchButton.setIcon(displaySettings.isSaveSearch() ? Icon.SAVE_SEARCH_ON : Icon.SAVE_SEARCH_OFF);
+        saveSearchButton.setSelected(displaySettings.isSaveSearch());
+        boolean tall = displaySettings.getTerminalStyle() == RequestTableDisplaySettings.TerminalStyle.TALL;
+        terminalStyleButton.setIcon(tall ? Icon.TERMINAL_TALL : Icon.TERMINAL_SMALL);
+        terminalStyleButton.setSelected(tall);
+        showItemsButton.setIcon(displaySettings.isShowItems() ? Icon.ITEMS_ON : Icon.ITEMS_OFF);
+        showItemsButton.setSelected(displaySettings.isShowItems());
+        showFluidsButton.setIcon(displaySettings.isShowFluids() ? Icon.FLUIDS_ON : Icon.FLUIDS_OFF);
+        showFluidsButton.setSelected(displaySettings.isShowFluids());
         sortModeButton.setIcon(
             displaySettings.getSortMode() == RequestTableDisplaySettings.SortMode.NAME ? Icon.NAME : Icon.AMOUNT);
         sortDirectionButton.setIcon(
@@ -638,24 +925,41 @@ public class RequestTableGui extends LogisticsBaseGuiScreen {
     }
 
     private void updateDisplayButtonLayout() {
-        boolean enabled = view == RequestTableView.NETWORK;
+        boolean enabled = view == RequestTableView.NETWORK && settingsReceived;
         sortModeButton.enabled = enabled;
         sortDirectionButton.enabled = enabled;
         filterModeButton.enabled = enabled;
-        sortModeButton.visible = sortModeButton.enabled;
-        sortDirectionButton.visible = sortDirectionButton.enabled;
-        filterModeButton.visible = filterModeButton.enabled;
-        sortModeButton.xPosition = layout.displayButtonX;
-        sortModeButton.yPosition = layout.sortModeButtonY;
-        sortDirectionButton.xPosition = layout.displayButtonX;
-        sortDirectionButton.yPosition = layout.sortDirectionButtonY;
-        filterModeButton.xPosition = layout.displayButtonX;
-        filterModeButton.yPosition = layout.filterModeButtonY;
-        requestMessagesButton.enabled = true;
-        requestMessagesButton.visible = true;
-        requestMessagesButton.xPosition = layout.displayButtonX;
-        requestMessagesButton.yPosition = enabled ? layout.requestMessagesButtonY
-            : layout.sendButtonY + (sendButton.visible ? 24 : 0);
+        searchModeButton.enabled = enabled;
+        saveSearchButton.enabled = enabled;
+        showItemsButton.enabled = enabled;
+        showFluidsButton.enabled = enabled;
+        terminalStyleButton.enabled = settingsReceived;
+        requestMessagesButton.enabled = settingsReceived;
+        sendButton.enabled = view != RequestTableView.NETWORK && container.isInventoryReady();
+        layoutSidebarColumn(
+            layout.displayButtonX,
+            sendButton,
+            sortModeButton,
+            sortDirectionButton,
+            searchModeButton,
+            saveSearchButton,
+            terminalStyleButton,
+            requestMessagesButton);
+        layoutSidebarColumn(layout.visibilityButtonX, filterModeButton, showItemsButton, showFluidsButton);
+    }
+
+    private void layoutSidebarColumn(int x, RequestTableIconButton... buttons) {
+        int top = layout.sortModeButtonY;
+        for (RequestTableIconButton button : buttons) {
+            button.visible = button.enabled;
+            if (button.visible) {
+                button.xPosition = x;
+                button.yPosition = top;
+                button.width = layout.displayButtonWidth;
+                button.height = layout.displayButtonHeight;
+                top += layout.displayButtonHeight + RequestTableLayout.SIDEBAR_ROW_GAP;
+            }
+        }
     }
 
     private void drawDisplayButtonTooltip(int mouseX, int mouseY) {
@@ -664,7 +968,13 @@ public class RequestTableGui extends LogisticsBaseGuiScreen {
             if (drawUpgradeSlotTooltip(mouseX, mouseY)) {
                 return;
             }
-            if (inside(mouseX, mouseY, layout.craftingLeft, layout.getCraftableLabelY(), 160, 10)) {
+            if (inside(
+                mouseX,
+                mouseY,
+                layout.getCraftableLabelX(),
+                layout.getCraftableLabelY(),
+                layout.centralLeft + layout.centralWidth - layout.getCraftableLabelX(),
+                10)) {
                 GuiGraphics.drawToolTip(
                     mouseX,
                     mouseY,
@@ -707,6 +1017,32 @@ public class RequestTableGui extends LogisticsBaseGuiScreen {
                 "Request messages: " + (displaySettings.isRequestMessagesEnabled() ? "On" : "Off"),
                 "Toggle request-result popups and chat.",
                 "Items, fluids and crafting ingredients.");
+        } else if (button.id == SEARCH_MODE_BUTTON) {
+            RequestTableDisplaySettings.SearchBoxMode mode = displaySettings.getSearchBoxMode();
+            tooltip = Arrays.asList(
+                "Search box mode: " + mode.getLabel(),
+                "Focus on opening: " + (mode.isAutoFocus() ? "Yes" : "No"),
+                "Sync to NEI: " + (mode.isNeiSynced() ? "Yes (one way)" : "No"),
+                "Click to cycle search mode.");
+        } else if (button.id == SAVE_SEARCH_BUTTON) {
+            tooltip = Arrays.asList(
+                "Save search text: " + (displaySettings.isSaveSearch() ? "Yes" : "No"),
+                "Remember the search when reopening this table.");
+        } else if (button.id == TERMINAL_STYLE_BUTTON) {
+            boolean tall = displaySettings.getTerminalStyle() == RequestTableDisplaySettings.TerminalStyle.TALL;
+            tooltip = Arrays.asList(
+                "Terminal size: " + (tall ? "Tall" : "Small"),
+                tall ? "Use the available window height."
+                    : "Up to " + RequestTableLayout.SMALL_ROWS + " content rows.",
+                "Leave room for NEI's top and bottom controls.");
+        } else if (button.id == SHOW_ITEMS_BUTTON) {
+            tooltip = Arrays.asList(
+                "Show items: " + (displaySettings.isShowItems() ? "Yes" : "No"),
+                "Toggle items in the Main list.");
+        } else if (button.id == SHOW_FLUIDS_BUTTON) {
+            tooltip = Arrays.asList(
+                "Show fluids: " + (displaySettings.isShowFluids() ? "Yes" : "No"),
+                "Toggle fluids in the Main list.");
         } else if (button.id == ITEM_VIEW_BUTTON) {
             tooltip = Arrays.asList(
                 "Internal item storage",
@@ -759,6 +1095,11 @@ public class RequestTableGui extends LogisticsBaseGuiScreen {
             sortDirectionButton,
             filterModeButton,
             requestMessagesButton,
+            searchModeButton,
+            saveSearchButton,
+            terminalStyleButton,
+            showItemsButton,
+            showFluidsButton,
             sendButton,
             requestIngredientsButton,
             clearCraftingButton)) {
@@ -862,12 +1203,16 @@ public class RequestTableGui extends LogisticsBaseGuiScreen {
     }
 
     private void clampStorageScroll() {
-        int columns = 9;
+        storageScrollRow = Math.max(0, Math.min(getMaxStorageScrollRow(), storageScrollRow));
+    }
+
+    private int getMaxStorageScrollRow() {
+        int columns = RequestTableLayout.INVENTORY_COLUMNS;
         int size = view == RequestTableView.FLUID_STORAGE ? table.getFluidStorage().getSizeInventory()
                 : table.inv.getSizeInventory();
         int rows = (size + columns - 1) / columns;
         int visibleRows = layout.getVisibleStorageRows();
-        storageScrollRow = Math.max(0, Math.min(Math.max(0, rows - visibleRows), storageScrollRow));
+        return Math.max(0, rows - visibleRows);
     }
 
 }

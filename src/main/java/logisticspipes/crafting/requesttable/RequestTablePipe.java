@@ -339,20 +339,40 @@ public class RequestTablePipe extends PipeBlockRequestTable implements IRequestF
      * Handles a click on a network-grid entry when the click should manipulate internal storage instead of opening a
      * request dialog.
      *
-     * @param player      player using the GUI
-     * @param stack       clicked entry stack
-     * @param fluid       whether the entry represents a fluid
-     * @param mouseButton mouse button sent by the GUI
-     * @param shift       whether shift was held
+     * @param player            player using the GUI
+     * @param stack             clicked entry stack, or null for an empty grid cell
+     * @param fluid             whether the entry represents a fluid
+     * @param mouseButton       mouse button sent by the GUI
+     * @param shift             whether shift was held
+     * @param cursorInteraction whether the click is intended to transfer the held stack
      */
     public void handleNetworkEntryInteraction(EntityPlayer player, ItemIdentifierStack stack, boolean fluid,
-            int mouseButton, boolean shift) {
-        if (stack == null || mouseButton < 0 || mouseButton > 1) {
+                                              int mouseButton, boolean shift, boolean cursorInteraction) {
+        if (mouseButton < 0 || mouseButton > 1) {
             return;
         }
         updateStorageUpgrades();
-        boolean changed = fluid ? handleNetworkFluidInteraction(player, stack.getItem(), mouseButton)
-                : handleNetworkItemInteraction(player, stack.getItem(), mouseButton, shift);
+        boolean changed;
+        if (cursorInteraction) {
+            ItemStack cursor = player.inventory.getItemStack();
+            if (cursor == null || cursor.stackSize <= 0) {
+                return;
+            }
+            if (isFilledFluidContainer(cursor)) {
+                changed = RequestTableFluidContainers
+                    .interact(player.inventory, mouseButton, stageEmptyFluidContainers());
+            } else if (fluid && stack != null && isEmptyFluidContainer(cursor)) {
+                changed = handleNetworkFluidInteraction(player, stack.getItem(), mouseButton);
+            } else {
+                changed = player.openContainer instanceof RequestTableContainer
+                    && ((RequestTableContainer) player.openContainer).insertCursorItem(player, mouseButton);
+            }
+        } else {
+            if (stack == null || player.inventory.getItemStack() != null) {
+                return;
+            }
+            changed = !fluid && handleNetworkItemInteraction(player, stack.getItem(), mouseButton, shift);
+        }
         if (!changed) {
             return;
         }
@@ -367,10 +387,6 @@ public class RequestTablePipe extends PipeBlockRequestTable implements IRequestF
 
     private boolean handleNetworkItemInteraction(EntityPlayer player, ItemIdentifier item, int mouseButton,
             boolean shift) {
-        ItemStack cursor = player.inventory.getItemStack();
-        if (cursor != null) {
-            return insertCursorItemIntoStorage(player, item, mouseButton);
-        }
         int maxStack = item.getMaxStackSize();
         if (shift && mouseButton == 0) {
             return moveInternalItemToPlayerInventory(player, item, Math.min(maxStack, getStoredItemAmount(item)));
@@ -384,24 +400,6 @@ public class RequestTablePipe extends PipeBlockRequestTable implements IRequestF
             targetAmount = Math.min(getStoredItemAmount(item), maxStack);
         }
         return moveInternalItemToCursor(player, item, targetAmount);
-    }
-
-    private boolean insertCursorItemIntoStorage(EntityPlayer player, ItemIdentifier item, int mouseButton) {
-        ItemStack cursor = player.inventory.getItemStack();
-        if (cursor == null || !ItemIdentifier.get(cursor).equals(item)) {
-            return false;
-        }
-        int toMove = mouseButton == 1 ? 1 : cursor.stackSize;
-        ItemStack moving = cursor.copy();
-        moving.stackSize = toMove;
-        int remaining = inv.addCompressed(moving, true);
-        int moved = toMove - remaining;
-        if (moved <= 0) {
-            return false;
-        }
-        cursor.stackSize -= moved;
-        player.inventory.setItemStack(cursor.stackSize <= 0 ? null : cursor);
-        return true;
     }
 
     private boolean moveInternalItemToCursor(EntityPlayer player, ItemIdentifier item, int amount) {
@@ -488,8 +486,9 @@ public class RequestTablePipe extends PipeBlockRequestTable implements IRequestF
         return RequestTableFluidContainers.interact(
             player.inventory,
             mouseButton,
-            RequestTableFluidContainers
-                .stage(fluidStorage, (storage, single) -> getNetworkFluidClickResult(storage, target, single)));
+            RequestTableFluidContainers.stage(
+                fluidStorage,
+                (storage, single) -> fillContainerFromInternal(storage, FluidIdentifier.get(target), single)));
     }
 
     boolean isFilledFluidContainer(ItemStack stack) {
@@ -503,35 +502,20 @@ public class RequestTablePipe extends PipeBlockRequestTable implements IRequestF
     }
 
     boolean emptyFluidContainers(EntityPlayer player, int inventorySlot) {
-        return RequestTableFluidContainers.shiftClick(
-            player.inventory,
-            inventorySlot,
-            () -> RequestTableFluidContainers.stage(fluidStorage, (storage, single) -> {
-                FluidStack held = getContainedFluid(single);
-                return held == null ? single : emptyContainerIntoInternal(storage, single, held);
-            }));
+        return RequestTableFluidContainers.shiftClick(player.inventory, inventorySlot, this::stageEmptyFluidContainers);
     }
 
-    private ItemStack getNetworkFluidClickResult(RequestTableFluidStorage storage, FluidStack target,
-                                                 ItemStack cursor) {
-        FluidStack held = getContainedFluid(cursor);
-        FluidIdentifier targetFluid = FluidIdentifier.get(target);
-        if (held == null) {
-            return fillContainerFromInternal(storage, targetFluid, cursor);
-        }
-        if (!targetFluid.equals(FluidIdentifier.get(held))) {
-            return cursor;
-        }
-        if (isContainerFull(cursor, held)) {
-            return emptyContainerIntoInternal(storage, cursor, held);
-        }
-        for (int slot = 0; slot < storage.getSizeInventory(); slot++) {
-            FluidStack stored = storage.getFluid(slot);
-            if (stored != null && targetFluid.equals(FluidIdentifier.get(stored))) {
-                return fillContainerFromInternal(storage, targetFluid, cursor);
-            }
-        }
-        return emptyContainerIntoInternal(storage, cursor, held);
+    private RequestTableFluidContainers.Transfer stageEmptyFluidContainers() {
+        return RequestTableFluidContainers.stage(fluidStorage, (storage, single) -> {
+            FluidStack held = getContainedFluid(single);
+            return held == null ? single : emptyContainerIntoInternal(storage, single, held);
+        });
+    }
+
+    private boolean isEmptyFluidContainer(ItemStack stack) {
+        return stack.getItem() instanceof IFluidContainerItem
+            || stack.getItem() == LogisticsPipes.LogisticsFluidContainer
+            || FluidContainerRegistry.isEmptyContainer(stack);
     }
 
     private ItemStack fillContainerFromInternal(RequestTableFluidStorage storage, FluidIdentifier target,
@@ -661,16 +645,6 @@ public class RequestTablePipe extends PipeBlockRequestTable implements IRequestF
         }
         return SimpleServiceLocator.logisticsFluidManager
                 .getFluidFromContainer(ItemIdentifierStack.getFromStack(stack));
-    }
-
-    private boolean isContainerFull(ItemStack stack, FluidStack held) {
-        if (stack.getItem() instanceof IFluidContainerItem) {
-            return held.amount >= ((IFluidContainerItem) stack.getItem()).getCapacity(stack);
-        }
-        if (stack.getItem() == LogisticsPipes.LogisticsFluidContainer) {
-            return held.amount >= fluidStorage.getSlotCapacity();
-        }
-        return true;
     }
 
     @Override
@@ -833,7 +807,7 @@ public class RequestTablePipe extends PipeBlockRequestTable implements IRequestF
         for (int i = 0; i < internalSlots; i++) {
             stored[i] = inv.getStackInSlot(i);
         }
-        System.arraycopy(player.inventory.mainInventory, 0, stored, internalSlots + 0, player.inventory.mainInventory.length);
+        System.arraycopy(player.inventory.mainInventory, 0, stored, internalSlots, player.inventory.mainInventory.length);
         for (int i = 0; i < pattern.length; i++) {
             pattern[i] = matrix.getStackInSlot(i);
         }

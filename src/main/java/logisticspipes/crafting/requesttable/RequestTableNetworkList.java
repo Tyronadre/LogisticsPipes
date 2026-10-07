@@ -44,7 +44,9 @@ public class RequestTableNetworkList {
         }
         boolean sortingChanged = settings.getSortMode() != newSettings.getSortMode()
                 || settings.getSortDirection() != newSettings.getSortDirection();
-        boolean filterChanged = settings.getFilterMode() != newSettings.getFilterMode();
+        boolean filterChanged = settings.getFilterMode() != newSettings.getFilterMode()
+            || settings.isShowItems() != newSettings.isShowItems()
+            || settings.isShowFluids() != newSettings.isShowFluids();
         settings = newSettings;
         if (!sortingChanged && !filterChanged) {
             return false;
@@ -102,6 +104,9 @@ public class RequestTableNetworkList {
     }
 
     private boolean isVisibleForFilter(RequestTableNetworkEntry entry) {
+        if (entry.isFluid() ? !settings.isShowFluids() : !settings.isShowItems()) {
+            return false;
+        }
         switch (settings.getFilterMode()) {
             case STORED:
                 return entry.isStored();

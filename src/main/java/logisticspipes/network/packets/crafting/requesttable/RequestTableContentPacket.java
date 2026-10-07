@@ -9,6 +9,7 @@ import logisticspipes.network.LPDataOutputStream;
 import logisticspipes.network.abstractpackets.CoordinatesPacket;
 import logisticspipes.network.abstractpackets.ModernPacket;
 import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.nbt.NBTTagCompound;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -67,10 +68,9 @@ public class RequestTableContentPacket extends CoordinatesPacket {
             data.writeInt(entry.getInternalAmount());
             data.writeBoolean(entry.isCraftable());
         }
-        data.writeEnum(displaySettings.getSortMode());
-        data.writeEnum(displaySettings.getSortDirection());
-        data.writeEnum(displaySettings.getFilterMode());
-        data.writeBoolean(displaySettings.isRequestMessagesEnabled());
+        NBTTagCompound tag = new NBTTagCompound();
+        displaySettings.writeToNBT(tag);
+        data.writeNBTTagCompound(tag);
     }
 
     @Override
@@ -88,7 +88,6 @@ public class RequestTableContentPacket extends CoordinatesPacket {
                             data.readInt(),
                             data.readBoolean()));
         }
-        displaySettings = RequestTableDisplaySettings
-            .fromOrdinals(data.readInt(), data.readInt(), data.readInt(), data.readBoolean());
+        displaySettings = RequestTableDisplaySettings.readFromNBT(data.readNBTTagCompound());
     }
 }
