@@ -65,6 +65,15 @@ public class RequestTableLayout {
     public final int upgradePanelWidth;
     public final int upgradePanelTop;
     public final int upgradePanelHeight;
+    public final int monitorButtonX;
+    public final int monitorButtonY;
+    public final int monitorButtonWidth;
+    public final int monitorButtonHeight;
+    public final int monitorSocketTop;
+    public final int monitorSocketHeight;
+    public final int monitorUpgradeTop;
+    public final int fluidUpgradeLeft;
+    public final int fluidUpgradeTop;
     public final boolean compact;
     public final boolean tight;
 
@@ -162,10 +171,19 @@ public class RequestTableLayout {
 
         upgradePanelLeft = centralLeft + centralWidth + 6;
         upgradePanelWidth = 28;
-        upgradePanelTop = centralTop;
-        upgradePanelHeight = UPGRADE_SLOT_COUNT * SLOT + 10;
+        monitorButtonX = upgradePanelLeft;
+        monitorButtonY = guiTop;
+        monitorButtonWidth = upgradePanelWidth;
+        monitorButtonHeight = 20;
+        monitorSocketTop = centralTop;
+        monitorSocketHeight = 26;
+        monitorUpgradeTop = monitorSocketTop + 5;
+        upgradePanelTop = monitorSocketTop + monitorSocketHeight + 2;
+        upgradePanelHeight = (UPGRADE_SLOT_COUNT - 1) * SLOT + 8;
         upgradeLeft = upgradePanelLeft + 6;
-        upgradeTop = upgradePanelTop + 6;
+        upgradeTop = upgradePanelTop + 5;
+        fluidUpgradeLeft = visibilityButtonX + 2;
+        fluidUpgradeTop = sortModeButtonY + 3 * (displayButtonHeight + SIDEBAR_ROW_GAP) + 8;
     }
 
     /** Leaves room for NEI's top controls and bottom search bar in both terminal styles. */
@@ -216,8 +234,8 @@ public class RequestTableLayout {
         return centralLeft + 80;
     }
 
-    /** Packs the upgrade slots in one column along the detached bar. */
+    /** Attaches the monitoring socket to its button, followed by the detached storage-upgrade bar. */
     public int getUpgradeSlotY(int index) {
-        return upgradeTop + index * SLOT;
+        return index == 0 ? monitorUpgradeTop : upgradeTop + (index - 1) * SLOT;
     }
 }

@@ -25,6 +25,8 @@ public class RequestTableInventoryPacket extends CoordinatesPacket {
     private int fluidSlots;
     private int fluidSlotCapacity;
     private int craftableAmount;
+    private int itemSlotTier;
+    private int itemSizeTier;
     private List<ItemStack> contents = new ArrayList<>();
     private List<FluidStack> fluids = new ArrayList<>();
     private ItemStack cursor;
@@ -41,6 +43,8 @@ public class RequestTableInventoryPacket extends CoordinatesPacket {
         fluidSlots = table.getFluidStorage().getSizeInventory();
         fluidSlotCapacity = table.getFluidStorage().getSlotCapacity();
         craftableAmount = container.getCraftableAmount();
+        itemSlotTier = table.getItemSlotTier();
+        itemSizeTier = table.getItemSizeTier();
         contents = new ArrayList<>();
         for (Object entry : container.inventorySlots) {
             Slot slot = (Slot) entry;
@@ -75,6 +79,7 @@ public class RequestTableInventoryPacket extends CoordinatesPacket {
         if (fluids.size() != fluidSlots) {
             return;
         }
+        table.applyItemUpgradeTiers(itemSlotTier, itemSizeTier);
         container.applyInventory(itemSlots, itemStackLimit, fluidSlotCapacity, craftableAmount, contents, fluids);
         player.inventory.setItemStack(cursor);
     }
@@ -88,6 +93,8 @@ public class RequestTableInventoryPacket extends CoordinatesPacket {
         data.writeInt(fluidSlots);
         data.writeInt(fluidSlotCapacity);
         data.writeInt(craftableAmount);
+        data.writeInt(itemSlotTier);
+        data.writeInt(itemSizeTier);
         data.writeList(contents, LPDataOutputStream::writeItemStack);
         data.writeList(fluids, LPDataOutputStream::writeFluidStack);
         data.writeItemStack(cursor);
@@ -102,6 +109,8 @@ public class RequestTableInventoryPacket extends CoordinatesPacket {
         fluidSlots = data.readInt();
         fluidSlotCapacity = data.readInt();
         craftableAmount = data.readInt();
+        itemSlotTier = data.readInt();
+        itemSizeTier = data.readInt();
         contents = data.readList(LPDataInputStream::readItemStack);
         fluids = data.readList(LPDataInputStream::readFluidStack);
         cursor = data.readItemStack();

@@ -18,10 +18,13 @@ public enum RequestTableView {
     /**
      * Shows the request table's internal fluid inventory.
      */
-    FLUID_STORAGE;
+    FLUID_STORAGE,
+
+    /** Opens the crafting-monitor display shell, unlocked by the monitoring upgrade. */
+    CRAFTING_MONITOR;
 
     boolean transfersFluids(boolean filledCell) {
-        return this != ITEM_STORAGE && filledCell;
+        return (this == NETWORK || this == FLUID_STORAGE) && filledCell;
     }
 
     boolean transfersItems(boolean filledCell) {

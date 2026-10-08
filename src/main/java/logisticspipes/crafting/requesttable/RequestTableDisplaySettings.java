@@ -1,6 +1,7 @@
 package logisticspipes.crafting.requesttable;
 
 import lombok.AllArgsConstructor;
+import lombok.Getter;
 import lombok.Value;
 import lombok.With;
 import net.minecraft.nbt.NBTTagCompound;
@@ -14,9 +15,9 @@ import net.minecraft.nbt.NBTTagCompound;
 public class RequestTableDisplaySettings {
 
     public static final RequestTableDisplaySettings DEFAULT = new RequestTableDisplaySettings(
-            SortMode.NAME,
-            SortDirection.ASCENDING,
-            FilterMode.BOTH);
+        SortMode.NAME,
+        SortDirection.ASCENDING,
+        FilterMode.BOTH);
     private static final String NBT_SORT_MODE = "sortMode";
     private static final String NBT_SORT_DIRECTION = "sortDirection";
     private static final String NBT_FILTER_MODE = "filterMode";
@@ -63,8 +64,8 @@ public class RequestTableDisplaySettings {
             return DEFAULT;
         }
         RequestTableDisplaySettings settings = fromOrdinals(
-                tag.getInteger(NBT_SORT_MODE),
-                tag.getInteger(NBT_SORT_DIRECTION),
+            tag.getInteger(NBT_SORT_MODE),
+            tag.getInteger(NBT_SORT_DIRECTION),
             tag.getInteger(NBT_FILTER_MODE),
             !tag.hasKey(NBT_REQUEST_MESSAGES) || tag.getBoolean(NBT_REQUEST_MESSAGES))
             .withSearchBoxMode(
@@ -90,8 +91,8 @@ public class RequestTableDisplaySettings {
     public static RequestTableDisplaySettings fromOrdinals(int sortMode, int sortDirection, int filterMode,
                                                            boolean requestMessagesEnabled) {
         return new RequestTableDisplaySettings(
-                valueOrDefault(SortMode.values(), sortMode, DEFAULT.sortMode),
-                valueOrDefault(SortDirection.values(), sortDirection, DEFAULT.sortDirection),
+            valueOrDefault(SortMode.values(), sortMode, DEFAULT.sortMode),
+            valueOrDefault(SortDirection.values(), sortDirection, DEFAULT.sortDirection),
             valueOrDefault(FilterMode.values(), filterMode, DEFAULT.filterMode),
             requestMessagesEnabled);
     }
@@ -125,7 +126,7 @@ public class RequestTableDisplaySettings {
     }
 
     public RequestTableDisplaySettings nextTerminalStyle() {
-        return withTerminalStyle(terminalStyle == TerminalStyle.SMALL ? TerminalStyle.TALL : TerminalStyle.SMALL);
+        return withTerminalStyle(terminalStyle.next());
     }
 
     public RequestTableDisplaySettings toggleItems() {
@@ -155,6 +156,7 @@ public class RequestTableDisplaySettings {
         tag.setBoolean(NBT_SHOW_FLUIDS, showFluids);
     }
 
+    @Getter
     public enum SearchBoxMode {
 
         STANDARD("Standard", false, false),
@@ -172,18 +174,6 @@ public class RequestTableDisplaySettings {
             this.neiSynced = neiSynced;
         }
 
-        public String getLabel() {
-            return label;
-        }
-
-        public boolean isAutoFocus() {
-            return autoFocus;
-        }
-
-        public boolean isNeiSynced() {
-            return neiSynced;
-        }
-
         public SearchBoxMode next() {
             return values()[(ordinal() + 1) % values().length];
         }
@@ -191,7 +181,11 @@ public class RequestTableDisplaySettings {
 
     public enum TerminalStyle {
         SMALL,
-        TALL
+        TALL;
+
+        public TerminalStyle next() {
+            return this == SMALL ? TALL : SMALL;
+        }
     }
 
     public enum SortMode {

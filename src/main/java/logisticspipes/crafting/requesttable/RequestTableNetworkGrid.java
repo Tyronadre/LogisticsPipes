@@ -29,6 +29,12 @@ public class RequestTableNetworkGrid {
         entries.setEntries(newEntries);
     }
 
+    public void setFluidsEnabled(boolean enabled) {
+        if (entries.setFluidsEnabled(enabled)) {
+            scrollRow = 0;
+        }
+    }
+
     /**
      * Applies a new sort/filter state and invalidates the cached visible list once.
      */

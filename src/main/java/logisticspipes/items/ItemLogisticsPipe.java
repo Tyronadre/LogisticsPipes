@@ -4,8 +4,15 @@
  */
 package logisticspipes.items;
 
-import java.util.List;
-
+import com.gtnewhorizon.gtnhlib.client.renderer.vao.IVertexArrayObject;
+import cpw.mods.fml.relauncher.Side;
+import cpw.mods.fml.relauncher.SideOnly;
+import logisticspipes.LogisticsPipes;
+import logisticspipes.crafting.requesttable.RequestTablePipe;
+import logisticspipes.pipes.basic.CoreUnroutedPipe;
+import logisticspipes.pipes.basic.LogisticsBlockGenericPipe;
+import logisticspipes.renderer.IIconProvider;
+import logisticspipes.utils.string.StringUtils;
 import net.minecraft.block.Block;
 import net.minecraft.client.renderer.texture.IIconRegister;
 import net.minecraft.entity.player.EntityPlayer;
@@ -13,18 +20,9 @@ import net.minecraft.init.Blocks;
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.IIcon;
 import net.minecraft.world.World;
-
 import org.apache.logging.log4j.Level;
 
-import com.gtnewhorizon.gtnhlib.client.renderer.vao.IVertexArrayObject;
-
-import cpw.mods.fml.relauncher.Side;
-import cpw.mods.fml.relauncher.SideOnly;
-import logisticspipes.LogisticsPipes;
-import logisticspipes.pipes.basic.CoreUnroutedPipe;
-import logisticspipes.pipes.basic.LogisticsBlockGenericPipe;
-import logisticspipes.renderer.IIconProvider;
-import logisticspipes.utils.string.StringUtils;
+import java.util.List;
 
 /**
  * A logistics pipe Item
@@ -55,6 +53,7 @@ public class ItemLogisticsPipe extends LogisticsItem {
     @Override
     public void addInformation(ItemStack stack, EntityPlayer player, List<String> list, boolean flags) {
         StringUtils.addShiftAddition(stack, list);
+        RequestTablePipe.addItemUpgradeTooltip(stack, list);
     }
 
     @Override

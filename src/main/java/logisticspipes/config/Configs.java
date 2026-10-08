@@ -1,12 +1,12 @@
 package logisticspipes.config;
 
-import java.io.File;
-
+import cpw.mods.fml.common.Loader;
+import logisticspipes.LPConstants;
+import logisticspipes.crafting.requesttable.RequestTableItemUpgradeConfig;
 import net.minecraftforge.common.config.Configuration;
 import net.minecraftforge.common.config.Property;
 
-import cpw.mods.fml.common.Loader;
-import logisticspipes.LPConstants;
+import java.io.File;
 
 // @formatter:off
 // CHECKSTYLE:OFF
@@ -279,6 +279,7 @@ public class Configs {
                 "Sets the maximum amount for a liquid that can be held in a fluid pipe. Default value: 10000 (1000 equals 1 Bucket for normal fluids). If you are playing GTNH this value represents liters (10000 = 10000L).")
             .getInt();
 
+        RequestTableItemUpgradeConfig.load(Configs.CONFIGURATION);
         Configs.CONFIGURATION.save();
     }
 

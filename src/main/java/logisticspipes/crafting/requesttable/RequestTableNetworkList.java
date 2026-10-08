@@ -28,6 +28,16 @@ public class RequestTableNetworkList {
     private String rawSearch = "";
     private String search = "";
     private String[] searchTokens = new String[0];
+    private boolean fluidsEnabled;
+
+    public boolean setFluidsEnabled(boolean enabled) {
+        if (fluidsEnabled == enabled) {
+            return false;
+        }
+        fluidsEnabled = enabled;
+        rebuildVisibleEntries();
+        return true;
+    }
 
     public void setEntries(List<RequestTableNetworkEntry> entries) {
         sourceEntries.clear();
@@ -104,7 +114,7 @@ public class RequestTableNetworkList {
     }
 
     private boolean isVisibleForFilter(RequestTableNetworkEntry entry) {
-        if (entry.isFluid() ? !settings.isShowFluids() : !settings.isShowItems()) {
+        if (entry.isFluid() ? !fluidsEnabled || !settings.isShowFluids() : !settings.isShowItems()) {
             return false;
         }
         switch (settings.getFilterMode()) {

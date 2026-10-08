@@ -50,8 +50,6 @@ These conflict with the "never break existing worlds" rule in
   ([06](06-modules-pipes-compat-build.md#known-gaps--discrepancies))
 - **Legacy crafting pipes stop requesting fluid ingredients.** `ModuleCrafter.getFluidMaterial` reads `_liquidTank`,
   which old saves never fill. ([01](01-pattern-crafting.md#known-gaps--discrepancies))
-- **Request Table Mk2 stacks over 127 are not save-safe.** They are written with a vanilla byte `Count`. Overflow
-  items are dropped in the world when storage upgrades are removed. ([02](02-request-table.md#known-gaps--discrepancies))
 - **Clumps in flight are lost on downgrade.** Loading such a save with upstream LP drops those items.
   ([04](04-item-transport.md#known-gaps--discrepancies))
 - **Hidden chassis upgrade slots.** Chassis upgrade slots 4–8 of old pipes keep working but are hidden by the 4-slot

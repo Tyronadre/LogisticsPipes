@@ -200,7 +200,7 @@ How it works:
 - Instant satellite upgrade plumbing for pattern crafting: [ISlotUpgradeManager](../../src/main/java/logisticspipes/interfaces/ISlotUpgradeManager.java)
   `hasInstantSatelliteUpgrade()`, implemented by both managers (module manager defers to the pipe). See 01.
 - [ItemUpgrade](../../src/main/java/logisticspipes/items/ItemUpgrade.java) registers new upgrade ids:
-  `INSTANT_SATELLITE = 27` (01) and the request table upgrades 45-48 (02).
+  `INSTANT_SATELLITE = 27` (01) and the request table upgrades 47-48 (02).
 
 Compat: `SimpleStackInventory.readFromNBT` now grows the inventory if the saved `itemsCount` is bigger, so a
 resized inventory never drops saved stacks; old 2-slot module upgrade NBT loads into the 4-slot inventory unchanged.
@@ -297,23 +297,23 @@ Reference written for working on MUI GUIs: `public-api.md` (condensed index of t
 
 ## Changes to upstream classes
 
-| Class | Change | Why |
-|---|---|---|
-| `ItemModule` | implements `IGuiHolder`, `buildUI` for in-hand MUI, `openConfigGui` branches on `IMUICompatibleModule` | in-hand module MUI |
-| `ItemUpgrade` | new upgrade ids 27, 45-48 | instant satellite (01), request table upgrades (02) |
-| `PipeLogisticsChassi` | `IMUICompatiblePipeV2`, `getPipeGui()` → `ChassisGui`; unused `blockingMode` field | chassis MUI |
-| `PipeLogisticsChassiMk5` | blank line only | - |
-| 10 module classes | implement `IMUICompatibleModule` + small accessors | module MUIs |
-| `ModuleModBasedItemSink`, `ModuleCreativeTabBasedItemSink` | drop `IStringBasedModule`, HUD and `listChanged`; add list editing API | replaced string-based legacy GUI |
-| `ChassiModule`, `ModuleElectricManager` | `IModuleInventoryOverride` support | GT battery slots (06) |
-| `LogisticsModule` | `getWorld`, `getService`, `insertionFailed` | used by MUIs and room-aware sinks |
-| `UpgradeManager`, `ModuleUpgradeManager`, `IPipeUpgradeManager`, `ISlotUpgradeManager` | `getUpgradeInventory()`, module slots 2→4, instant satellite flag | upgrade sidebar, roadmap 2a, 01 |
-| `ModularUIHelper` | `openModuleUI`, `TAB_RIGHT_TEXTURE` | module MUI opening |
-| `GuiHandler`, `GuiIDs`, `NewGuiHandler`, `PacketHandler` | request table GUI id, fluid basic GUI removed, safer class scans | 02, MUI basic fluid pipe, dedicated server |
-| `DebugGuiController`, `DebugDataPacket`, `DebugPanelOpen` | id handling, queued client data, cleanup, compression flag | working debug GUI |
-| `PlayerConfig`, `GuiLogisticsSettings` | renderer options removed | renderer cleanup |
-| `SimpleStackInventory`, `DummyContainer` | resize/NBT growth, null checks; fluid slot overload | request table, MUI slot fix |
-| `ModuleExtractor`, `ModuleQuickSort`, `ModuleCCBasedQuickSort` | empty-inventory early return; `InterestRegistry` | perf, router rework (03) |
+| Class                                                                                  | Change                                                                                                 | Why                                                 |
+|----------------------------------------------------------------------------------------|--------------------------------------------------------------------------------------------------------|-----------------------------------------------------|
+| `ItemModule`                                                                           | implements `IGuiHolder`, `buildUI` for in-hand MUI, `openConfigGui` branches on `IMUICompatibleModule` | in-hand module MUI                                  |
+| `ItemUpgrade`                                                                          | new upgrade ids 27, 47-48                                                                              | instant satellite (01), request table upgrades (02) |
+| `PipeLogisticsChassi`                                                                  | `IMUICompatiblePipeV2`, `getPipeGui()` → `ChassisGui`; unused `blockingMode` field                     | chassis MUI                                         |
+| `PipeLogisticsChassiMk5`                                                               | blank line only                                                                                        | -                                                   |
+| 10 module classes                                                                      | implement `IMUICompatibleModule` + small accessors                                                     | module MUIs                                         |
+| `ModuleModBasedItemSink`, `ModuleCreativeTabBasedItemSink`                             | drop `IStringBasedModule`, HUD and `listChanged`; add list editing API                                 | replaced string-based legacy GUI                    |
+| `ChassiModule`, `ModuleElectricManager`                                                | `IModuleInventoryOverride` support                                                                     | GT battery slots (06)                               |
+| `LogisticsModule`                                                                      | `getWorld`, `getService`, `insertionFailed`                                                            | used by MUIs and room-aware sinks                   |
+| `UpgradeManager`, `ModuleUpgradeManager`, `IPipeUpgradeManager`, `ISlotUpgradeManager` | `getUpgradeInventory()`, module slots 2→4, instant satellite flag                                      | upgrade sidebar, roadmap 2a, 01                     |
+| `ModularUIHelper`                                                                      | `openModuleUI`, `TAB_RIGHT_TEXTURE`                                                                    | module MUI opening                                  |
+| `GuiHandler`, `GuiIDs`, `NewGuiHandler`, `PacketHandler`                               | request table GUI id, fluid basic GUI removed, safer class scans                                       | 02, MUI basic fluid pipe, dedicated server          |
+| `DebugGuiController`, `DebugDataPacket`, `DebugPanelOpen`                              | id handling, queued client data, cleanup, compression flag                                             | working debug GUI                                   |
+| `PlayerConfig`, `GuiLogisticsSettings`                                                 | renderer options removed                                                                               | renderer cleanup                                    |
+| `SimpleStackInventory`, `DummyContainer`                                               | resize/NBT growth, null checks; fluid slot overload                                                    | request table, MUI slot fix                         |
+| `ModuleExtractor`, `ModuleQuickSort`, `ModuleCCBasedQuickSort`                         | empty-inventory early return; `InterestRegistry`                                                       | perf, router rework (03)                            |
 
 ## Known gaps / discrepancies
 

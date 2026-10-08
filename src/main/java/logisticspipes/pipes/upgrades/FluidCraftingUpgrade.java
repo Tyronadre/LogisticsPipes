@@ -1,5 +1,6 @@
 package logisticspipes.pipes.upgrades;
 
+import logisticspipes.crafting.requesttable.RequestTablePipe;
 import logisticspipes.modules.ModuleCrafter;
 import logisticspipes.modules.abstractmodules.LogisticsModule;
 import logisticspipes.pipes.PipeItemsCraftingLogistics;
@@ -15,7 +16,8 @@ public class FluidCraftingUpgrade implements IPipeUpgrade {
 
     @Override
     public boolean isAllowedForPipe(CoreRoutedPipe pipe) {
-        return pipe instanceof PipeItemsCraftingLogistics || pipe instanceof PipeItemsPatternCraftingLogistics;
+        return pipe instanceof PipeItemsCraftingLogistics || pipe instanceof PipeItemsPatternCraftingLogistics
+            || pipe instanceof RequestTablePipe;
     }
 
     @Override
@@ -25,7 +27,7 @@ public class FluidCraftingUpgrade implements IPipeUpgrade {
 
     @Override
     public String[] getAllowedPipes() {
-        return new String[] { "crafting", "pattern crafting" };
+        return new String[]{"crafting", "pattern crafting", "newRequestTable"};
     }
 
     @Override

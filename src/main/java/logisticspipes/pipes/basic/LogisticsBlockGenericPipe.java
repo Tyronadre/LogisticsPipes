@@ -1,13 +1,25 @@
 package logisticspipes.pipes.basic;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Random;
-import java.util.concurrent.Callable;
-
+import cpw.mods.fml.common.registry.GameRegistry;
+import cpw.mods.fml.relauncher.Side;
+import cpw.mods.fml.relauncher.SideOnly;
+import logisticspipes.LPConstants;
+import logisticspipes.LogisticsPipes;
+import logisticspipes.config.Configs;
+import logisticspipes.crafting.requesttable.RequestTablePipe;
+import logisticspipes.interfaces.IRotationProvider;
+import logisticspipes.items.ItemLogisticsPipe;
+import logisticspipes.pipes.PipeBlockRequestTable;
+import logisticspipes.proxy.MainProxy;
+import logisticspipes.proxy.SimpleServiceLocator;
+import logisticspipes.proxy.buildcraft.subproxies.IBCClickResult;
+import logisticspipes.proxy.buildcraft.subproxies.IBCPipePluggable;
+import logisticspipes.renderer.newpipe.LogisticsNewRenderPipe;
+import logisticspipes.textures.Textures;
+import logisticspipes.ticks.QueuedTasks;
+import logisticspipes.transport.ClumpTransit;
+import logisticspipes.utils.MatrixTranformations;
+import logisticspipes.utils.tuples.LPPosition;
 import net.minecraft.block.Block;
 import net.minecraft.block.BlockContainer;
 import net.minecraft.block.material.Material;
@@ -30,28 +42,15 @@ import net.minecraft.util.Vec3;
 import net.minecraft.world.IBlockAccess;
 import net.minecraft.world.World;
 import net.minecraftforge.common.util.ForgeDirection;
-
 import org.jetbrains.annotations.Nullable;
 
-import cpw.mods.fml.common.registry.GameRegistry;
-import cpw.mods.fml.relauncher.Side;
-import cpw.mods.fml.relauncher.SideOnly;
-import logisticspipes.LPConstants;
-import logisticspipes.LogisticsPipes;
-import logisticspipes.config.Configs;
-import logisticspipes.interfaces.IRotationProvider;
-import logisticspipes.items.ItemLogisticsPipe;
-import logisticspipes.pipes.PipeBlockRequestTable;
-import logisticspipes.proxy.MainProxy;
-import logisticspipes.proxy.SimpleServiceLocator;
-import logisticspipes.proxy.buildcraft.subproxies.IBCClickResult;
-import logisticspipes.proxy.buildcraft.subproxies.IBCPipePluggable;
-import logisticspipes.renderer.newpipe.LogisticsNewRenderPipe;
-import logisticspipes.textures.Textures;
-import logisticspipes.ticks.QueuedTasks;
-import logisticspipes.transport.ClumpTransit;
-import logisticspipes.utils.MatrixTranformations;
-import logisticspipes.utils.tuples.LPPosition;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Random;
+import java.util.concurrent.Callable;
 
 public class LogisticsBlockGenericPipe extends BlockContainer {
 
@@ -61,30 +60,8 @@ public class LogisticsBlockGenericPipe extends BlockContainer {
         setCreativeTab(null);
     }
 
-    @Override
-    public ArrayList<ItemStack> getDrops(World world, int x, int y, int z, int metadata, int fortune) {
-        if (world.isRemote) {
-            return null;
-        }
-        ArrayList<ItemStack> list = new ArrayList<>();
-        int count = quantityDropped(metadata, fortune, world.rand);
-        for (int i = 0; i < count; i++) {
-            CoreUnroutedPipe pipe = LogisticsBlockGenericPipe.getPipe(world, x, y, z);
-
-            if (pipe == null) {
-                pipe = LogisticsBlockGenericPipe.pipeRemoved.get(new LPPosition(x, y, z));
-            }
-
-            if (pipe != null) {
-                if (pipe.item != null && (pipe.canBeDestroyed() || pipe.destroyByPlayer())) {
-                    list.addAll(pipe.dropContents());
-                    list.add(new ItemStack(pipe.item, 1, damageDropped(metadata)));
-                } else if (pipe.item != null) {
-                    LogisticsBlockGenericPipe.cacheTileToPreventRemoval(pipe);
-                }
-            }
-        }
-        return list;
+    private static ItemStack makePipeDrop(CoreUnroutedPipe pipe, int damage) {
+        return pipe instanceof RequestTablePipe table ? table.makeTableDrop(damage) : new ItemStack(pipe.item, 1, damage);
     }
 
     @Override
@@ -123,8 +100,7 @@ public class LogisticsBlockGenericPipe extends BlockContainer {
                 LPConstants.PIPE_MAX_POS,
                 LPConstants.PIPE_MAX_POS);
         super.addCollisionBoxesToList(world, i, j, k, axisalignedbb, arraylist, par7Entity);
-        if (tile instanceof LogisticsTileGenericPipe) {
-            LogisticsTileGenericPipe tileG = (LogisticsTileGenericPipe) tile;
+        if (tile instanceof LogisticsTileGenericPipe tileG) {
 
             if (tileG.isPipeConnected(ForgeDirection.WEST)) {
                 setBlockBounds(
@@ -684,6 +660,38 @@ public class LogisticsBlockGenericPipe extends BlockContainer {
     }
 
     @Override
+    public ArrayList<ItemStack> getDrops(World world, int x, int y, int z, int metadata, int fortune) {
+        if (world.isRemote) {
+            return null;
+        }
+        ArrayList<ItemStack> list = new ArrayList<>();
+        int count = quantityDropped(metadata, fortune, world.rand);
+        for (int i = 0; i < count; i++) {
+            CoreUnroutedPipe pipe = LogisticsBlockGenericPipe.getPipe(world, x, y, z);
+
+            if (pipe == null) {
+                pipe = LogisticsBlockGenericPipe.pipeRemoved.get(new LPPosition(x, y, z));
+            }
+
+            if (pipe != null) {
+                if (pipe.item != null && (pipe.canBeDestroyed() || pipe.destroyByPlayer())) {
+                    list.addAll(pipe.dropContents());
+                    list.add(makePipeDrop(pipe, damageDropped(metadata)));
+                } else if (pipe.item != null) {
+                    LogisticsBlockGenericPipe.cacheTileToPreventRemoval(pipe);
+                }
+            }
+        }
+        return list;
+    }
+
+    @Override
+    public Item getItemDropped(int meta, Random rand, int dmg) {
+        // Returns null to be safe - the id does not depend on the meta
+        return null;
+    }
+
+    @Override
     public void dropBlockAsItemWithChance(World world, int i, int j, int k, int l, float f, int dmg) {
 
         if (world.isRemote) {
@@ -706,17 +714,11 @@ public class LogisticsBlockGenericPipe extends BlockContainer {
                 for (ItemStack stack : pipe.dropContents()) {
                     dropBlockAsItem(world, i, j, k, stack);
                 }
-                dropBlockAsItem(world, i, j, k, new ItemStack(pipe.item, 1, damageDropped(l)));
+                dropBlockAsItem(world, i, j, k, makePipeDrop(pipe, damageDropped(l)));
             } else if (pipe.item != null) {
                 LogisticsBlockGenericPipe.cacheTileToPreventRemoval(pipe);
             }
         }
-    }
-
-    @Override
-    public Item getItemDropped(int meta, Random rand, int dmg) {
-        // Returns null to be safe - the id does not depend on the meta
-        return null;
     }
 
     @SideOnly(Side.CLIENT)
@@ -772,6 +774,7 @@ public class LogisticsBlockGenericPipe extends BlockContainer {
         CoreUnroutedPipe pipe = LogisticsBlockGenericPipe.getPipe(world, x, y, z);
 
         if (LogisticsBlockGenericPipe.isValid(pipe)) {
+            if (pipe instanceof RequestTablePipe table) table.restoreItemUpgrades(stack);
             pipe.onBlockPlacedBy(placer);
             if (pipe instanceof IRotationProvider) {
                 double xPos = pipe.getX() + 0.5 - placer.posX;
@@ -931,8 +934,7 @@ public class LogisticsBlockGenericPipe extends BlockContainer {
 
         if (placed) {
             TileEntity tile = world.getTileEntity(i, j, k);
-            if (tile instanceof LogisticsTileGenericPipe) {
-                LogisticsTileGenericPipe tilePipe = (LogisticsTileGenericPipe) tile;
+            if (tile instanceof LogisticsTileGenericPipe tilePipe) {
                 tilePipe.initialize(pipe);
                 tilePipe.sendUpdateToClient();
             }

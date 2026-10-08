@@ -268,6 +268,16 @@ public class RequestTableFluidStorage implements IInventory {
         return stored;
     }
 
+    /** Checks each tank without summing amounts, which can overflow with many capacity upgrades. */
+    public boolean isEmpty() {
+        for (FluidStack fluid : fluids) {
+            if (fluid != null && fluid.amount > 0) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     /**
      * @return total fluid capacity in millibuckets
      */

@@ -229,6 +229,18 @@ final class RequestTableIconButton extends GuiButton {
                 drawRect(x + 6, y + 14, x + 10, y + 15, 0xff477dab);
                 drawRect(x + 5, y + 7, x + 6, y + 11, 0xffa8d6ef);
                 break;
+            case UPGRADES:
+                drawRect(x + 7, y + 3, x + 9, y + 13, 0xff73604a);
+                drawRect(x + 3, y + 8, x + 13, y + 10, 0xff73604a);
+                drawRect(x + 2, y + 8, x + 4, y + 13, 0xff73604a);
+                drawRect(x + 12, y + 8, x + 14, y + 13, 0xff73604a);
+                drawRect(x + 5, y + 1, x + 11, y + 6, 0xff373737);
+                drawRect(x + 6, y + 2, x + 10, y + 5, 0xffe8c66a);
+                drawRect(x + 1, y + 11, x + 6, y + 16, 0xff373737);
+                drawRect(x + 2, y + 12, x + 5, y + 15, 0xff7cac65);
+                drawRect(x + 10, y + 11, x + 15, y + 16, 0xff373737);
+                drawRect(x + 11, y + 12, x + 14, y + 15, 0xff7cac65);
+                break;
             default:
                 break;
         }
@@ -284,6 +296,7 @@ final class RequestTableIconButton extends GuiButton {
         ITEMS_ON,
         ITEMS_OFF,
         FLUIDS_ON,
-        FLUIDS_OFF
+        FLUIDS_OFF,
+        UPGRADES
     }
 }

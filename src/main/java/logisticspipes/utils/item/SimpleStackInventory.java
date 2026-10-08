@@ -4,24 +4,22 @@
  */
 package logisticspipes.utils.item;
 
-import java.util.Arrays;
-import java.util.Iterator;
-import java.util.LinkedList;
-
+import logisticspipes.LogisticsPipes;
+import logisticspipes.interfaces.routing.ISaveState;
+import logisticspipes.proxy.MainProxy;
+import logisticspipes.utils.ISimpleInventoryEventHandler;
+import logisticspipes.utils.tuples.Pair;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.inventory.IInventory;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.nbt.NBTTagList;
 import net.minecraft.world.World;
-
 import org.jetbrains.annotations.NotNull;
 
-import logisticspipes.LogisticsPipes;
-import logisticspipes.interfaces.routing.ISaveState;
-import logisticspipes.proxy.MainProxy;
-import logisticspipes.utils.ISimpleInventoryEventHandler;
-import logisticspipes.utils.tuples.Pair;
+import java.util.Arrays;
+import java.util.Iterator;
+import java.util.LinkedList;
 
 public class SimpleStackInventory implements IInventory, ISaveState, Iterable<Pair<ItemStack, Integer>> {
 
@@ -147,6 +145,9 @@ public class SimpleStackInventory implements IInventory, ISaveState, Iterable<Pa
             int index = nbttagcompound2.getInteger("index");
             if (index < _contents.length) {
                 _contents[index] = ItemStack.loadItemStackFromNBT(nbttagcompound2);
+                if (_contents[index] != null && nbttagcompound2.hasKey("lpStackSize")) {
+                    _contents[index].stackSize = nbttagcompound2.getInteger("lpStackSize");
+                }
             } else {
                 LogisticsPipes.log.fatal(
                         "SimpleInventory: java.lang.ArrayIndexOutOfBoundsException: " + index
@@ -169,6 +170,8 @@ public class SimpleStackInventory implements IInventory, ISaveState, Iterable<Pa
                 nbttaglist.appendTag(nbttagcompound2);
                 nbttagcompound2.setInteger("index", j);
                 _contents[j].writeToNBT(nbttagcompound2);
+                // Vanilla's Count byte cannot persist compressed request-table storage stacks.
+                nbttagcompound2.setInteger("lpStackSize", _contents[j].stackSize);
             }
         }
         nbttagcompound.setTag(prefix + "items", nbttaglist);

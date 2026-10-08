@@ -243,14 +243,21 @@ Totals: **390 files**: 250 added, 140 modified.
 | [RequestTableRequestOverlay.java](../../src/main/java/logisticspipes/crafting/requesttable/RequestTableRequestOverlay.java) | Added | +240 / -0 | [02 · Request popup (request overlay)](02-request-table.md#request-popup-request-overlay) | Modal request popup with amount field, ±1/10/100/1000 buttons, OK/close |
 | [RequestTableView.java](../../src/main/java/logisticspipes/crafting/requesttable/RequestTableView.java) | Added | +22 / -0 | [02 · Internal item & fluid storage](02-request-table.md#internal-item--fluid-storage) | Enum of upper panel modes: NETWORK, ITEM_STORAGE, FLUID_STORAGE |
 
+### Permanent item upgrades
+
+| File                                                                                                                              | Status | Lines | Feature                                                                     | Summary                                                         |
+|-----------------------------------------------------------------------------------------------------------------------------------|--------|-------|-----------------------------------------------------------------------------|-----------------------------------------------------------------|
+| [RequestTableItemUpgradeBranch.java](../../src/main/java/logisticspipes/crafting/requesttable/RequestTableItemUpgradeBranch.java) | Added  | —     | [02 · Permanent item upgrades](02-request-table.md#permanent-item-upgrades) | Independent permanent item branches                             |
+| [RequestTableItemUpgradeConfig.java](../../src/main/java/logisticspipes/crafting/requesttable/RequestTableItemUpgradeConfig.java) | Added  | —     | [02 · Permanent item upgrades](02-request-table.md#permanent-item-upgrades) | Configurable item bases, tier bonuses and circuit requirements  |
+| [RequestTableUpgradeContainer.java](../../src/main/java/logisticspipes/crafting/requesttable/RequestTableUpgradeContainer.java)   | Added  | —     | [02 · Permanent item upgrades](02-request-table.md#permanent-item-upgrades) | Material escrow, validated tier consumption and material return |
+| [RequestTableUpgradeGui.java](../../src/main/java/logisticspipes/crafting/requesttable/RequestTableUpgradeGui.java)               | Added  | —     | [02 · Permanent item upgrades](02-request-table.md#permanent-item-upgrades) | Scrollable item-upgrade tree with material slots                |
+
 ## logisticspipes.crafting.requesttable.upgrades
 
 | File | Status | Lines | Feature | Summary |
 |---|---|---|---|---|
 | [RequestTableFluidCapacityUpgrade.java](../../src/main/java/logisticspipes/crafting/requesttable/upgrades/RequestTableFluidCapacityUpgrade.java) | Added | +7 / -0 | [02 · Storage upgrades](02-request-table.md#storage-upgrades) | Marker upgrade (damage 48): +1× base capacity per fluid slot |
 | [RequestTableFluidInventoryUpgrade.java](../../src/main/java/logisticspipes/crafting/requesttable/upgrades/RequestTableFluidInventoryUpgrade.java) | Added | +7 / -0 | [02 · Storage upgrades](02-request-table.md#storage-upgrades) | Marker upgrade (damage 47): +9 fluid slots |
-| [RequestTableItemInventoryUpgrade.java](../../src/main/java/logisticspipes/crafting/requesttable/upgrades/RequestTableItemInventoryUpgrade.java) | Added | +7 / -0 | [02 · Storage upgrades](02-request-table.md#storage-upgrades) | Marker upgrade (damage 45): +9 item slots |
-| [RequestTableItemStackUpgrade.java](../../src/main/java/logisticspipes/crafting/requesttable/upgrades/RequestTableItemStackUpgrade.java) | Added | +7 / -0 | [02 · Storage upgrades](02-request-table.md#storage-upgrades) | Marker upgrade (damage 46): +64 per-slot item limit |
 | [RequestTableStorageUpgrade.java](../../src/main/java/logisticspipes/crafting/requesttable/upgrades/RequestTableStorageUpgrade.java) | Added | +37 / -0 | [02 · Storage upgrades](02-request-table.md#storage-upgrades) | Base IPipeUpgrade: allowed only on RequestTablePipe, never on modules |
 
 ## logisticspipes.gui
@@ -358,13 +365,13 @@ Totals: **390 files**: 250 added, 140 modified.
 
 ## logisticspipes.items
 
-| File | Status | Lines | Feature | Summary |
-|---|---|---|---|---|
-| [ItemLegacyWrench.java](../../src/main/java/logisticspipes/items/ItemLegacyWrench.java) | Added | +29 / -0 | [05 · Legacy Wrench](05-modularui-gui.md#legacy-wrench) | Uncraftable debug wrench that forces the legacy GUI path |
-| [ItemModule.java](../../src/main/java/logisticspipes/items/ItemModule.java) | Modified | +58 / -7 | [05 · MUI integration layer](05-modularui-gui.md#mui-integration-layer) | In-hand module MUI via IGuiHolder.buildUI; saves NBT on close |
-| [ItemUpgrade.java](../../src/main/java/logisticspipes/items/ItemUpgrade.java) | Modified | +15 / -0 | [05 · Upgrade sidebar and upgrade inventories](05-modularui-gui.md#upgrade-sidebar-and-upgrade-inventories) | Registers instant satellite (27) and request table upgrades (45-48) |
-| [LogisticsFluidContainer.java](../../src/main/java/logisticspipes/items/LogisticsFluidContainer.java) | Modified | +2 / -2 | [01 · Fluid crafting](01-pattern-crafting.md#fluid-crafting) | Fluid containers may now exist in inventories and in the world |
-| [LogisticsSolidBlockItem.java](../../src/main/java/logisticspipes/items/LogisticsSolidBlockItem.java) | Modified | +6 / -0 | [06 · Mod init, proxies and events](06-modules-pipes-compat-build.md#mod-init-proxies-and-events) | Names and creative entries for pattern table and crafting monitor |
+| File                                                                                                  | Status   | Lines    | Feature                                                                                                     | Summary                                                             |
+|-------------------------------------------------------------------------------------------------------|----------|----------|-------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------|
+| [ItemLegacyWrench.java](../../src/main/java/logisticspipes/items/ItemLegacyWrench.java)               | Added    | +29 / -0 | [05 · Legacy Wrench](05-modularui-gui.md#legacy-wrench)                                                     | Uncraftable debug wrench that forces the legacy GUI path            |
+| [ItemModule.java](../../src/main/java/logisticspipes/items/ItemModule.java)                           | Modified | +58 / -7 | [05 · MUI integration layer](05-modularui-gui.md#mui-integration-layer)                                     | In-hand module MUI via IGuiHolder.buildUI; saves NBT on close       |
+| [ItemUpgrade.java](../../src/main/java/logisticspipes/items/ItemUpgrade.java)                         | Modified | +15 / -0 | [05 · Upgrade sidebar and upgrade inventories](05-modularui-gui.md#upgrade-sidebar-and-upgrade-inventories) | Registers instant satellite (27) and request table upgrades (47-48) |
+| [LogisticsFluidContainer.java](../../src/main/java/logisticspipes/items/LogisticsFluidContainer.java) | Modified | +2 / -2  | [01 · Fluid crafting](01-pattern-crafting.md#fluid-crafting)                                                | Fluid containers may now exist in inventories and in the world      |
+| [LogisticsSolidBlockItem.java](../../src/main/java/logisticspipes/items/LogisticsSolidBlockItem.java) | Modified | +6 / -0  | [06 · Mod init, proxies and events](06-modules-pipes-compat-build.md#mod-init-proxies-and-events)           | Names and creative entries for pattern table and crafting monitor   |
 
 ## logisticspipes.logistics
 

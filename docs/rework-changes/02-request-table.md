@@ -13,11 +13,12 @@ the separate fluid request pipe and `FluidGuiOrderer`, and that list shows only 
 
 - one network list that shows items **and** fluids, with network, internal and craftable amounts for each entry,
   per-player sorting, visibility, search, terminal-size and request-message settings;
-- internal item storage **and** internal fluid storage, both larger with four new storage upgrades;
+- internal item storage with permanent circuit-tier upgrades, and internal fluid storage with slot/capacity cards;
 - a request popup with typed amounts and +/- buttons in place of the old request buttons;
 - a ghost (fake) 3x3 crafting grid that crafts from internal storage and then from the player's inventory, plus a
   request icon that orders the missing ingredients for N crafts, plus a craftable output count;
 - "Send all" buttons that push internal items or fluids back into the network;
+- a Main-only socket for a Fluid Crafting Upgrade, enabling the table's fluid features;
 - a Minecraft-style GUI whose height follows the screen size, with top tabs, floating controls and detached upgrade slots.
 
 Smaller related changes: the fluid orderer (`FluidGuiOrderer`) now shows craftable fluids, can filter Both/Craft/Supply,
@@ -68,8 +69,13 @@ like the old table.
   loads exactly as before. **Nothing migrates an old table into the new one.** They are separate items, so existing
   worlds keep their old tables.
 - The new table writes the parent's keys (`inv`, `matrix`, `toSortInv`, `diskInv`, `blockRotation`, …) plus:
+  - `requestTableItemUpgrades`: integer `slotTier` and `sizeTier` values (0 = Base, 1–10 = LV–UEV).
+    The table's dropped item carries this compound and restores it on placement. Stored items still drop separately.
   - `newRequestTableFluidStoragefluids` (list of FluidStack + `index`), `newRequestTableFluidStoragesize` and
     `newRequestTableFluidStoragecapacity`. The key prefix and suffix are joined with no separator.
+  - `newRequestTableFluidUpgradeitems` and `newRequestTableFluidUpgradeitemsCount`: the separate, single-item
+    fluid-upgrade inventory. Existing stored fluids remain saved when the socket is empty; install the upgrade
+    to access them. The upgrade drops with the table when the table is broken.
   - `newRequestTableDisplaySettings`: a list of `{player: UUID string, settings: {sortMode, sortDirection,
     filterMode, requestMessages, searchBoxMode, saveSearch, savedSearch, terminalStyle, showItems, showFluids}}`.
     Only non-default settings are stored, and bad UUIDs are skipped. Older saves keep request messages, items
@@ -78,6 +84,8 @@ like the old table.
   the saved count is larger. This keeps slots added by upgrades through a reload: at load time `container` is still
   `null`, so `updateStorageUpgrades()` returns early. Old saves without `itemsCount` read as 0 and keep the default
   size.
+- Each saved item entry also carries integer `lpStackSize`, preserving compressed counts through save/reload.
+  Entries without this key still use vanilla `Count`.
 
 ## Combined item + fluid network list
 
@@ -277,12 +285,69 @@ What the player can do:
 
 ## Storage upgrades
 
-**For the player.** Four new upgrade items. They fit only in the new table, not in modules:
+The existing **Fluid Crafting Upgrade** enables all fluid features through a separate, single-item socket below
+the visibility controls on **Main**. This socket is hidden on the item-storage, fluid-storage and monitor pages.
+It is synchronized in the normal inventory snapshot and saved separately from the nine existing upgrade slots.
+Main shift-click and held-stack insertion can install it; shift-click returns it to the player when the tanks are
+empty. The slot rejects removal while any tank contains fluid, including normal clicks, shift-click, hotbar swaps,
+dropping and double-click collection. A tooltip explains the lock, and a small amber latch marks it.
 
-The right side of the table has a detached 28×172 px bar, separated from the central panel by a 6 px gap.
-Its nine slots are packed into one vertical column with the chassis upgrade-slot texture and a small outer margin.
-The first slot accepts **Crafting Monitoring Upgrade** only; the other eight accept the four request-table storage
-upgrades (item/fluid slot count and capacity). Empty-slot tooltips identify these restrictions. These are the
+Without this upgrade, the fluid tab and fluid-visibility control are hidden, fluid network entries are omitted,
+and the server rejects fluid requests, Send all and cell fill/drain interactions. Main treats filled cells as
+ordinary items until fluid support is enabled; item-storage cell handling stays ordinary throughout. Routed LP
+fluid containers received without the upgrade stay packaged in item storage, using the normal overflow drop
+behavior. Storage-upgrade capacities remain configured while disabled, preserving saved tank contents.
+
+### Permanent item upgrades
+
+The branching-circuit sidebar button opens a separate upgrade screen (GUI 40). Select either **Amount of slots**
+or **Slot size**, then a tier. The screen shows its resulting capacity, required circuit, and four material slots.
+**Apply upgrade** consumes the required materials and permanently installs the selected tier. Unused materials
+return to the player on closing or going Back, with overflow dropped if the player's inventory is full.
+Back sits at the top-right of the compact header. The selected node and capacity change share a single row,
+aligned left and right; the four material slots line up with the player's first four inventory columns.
+
+The two branches progress independently. Only the next tier of a branch can be applied; later tiers remain locked
+until its preceding tier is installed. Installed nodes are green, available nodes are gray, and locked nodes are
+darker. The selected node has an amber outline. Mouse-wheel and scrollbar dragging expose the remaining tiers.
+
+| Circuit tier | Additional slots | Additional items per slot | Accepted circuit ore name |
+|--------------|-----------------:|--------------------------:|---------------------------|
+| Base         |               27 |                        64 | —                         |
+| LV           |                9 |                        64 | circuitBasic              |
+| MV           |               18 |                       128 | circuitGood               |
+| HV           |               27 |                       256 | circuitAdvanced           |
+| EV           |               36 |                       512 | circuitData               |
+| IV           |               45 |                      1024 | circuitElite              |
+| LuV          |               54 |                      2048 | circuitMaster             |
+| ZPM          |               63 |                      4096 | circuitUltimate           |
+| UV           |               72 |                      8192 | circuitSuperconductor     |
+| UHV          |               81 |                     16384 | circuitInfinite           |
+| UEV          |               90 |                     32768 | circuitBio                |
+
+Bonuses are cumulative: all tiers give 522 slots and 65,536 items per slot. Either branch costs one circuit of its
+tier by default, accepting any matching ore-dictionary circuit variant. `config/LogisticsPipes.cfg` exposes
+`requesttable.itemupgrades.baseSlots`, `baseSlotSize`, and tier subcategories `lv` through `uev`, each with
+`additionalSlots`, `additionalSlotSize`, `circuitOreName`, and `circuitCount` (1–256). Configured requirements and
+bonuses are sent from the server to the upgrade screen. Old item storage cards were removed without migration.
+
+`RequestTableUpgradeContainer` owns each viewer's material slots. The confirmation packet checks the current
+window, selection, pipe access, prerequisite, and available materials on the server before installing a tier.
+Progress lives on `RequestTablePipe`, so simultaneous viewers cannot purchase the same tier twice. World NBT and
+normal table drops preserve both branch levels; placement restores them before the pipe's placement callback.
+
+### Monitoring and fluid cards
+
+The right side of the table has a 28 px wide monitor module and a detached 28×152 px storage-upgrade bar,
+separated from the central panel by a 6 px gap. The top-right monitor button sits above its dedicated socket,
+with a circuit trace linking the two. The screen, power lamp and trace are gray without an upgrade; inserting a
+**Crafting Monitoring Upgrade** lights them green and enables the button, including a subtle scanning pixel.
+The button opens a monitor view shell; live crafting-job data is not connected yet. Removing the upgrade returns
+the view to Main after the server confirms the inventory change. Crafting controls and storage transfers are
+inactive in this shell, while the player inventory and upgrade slots remain accessible.
+
+The first slot accepts **Crafting Monitoring Upgrade** only; the separate bar's eight slots accept the two
+fluid storage upgrades (slot count and capacity). Empty-slot tooltips identify these restrictions. These are the
 table's actual upgrade slots, limited to 16 items per slot. In the network and
 item-storage views, shift-clicking a compatible upgrade installs it here; shift-clicking an installed upgrade
 returns it to the player. The fluid-storage view keeps its filled-cell-only shift-click behavior. Capacity per
@@ -291,12 +356,10 @@ shift-click, and right-clicking the table with a held upgrade; existing installe
 
 | Upgrade (damage)                          | Effect per upgrade item                    |
 |-------------------------------------------|--------------------------------------------|
-| Request Table Item Slot Upgrade (45)      | +9 item slots (base 27)                    |
-| Request Table Item Stack Upgrade (46)     | +64 to the per-slot item limit (base 64)   |
 | Request Table Fluid Slot Upgrade (47)     | +9 fluid slots (base 9)                    |
 | Request Table Fluid Capacity Upgrade (48) | +64 000 mB per fluid slot (base 64 000 mB) |
 
-Per-slot capacity is the base capacity multiplied by `1 + upgrade count`: 64, 128, 192, … items and
+Per-tank fluid capacity is the base capacity multiplied by `1 + upgrade count`:
 64 000, 128 000, 192 000, … mB. Fluid capacity is independent of the transport tank configuration.
 
 **How it works.**
@@ -306,15 +369,13 @@ Per-slot capacity is the base capacity multiplied by `1 + upgrade count`: 64, 12
   by the table container, the generic upgrade container and held-upgrade insertion.
 - [`RequestTableStorageUpgrade`](../../src/main/java/logisticspipes/crafting/requesttable/upgrades/RequestTableStorageUpgrade.java)
   is the base class: `isAllowedForPipe` returns true only for `RequestTablePipe`, `isAllowedForModule` returns false,
-  and `getAllowedPipes()` returns `"newRequestTable"`. The four subclasses are empty marker classes:
-  [`RequestTableItemInventoryUpgrade`](../../src/main/java/logisticspipes/crafting/requesttable/upgrades/RequestTableItemInventoryUpgrade.java),
-  [`RequestTableItemStackUpgrade`](../../src/main/java/logisticspipes/crafting/requesttable/upgrades/RequestTableItemStackUpgrade.java),
+  and `getAllowedPipes()` returns `"newRequestTable"`. The two subclasses are empty marker classes:
   [`RequestTableFluidInventoryUpgrade`](../../src/main/java/logisticspipes/crafting/requesttable/upgrades/RequestTableFluidInventoryUpgrade.java),
   [`RequestTableFluidCapacityUpgrade`](../../src/main/java/logisticspipes/crafting/requesttable/upgrades/RequestTableFluidCapacityUpgrade.java).
-  `ItemUpgrade` registers them as damage values 45–48 and reuses existing icons 31 and 15. That file belongs to
+  `ItemUpgrade` registers them as damage values 47–48 and reuses existing icons 31 and 15. That file belongs to
   another area.
-- `RequestTablePipe.updateStorageUpgrades()` adds up the stack sizes of matching upgrade items in the upgrade
-  inventory (9 slots × 16) and resizes `inv` and the fluid storage. Nothing listens for upgrade changes; this
+- `RequestTablePipe.updateStorageUpgrades()` calculates item sizes from permanent branch tiers and fluid sizes
+  from matching upgrade cards in the eight-slot bar (16 per slot), then resizes `inv` and fluid storage. This
   method is called from many places instead: open GUI, container constructor and server change detection, every arrival, network click, Send all,
   NBT read/write, building the list, and the fill-level/amount getters. Those getters are also called while the
   client draws the GUI, where upgrade updates now return without changing storage.
@@ -428,10 +489,11 @@ including both result popups and chat output. Requests still run and crafting-mo
 [`RequestTableGui`](../../src/main/java/logisticspipes/crafting/requesttable/RequestTableGui.java) (client only,
 extends `LogisticsBaseGuiScreen`) puts the features above together:
 - header: title, search bar (network view only), Send all (storage views only), item/fluid storage buttons;
-- the main panel (network grid or storage slots);
+- the main panel (network grid, storage slots or crafting-monitor shell);
 - the display buttons on the left;
 - the crafting area with the clear button, the amount field and Req;
-- the player inventory.
+- the player inventory;
+- the top-right monitor button and its attached upgrade socket.
 
 Many things are drawn with plain `Gui.drawRect` calls: the storage icons, the crafting arrow, the clear button and
 the overlay buttons. All strings in this GUI are hard-coded English.
@@ -470,7 +532,7 @@ the overlay buttons. All strings in this GUI are hard-coded English.
 | [`RequestFluidOrdererRefreshPacket`](../../src/main/java/logisticspipes/network/packets/orderer/RequestFluidOrdererRefreshPacket.java) | Base class `IntegerCoordinatesPacket` → `Integer2CoordinatesPacket`; maps `integer2` to `RequestHandler.DisplayOptions`. | Carries the fluid display filter. **The wire format changed**, so client and server must run the same build (normal for LP packets). |
 
 Upstream classes changed for this feature but documented in other areas: `SimpleStackInventory` (resizable,
-`itemsCount`), `ItemUpgrade` (damages 45–48), `GuiIDs`/`GuiHandler` (GUI 39), `PacketGuards` (`getOpenRequestTable`),
+`itemsCount`), `ItemUpgrade` (damages 47–48), `GuiIDs`/`GuiHandler` (GUIs 39 and 40), `PacketGuards` (`getOpenRequestTable`),
 `PacketHandler` (fails clearly on unregistered packets), `RequestHandler` (`refreshFluid` with options,
 `simulateFluid`), `ClientProxy` (request-answer and recipe-import routing to `RequestTableGui`),
 `LogisticsCraftingOverlayHandler`/`NEILogisticsPipesConfig` (NEI overlay on `RequestTableGui`), `LogisticsPipes`
@@ -483,10 +545,8 @@ Upstream classes changed for this feature but documented in other areas: `Simple
 Seen in the code. Where `docs/pattern-crafting.md` §8 or `docs/testing-checklist.md` already lists an issue, its ID is
 given.
 
-1. **Stacks over 127 are not save-safe (D4).** The item stack upgrade raises the per-slot limit above 64. With two
-   upgrades it is 192, and there is no cap other than the 9×16 upgrade inventory. `SimpleStackInventory.writeToNBT`
-   still uses vanilla `ItemStack.writeToNBT` (byte `Count`). Big stacks can be truncated or wrap around on save.
-   The new table's container sync uses integer counts, so this remaining issue is limited to persistence.
+1. **Large-stack persistence (D4) fixed in code.** `SimpleStackInventory` saves integer `lpStackSize` alongside
+   vanilla `Count`; request-table snapshots also use integer counts. In-game save/reload verification is pending.
 2. **Unstackable items stack (D11).** Arrivals, shift-click into storage and network-entry inserts use
    `addCompressed(stack, true)`, which ignores the item's max stack size. 64 swords can sit in one slot.
    `moveInternalItemToPlayerInventory` puts back what the player inventory didn't take with `addCompressed`, and
@@ -501,16 +561,17 @@ given.
    loaded table in their world.
 5. **Storage sync retest (G2).** Slot counts and contents now come from server snapshots, and client upgrade
    calculations cannot resize or drop storage. Dedicated-server testing with upgraded storage is still required.
-6. **Storage upgrades apply late.** Upgrade changes take effect only the next time `updateStorageUpgrades()` runs,
-   not when the upgrade is inserted or removed. Removing upgrades drops the overflow items and fluids **in the
-   world**; nothing protects the contents.
+6. **Fluid cards apply late.** Card changes take effect the next time `updateStorageUpgrades()` runs.
+   Removing fluid cards drops overflowing fluids in the world. Permanent item tiers apply immediately and cannot
+   be removed; lowering their configured capacities can still compact storage and drop overflow.
 7. **Old-table features missing in the new GUI.**
    - No disk slot; `openGui` no longer takes a held disk, and `diskInv` is still saved and dropped.
    - No "to sort" slot; the inherited `toSortInv` logic still runs every tick but nothing can fill it.
-   - No crafting-monitor UI. The inherited watch logic keeps sending `OrdererWatchPacket`/`PatternCraftingWatchPacket`
-     to viewers, but `RequestTableGui` never shows that data.
+   - The crafting-monitor button and view shell are present, but live jobs are not connected. The inherited watch
+     logic keeps sending `OrdererWatchPacket`/`PatternCraftingWatchPacket` to viewers, but `RequestTableGui` does
+     not yet show that data.
 8. **No migration and no recipes.** Old request tables are never turned into Mk2. This repo has no crafting recipe
-   for `logisticsNewRequestTable` or for upgrade damages 45–48: `RecipeManager` and `SolderingStationRecipes` don't
+   for `logisticsNewRequestTable` or for fluid upgrade damages 47–48: `RecipeManager` and `SolderingStationRecipes` don't
    mention them. The items are only in the creative tab and NEI.
 9. **Missing lang key.** `RequestTableStorageUpgrade.getAllowedPipes()` returns `"newRequestTable"`, but
    `en_US.lang` has no `item.upgrade.info.newRequestTable`, so the shift tooltip shows the raw key.
@@ -549,14 +610,24 @@ given.
 | [RequestTableRequestOverlay](../../src/main/java/logisticspipes/crafting/requesttable/RequestTableRequestOverlay.java)             | A      | +240/-0  | Modal request popup with an amount field, ±1/10/100/1000 buttons and OK/close.                                                           |
 | [RequestTableView](../../src/main/java/logisticspipes/crafting/requesttable/RequestTableView.java)                                 | A      | +22/-0   | Enum of the upper panel modes: NETWORK, ITEM_STORAGE, FLUID_STORAGE.                                                                     |
 
+### Permanent item upgrade classes
+
+| Class/file                                                                                                                                     | Summary                                                                                                  |
+|------------------------------------------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------------------|
+| [RequestTableItemUpgradeBranch](../../src/main/java/logisticspipes/crafting/requesttable/RequestTableItemUpgradeBranch.java)                   | Independent slot-count and slot-size branches.                                                           |
+| [RequestTableItemUpgradeConfig](../../src/main/java/logisticspipes/crafting/requesttable/RequestTableItemUpgradeConfig.java)                   | Editable bases, cumulative bonuses, circuit ore names and costs; server-to-client config serialization.  |
+| [RequestTableUpgradeContainer](../../src/main/java/logisticspipes/crafting/requesttable/RequestTableUpgradeContainer.java)                     | Per-viewer material inventory, circuit filtering, server validation/consumption, unused-material return. |
+| [RequestTableUpgradeGui](../../src/main/java/logisticspipes/crafting/requesttable/RequestTableUpgradeGui.java)                                 | Scrollable two-branch tree, requirements and material-entry slots.                                       |
+| [RequestTableOpenUpgradesPacket](../../src/main/java/logisticspipes/network/packets/crafting/requesttable/RequestTableOpenUpgradesPacket.java) | Opens the upgrade screen or returns to Main through the player's current container.                      |
+| [RequestTableItemUpgradePacket](../../src/main/java/logisticspipes/network/packets/crafting/requesttable/RequestTableItemUpgradePacket.java)   | Selects a node or confirms an upgrade in the current window.                                             |
+| [RequestTableUpgradeStatePacket](../../src/main/java/logisticspipes/network/packets/crafting/requesttable/RequestTableUpgradeStatePacket.java) | Authoritative branch progress, selection and configured requirements.                                    |
+
 ### `logisticspipes.crafting.requesttable.upgrades`
 
 | Class/file | Status | +/- | Summary |
 |---|---|---|---|
 | [RequestTableFluidCapacityUpgrade](../../src/main/java/logisticspipes/crafting/requesttable/upgrades/RequestTableFluidCapacityUpgrade.java) | A | +7/-0 | Marker upgrade: +1× base capacity per fluid slot (damage 48). |
 | [RequestTableFluidInventoryUpgrade](../../src/main/java/logisticspipes/crafting/requesttable/upgrades/RequestTableFluidInventoryUpgrade.java) | A | +7/-0 | Marker upgrade: +9 fluid slots (damage 47). |
-| [RequestTableItemInventoryUpgrade](../../src/main/java/logisticspipes/crafting/requesttable/upgrades/RequestTableItemInventoryUpgrade.java) | A | +7/-0 | Marker upgrade: +9 item slots (damage 45). |
-| [RequestTableItemStackUpgrade](../../src/main/java/logisticspipes/crafting/requesttable/upgrades/RequestTableItemStackUpgrade.java) | A | +7/-0 | Marker upgrade: +64 per-slot item limit (damage 46). |
 | [RequestTableStorageUpgrade](../../src/main/java/logisticspipes/crafting/requesttable/upgrades/RequestTableStorageUpgrade.java) | A | +37/-0 | Base `IPipeUpgrade`: allowed only on `RequestTablePipe`, never on modules. |
 
 ### `logisticspipes.gui.orderer`
