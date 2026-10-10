@@ -183,6 +183,9 @@ item.PipeFluidSatellite.name=Logistics Fluid Satellite Pipe
 item.PipeBlockRequestTable=Logistics Request Table
 item.PipeBlockRequestTable.name=Logistics Request Table
 
+item.RequestTablePipe=Logistics Request Table Mk2
+item.RequestTablePipe.name=Logistics Request Table Mk2
+
 item.logisticspipes.tip.active_destination=Valid destination for %cYELLOW Active%cGRAY  routes
 item.logisticspipes.tip.passive_destination=Valid destination for %cYELLOW Passive%cGRAY  routes
 item.logisticspipes.tip.active_source=Valid source for %cYELLOW Active%cGRAY  routes

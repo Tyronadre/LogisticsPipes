@@ -14,6 +14,7 @@ import codechicken.nei.PositionedStack;
 import codechicken.nei.api.IOverlayHandler;
 import codechicken.nei.recipe.IRecipeHandler;
 import cpw.mods.fml.client.FMLClientHandler;
+import logisticspipes.crafting.requesttable.RequestTableGui;
 import logisticspipes.gui.GuiLogisticsCraftingTable;
 import logisticspipes.gui.orderer.GuiRequestTable;
 import logisticspipes.gui.popup.GuiRecipeImport;
@@ -35,6 +36,9 @@ public class LogisticsCraftingOverlayHandler implements IOverlayHandler {
         } else if (firstGui instanceof GuiRequestTable) {
             tile = ((GuiRequestTable) firstGui)._table.container;
             gui = (GuiRequestTable) firstGui;
+        } else if (firstGui instanceof RequestTableGui tableGui) {
+            tile = tableGui.getTable().container;
+            gui = tableGui;
         } else {
             return;
         }

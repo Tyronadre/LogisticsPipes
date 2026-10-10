@@ -8,7 +8,6 @@ import java.util.Arrays;
 import java.util.Iterator;
 import java.util.LinkedList;
 
-import net.minecraft.entity.item.EntityItem;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.inventory.IInventory;
 import net.minecraft.item.ItemStack;
@@ -24,9 +23,9 @@ import logisticspipes.utils.tuples.Pair;
 
 public class SimpleStackInventory implements IInventory, ISaveState, Iterable<Pair<ItemStack, Integer>> {
 
-    private final ItemStack[] _contents;
+    private ItemStack[] _contents;
     private final String _name;
-    private final int _stackLimit;
+    private int _stackLimit;
 
     private final LinkedList<ISimpleInventoryEventHandler> _listener = new LinkedList<>();
 
@@ -34,6 +33,26 @@ public class SimpleStackInventory implements IInventory, ISaveState, Iterable<Pa
         _contents = new ItemStack[size];
         _name = name;
         _stackLimit = stackLimit;
+    }
+
+    public void setSizeInventory(int size) {
+        if (size < 0) {
+            throw new IllegalArgumentException("Inventory size cannot be negative");
+        }
+        if (_contents.length == size) {
+            return;
+        }
+        _contents = Arrays.copyOf(_contents, size);
+        markDirty();
+    }
+
+    public void setInventoryStackLimit(int stackLimit) {
+        int newStackLimit = Math.max(1, stackLimit);
+        if (_stackLimit == newStackLimit) {
+            return;
+        }
+        _stackLimit = newStackLimit;
+        markDirty();
     }
 
     @Override
@@ -106,12 +125,19 @@ public class SimpleStackInventory implements IInventory, ISaveState, Iterable<Pa
 
     public void readFromNBT(NBTTagCompound nbttagcompound, String prefix) {
         NBTTagList nbttaglist = nbttagcompound.getTagList(prefix + "items", nbttagcompound.getId());
+        int storedSize = nbttagcompound.getInteger(prefix + "itemsCount");
+        if (storedSize > _contents.length) {
+            setSizeInventory(storedSize);
+        }
 
         for (int j = 0; j < nbttaglist.tagCount(); ++j) {
             NBTTagCompound nbttagcompound2 = nbttaglist.getCompoundTagAt(j);
             int index = nbttagcompound2.getInteger("index");
             if (index < _contents.length) {
                 _contents[index] = ItemStack.loadItemStackFromNBT(nbttagcompound2);
+                if (_contents[index] != null && nbttagcompound2.hasKey("lpStackSize")) {
+                    _contents[index].stackSize = nbttagcompound2.getInteger("lpStackSize");
+                }
             } else {
                 LogisticsPipes.log.fatal(
                         "SimpleInventory: java.lang.ArrayIndexOutOfBoundsException: " + index
@@ -134,6 +160,8 @@ public class SimpleStackInventory implements IInventory, ISaveState, Iterable<Pa
                 nbttaglist.appendTag(nbttagcompound2);
                 nbttagcompound2.setInteger("index", j);
                 _contents[j].writeToNBT(nbttagcompound2);
+                // Vanilla's Count byte cannot persist compressed request-table storage stacks.
+                nbttagcompound2.setInteger("lpStackSize", _contents[j].stackSize);
             }
         }
         nbttagcompound.setTag(prefix + "items", nbttaglist);
@@ -152,16 +180,7 @@ public class SimpleStackInventory implements IInventory, ISaveState, Iterable<Pa
     }
 
     private void dropItems(World world, ItemStack stack, int i, int j, int k) {
-        if (stack.stackSize <= 0) {
-            return;
-        }
-        float f1 = 0.7F;
-        double d = (world.rand.nextFloat() * f1) + (1.0F - f1) * 0.5D;
-        double d1 = (world.rand.nextFloat() * f1) + (1.0F - f1) * 0.5D;
-        double d2 = (world.rand.nextFloat() * f1) + (1.0F - f1) * 0.5D;
-        EntityItem entityitem = new EntityItem(world, i + d, j + d1, k + d2, stack);
-        entityitem.delayBeforeCanPickup = 10;
-        world.spawnEntityInWorld(entityitem);
+        ItemIdentifierInventory.dropItems(world, stack, i, j, k);
     }
 
     public void addListener(ISimpleInventoryEventHandler listner) {

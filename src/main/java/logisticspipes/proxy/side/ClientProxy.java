@@ -35,6 +35,7 @@ import logisticspipes.blocks.powertile.LogisticsPowerJunctionTileEntity;
 import logisticspipes.blocks.powertile.LogisticsRFPowerProviderTileEntity;
 import logisticspipes.blocks.stats.LogisticsStatisticsTileEntity;
 import logisticspipes.config.Configs;
+import logisticspipes.crafting.requesttable.RequestTableGui;
 import logisticspipes.gui.GuiCraftingPipe;
 import logisticspipes.gui.GuiLogisticsCraftingTable;
 import logisticspipes.gui.GuiSupplierPipe;
@@ -404,6 +405,12 @@ public class ClientProxy implements IProxy {
 
     @Override
     public void processMissingItemsPacket(MissingItems packet, EntityPlayer player) {
+        if (Configs.DISPLAY_POPUP
+                && FMLClientHandler.instance().getClient().currentScreen instanceof RequestTableGui gui) {
+            gui.handleRequestAnswer(packet.getItems(), packet.isFlag(), gui, player);
+            return;
+        }
+
         if (Configs.DISPLAY_POPUP && FMLClientHandler.instance().getClient().currentScreen instanceof GuiOrderer) {
             ((GuiOrderer) FMLClientHandler.instance().getClient().currentScreen).handleRequestAnswer(
                     packet.getItems(),
@@ -445,6 +452,8 @@ public class ClientProxy implements IProxy {
             gui = (GuiRequestTable) firstGui;
         } else if (firstGui instanceof GuiCraftingPipe) {
             gui = (GuiCraftingPipe) firstGui;
+        } else if (firstGui instanceof RequestTableGui) {
+            gui = (RequestTableGui) firstGui;
         } else {
             return;
         }

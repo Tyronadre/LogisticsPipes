@@ -46,6 +46,7 @@ import logisticspipes.commands.LogisticsPipesCommand;
 import logisticspipes.commands.chathelper.LPChatListener;
 import logisticspipes.config.Configs;
 import logisticspipes.config.PlayerConfig;
+import logisticspipes.crafting.requesttable.RequestTablePipe;
 import logisticspipes.items.ItemDisk;
 import logisticspipes.items.ItemHUDArmor;
 import logisticspipes.items.ItemLogisticsPipe;
@@ -242,6 +243,7 @@ public class LogisticsPipes {
     public static Item LogisticsDestinationPipe;
     public static Item LogisticsFirewallPipe;
     public static Item logisticsRequestTable;
+    public static Item logisticsNewRequestTable;
 
     // Logistics Apiarist's Pipes
     public static Item LogisticsApiaristAnalyzerPipe;
@@ -684,6 +686,7 @@ public class LogisticsPipes {
                 side);
 
         LogisticsPipes.logisticsRequestTable = createPipe(PipeBlockRequestTable.class, "Request Table", side);
+        LogisticsPipes.logisticsNewRequestTable = createPipe(RequestTablePipe.class, "New Request Table", side);
 
         LogisticsPipes.BasicTransportPipe = createPipe(PipeItemsBasicTransport.class, "Basic Transport Pipe", side);
     }

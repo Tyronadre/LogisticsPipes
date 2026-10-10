@@ -41,26 +41,37 @@ public class RequestHandler {
     }
 
     public static void request(final EntityPlayer player, final ItemIdentifierStack stack, final CoreRoutedPipe pipe) {
+        request(player, stack, pipe, true);
+    }
+
+    public static void request(final EntityPlayer player, final ItemIdentifierStack stack, final CoreRoutedPipe pipe,
+            final boolean showMessages) {
         if (!pipe.useEnergy(5)) {
-            player.addChatMessage(new ChatComponentTranslation("lp.misc.noenergy"));
+            if (showMessages) {
+                player.addChatMessage(new ChatComponentTranslation("lp.misc.noenergy"));
+            }
             return;
         }
         RequestTree.request(stack.clone(), pipe, new RequestLog() {
 
             @Override
             public void handleMissingItems(List<IResource> resources) {
-                MainProxy.sendPacketToPlayer(
-                        PacketHandler.getPacket(MissingItems.class).setItems(resources).setFlag(true),
-                        player);
+                if (showMessages) {
+                    MainProxy.sendPacketToPlayer(
+                            PacketHandler.getPacket(MissingItems.class).setItems(resources).setFlag(true),
+                            player);
+                }
             }
 
             @Override
             public void handleSucessfullRequestOf(IResource item, LinkedLogisticsOrderList parts) {
-                Collection<IResource> coll = new ArrayList<>(1);
-                coll.add(item);
-                MainProxy.sendPacketToPlayer(
-                        PacketHandler.getPacket(MissingItems.class).setItems(coll).setFlag(false),
-                        player);
+                if (showMessages) {
+                    Collection<IResource> coll = new ArrayList<>(1);
+                    coll.add(item);
+                    MainProxy.sendPacketToPlayer(
+                            PacketHandler.getPacket(MissingItems.class).setItems(coll).setFlag(false),
+                            player);
+                }
                 if (pipe instanceof IRequestWatcher) {
                     ((IRequestWatcher) pipe).handleOrderList(item, parts);
                 }
@@ -128,17 +139,26 @@ public class RequestHandler {
 
     public static void requestList(final EntityPlayer player, final List<ItemIdentifierStack> list,
             final CoreRoutedPipe pipe) {
+        requestList(player, list, pipe, true);
+    }
+
+    public static void requestList(final EntityPlayer player, final List<ItemIdentifierStack> list,
+            final CoreRoutedPipe pipe, final boolean showMessages) {
         if (!pipe.useEnergy(5)) {
-            player.addChatMessage(new ChatComponentTranslation("lp.misc.noenergy"));
+            if (showMessages) {
+                player.addChatMessage(new ChatComponentTranslation("lp.misc.noenergy"));
+            }
             return;
         }
         RequestTree.request(list, pipe, new RequestLog() {
 
             @Override
             public void handleMissingItems(List<IResource> resources) {
-                MainProxy.sendPacketToPlayer(
-                        PacketHandler.getPacket(MissingItems.class).setItems(resources).setFlag(true),
-                        player);
+                if (showMessages) {
+                    MainProxy.sendPacketToPlayer(
+                            PacketHandler.getPacket(MissingItems.class).setItems(resources).setFlag(true),
+                            player);
+                }
             }
 
             @Override
@@ -146,9 +166,11 @@ public class RequestHandler {
 
             @Override
             public void handleSucessfullRequestOfList(List<IResource> resources, LinkedLogisticsOrderList parts) {
-                MainProxy.sendPacketToPlayer(
-                        PacketHandler.getPacket(MissingItems.class).setItems(resources).setFlag(false),
-                        player);
+                if (showMessages) {
+                    MainProxy.sendPacketToPlayer(
+                            PacketHandler.getPacket(MissingItems.class).setItems(resources).setFlag(false),
+                            player);
+                }
                 if (pipe instanceof IRequestWatcher) {
                     ((IRequestWatcher) pipe).handleOrderList(null, parts);
                 }
@@ -271,33 +293,46 @@ public class RequestHandler {
 
     public static void requestFluid(final EntityPlayer player, final ItemIdentifierStack stack, CoreRoutedPipe pipe,
             IRequestFluid requester) {
+        requestFluid(player, stack, pipe, requester, true);
+    }
+
+    public static void requestFluid(final EntityPlayer player, final ItemIdentifierStack stack, CoreRoutedPipe pipe,
+            IRequestFluid requester, final boolean showMessages) {
+        FluidIdentifier fluid = FluidIdentifier.get(stack.getItem());
+        if (fluid == null) {
+            return;
+        }
         if (!pipe.useEnergy(10)) {
-            player.addChatMessage(new ChatComponentTranslation("lp.misc.noenergy"));
+            if (showMessages) {
+                player.addChatMessage(new ChatComponentTranslation("lp.misc.noenergy"));
+            }
             return;
         }
 
-        RequestTree
-                .requestFluid(FluidIdentifier.get(stack.getItem()), stack.getStackSize(), requester, new RequestLog() {
+        RequestTree.requestFluid(fluid, stack.getStackSize(), requester, new RequestLog() {
 
-                    @Override
-                    public void handleMissingItems(List<IResource> resources) {
-                        MainProxy.sendPacketToPlayer(
-                                PacketHandler.getPacket(MissingItems.class).setItems(resources).setFlag(true),
-                                player);
-                    }
+            @Override
+            public void handleMissingItems(List<IResource> resources) {
+                if (showMessages) {
+                    MainProxy.sendPacketToPlayer(
+                            PacketHandler.getPacket(MissingItems.class).setItems(resources).setFlag(true),
+                            player);
+                }
+            }
 
-                    @Override
-                    public void handleSucessfullRequestOf(IResource item, LinkedLogisticsOrderList parts) {
-                        Collection<IResource> coll = new ArrayList<>(1);
-                        coll.add(item);
-                        MainProxy.sendPacketToPlayer(
-                                PacketHandler.getPacket(MissingItems.class).setItems(coll).setFlag(false),
-                                player);
-                    }
+            @Override
+            public void handleSucessfullRequestOf(IResource item, LinkedLogisticsOrderList parts) {
+                if (showMessages) {
+                    Collection<IResource> coll = new ArrayList<>(1);
+                    coll.add(item);
+                    MainProxy.sendPacketToPlayer(
+                            PacketHandler.getPacket(MissingItems.class).setItems(coll).setFlag(false),
+                            player);
+                }
+            }
 
-                    @Override
-                    public void handleSucessfullRequestOfList(List<IResource> resources,
-                            LinkedLogisticsOrderList parts) {}
-                });
+            @Override
+            public void handleSucessfullRequestOfList(List<IResource> resources, LinkedLogisticsOrderList parts) {}
+        });
     }
 }
