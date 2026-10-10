@@ -7,6 +7,7 @@ and contents. Mk2 uses the existing logistics item and fluid request engines.
 
 - A combined network list shows items, fluids, internal stock and craftable entries. The hammer marks craftable
   entries; the gold count marks stock in this table. Counts use compact NEI-style rendering.
+- Hovered network entries support NEI's configured recipe, usage and bookmark shortcuts when no text field has focus.
 - Main, item-storage and fluid-storage tabs share a nine-column layout, draggable scrollbar and player inventory.
 - Per-player controls select sorting, item/fluid visibility, stored/craftable filtering, request messages,
   search focus, one-way search synchronization to NEI, remembered search text and small/tall terminal layouts.
@@ -57,8 +58,16 @@ and revision. Closing or leaving the monitor stops its subscription.
 
 ## Integration scope
 
-The implementation lives in `crafting.requesttable` and `network.packets.crafting.requesttable`. Shared changes
-register the pipe and GUIs, load its configuration, connect NEI and request-result popups, respect permanent
+The implementation lives in `crafting.requesttable`, with packages grouped by responsibility:
+
+- The root contains the pipe, main container, crafting counter and view selection.
+- `storage`, `settings` and `network` contain storage operations, display preferences and shared network entries.
+- `upgrade` contains permanent-upgrade configuration, materials, branches and the server container.
+- `gui` contains the terminal and shared rendering; `gui.upgrade` and `gui.monitor` contain their respective views.
+- `crafting.monitor` contains server-side job observation and snapshot data. Packets remain in
+  `network.packets.crafting.requesttable`, following the existing LP packet organization.
+
+Shared changes register the pipe and GUIs, load its configuration, connect NEI and request-result popups, respect permanent
 upgrade rules and preserve upgrade NBT on placement and drops. `SimpleStackInventory` supports configurable
 slot counts, capacities and integer stack counts so compressed storage survives saving and dropping.
 

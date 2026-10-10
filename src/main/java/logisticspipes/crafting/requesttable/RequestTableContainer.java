@@ -1,6 +1,10 @@
 package logisticspipes.crafting.requesttable;
 
 import logisticspipes.LogisticsPipes;
+import logisticspipes.crafting.requesttable.gui.RequestTableLayout;
+import logisticspipes.crafting.requesttable.storage.RequestTableFluidContainers;
+import logisticspipes.crafting.requesttable.storage.RequestTableFluidSlot;
+import logisticspipes.crafting.requesttable.storage.RequestTableFluidStorage;
 import logisticspipes.network.PacketHandler;
 import logisticspipes.network.packets.crafting.requesttable.RequestTableInventoryPacket;
 import logisticspipes.proxy.MainProxy;

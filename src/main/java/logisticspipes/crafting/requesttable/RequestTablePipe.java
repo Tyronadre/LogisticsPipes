@@ -1,28 +1,14 @@
 package logisticspipes.crafting.requesttable;
 
-import static logisticspipes.crafting.requesttable.RequestTableContainer.getFluidStack;
-import static logisticspipes.crafting.requesttable.RequestTableContainer.getItemStack;
-
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Map.Entry;
-
-import net.minecraft.entity.player.EntityPlayer;
-import net.minecraft.inventory.IInventory;
-import net.minecraft.inventory.SlotCrafting;
-import net.minecraft.item.Item;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.crafting.IRecipe;
-import net.minecraft.nbt.NBTTagCompound;
-import net.minecraftforge.common.util.ForgeDirection;
-import net.minecraftforge.fluids.FluidContainerRegistry;
-import net.minecraftforge.fluids.FluidStack;
-import net.minecraftforge.fluids.IFluidContainerItem;
-
 import logisticspipes.LogisticsPipes;
 import logisticspipes.blocks.crafting.AutoCraftingInventory;
+import logisticspipes.crafting.requesttable.network.RequestTableNetworkEntry;
+import logisticspipes.crafting.requesttable.settings.RequestTableDisplaySettings;
+import logisticspipes.crafting.requesttable.settings.RequestTableDisplaySettingsStore;
+import logisticspipes.crafting.requesttable.storage.RequestTableFluidContainers;
+import logisticspipes.crafting.requesttable.storage.RequestTableFluidStorage;
+import logisticspipes.crafting.requesttable.upgrade.RequestTableStorageUpgradeConfig;
+import logisticspipes.crafting.requesttable.upgrade.RequestTableUpgradeBranch;
 import logisticspipes.interfaces.routing.IRequestFluid;
 import logisticspipes.items.ItemUpgrade;
 import logisticspipes.logisticspipes.IRoutedItem;
@@ -45,6 +31,27 @@ import logisticspipes.utils.item.ItemIdentifierStack;
 import logisticspipes.utils.item.SimpleStackInventory;
 import logisticspipes.utils.tuples.Pair;
 import lombok.Getter;
+import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.inventory.IInventory;
+import net.minecraft.inventory.SlotCrafting;
+import net.minecraft.item.Item;
+import net.minecraft.item.ItemStack;
+import net.minecraft.item.crafting.IRecipe;
+import net.minecraft.nbt.NBTTagCompound;
+import net.minecraftforge.common.util.ForgeDirection;
+import net.minecraftforge.fluids.FluidContainerRegistry;
+import net.minecraftforge.fluids.FluidStack;
+import net.minecraftforge.fluids.IFluidContainerItem;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
+import java.util.Objects;
+
+import static logisticspipes.crafting.requesttable.RequestTableContainer.getFluidStack;
+import static logisticspipes.crafting.requesttable.RequestTableContainer.getItemStack;
 
 /**
  * New request table implementation with separate item and fluid storage.
@@ -201,7 +208,7 @@ public class RequestTablePipe extends PipeBlockRequestTable implements IRequestF
     }
 
     /** Request-table upgrades are purchased permanently through the motherboard. */
-    public boolean isUpgradeAllowed(int slot, ItemStack stack) {
+    public boolean isUpgradeAllowed() {
         return false;
     }
 
@@ -406,7 +413,7 @@ public class RequestTablePipe extends PipeBlockRequestTable implements IRequestF
         int amount = 0;
         for (Pair<ItemStack, Integer> entry : inv) {
             ItemStack stack = entry.getValue1();
-            if (stack != null && ItemIdentifier.get(stack).equals(item)) {
+            if (stack != null && Objects.requireNonNull(ItemIdentifier.get(stack)).equals(item)) {
                 amount += stack.stackSize;
             }
         }
@@ -509,7 +516,7 @@ public class RequestTablePipe extends PipeBlockRequestTable implements IRequestF
         int room;
         if (cursor == null) {
             room = item.getMaxStackSize();
-        } else if (ItemIdentifier.get(cursor).equals(item)) {
+        } else if (Objects.requireNonNull(ItemIdentifier.get(cursor)).equals(item)) {
             room = cursor.getMaxStackSize() - cursor.stackSize;
         } else {
             return false;
@@ -557,7 +564,7 @@ public class RequestTablePipe extends PipeBlockRequestTable implements IRequestF
         ItemStack removed = null;
         for (int slot = 0; slot < inv.getSizeInventory() && remaining > 0; slot++) {
             ItemStack stack = inv.getStackInSlot(slot);
-            if (stack == null || !ItemIdentifier.get(stack).equals(item)) {
+            if (stack == null || !Objects.requireNonNull(ItemIdentifier.get(stack)).equals(item)) {
                 continue;
             }
             int toRemove = Math.min(remaining, stack.stackSize);
@@ -603,11 +610,11 @@ public class RequestTablePipe extends PipeBlockRequestTable implements IRequestF
         return fluid != null && fluid.amount > 0;
     }
 
-    boolean emptyFluidContainers(EntityPlayer player, int inventorySlot) {
+    void emptyFluidContainers(EntityPlayer player, int inventorySlot) {
         if (!isFluidEnabled()) {
-            return false;
+            return;
         }
-        return RequestTableFluidContainers.shiftClick(player.inventory, inventorySlot, this::stageEmptyFluidContainers);
+        RequestTableFluidContainers.shiftClick(player.inventory, inventorySlot, this::stageEmptyFluidContainers);
     }
 
     private RequestTableFluidContainers.Transfer stageEmptyFluidContainers() {
@@ -693,33 +700,6 @@ public class RequestTablePipe extends PipeBlockRequestTable implements IRequestF
             return filled;
         }
         return cursor;
-    }
-
-    /**
-     * Counts matching fluid in the internal fluid storage.
-     *
-     * @param fluidContainer logistics fluid-container identifier
-     * @return amount currently held internally in millibuckets
-     */
-    public int getStoredFluidAmount(ItemIdentifier fluidContainer) {
-        if (!isFluidEnabled()) {
-            return 0;
-        }
-        updateStorageUpgrades();
-        FluidStack requested = SimpleServiceLocator.logisticsFluidManager
-                .getFluidFromContainer(new ItemIdentifierStack(fluidContainer, 1));
-        if (requested == null) {
-            return 0;
-        }
-        FluidIdentifier requestedFluid = FluidIdentifier.get(requested);
-        long amount = 0;
-        for (int slot = 0; slot < fluidStorage.getSizeInventory(); slot++) {
-            FluidStack stored = fluidStorage.getFluid(slot);
-            if (stored != null && requestedFluid.equals(FluidIdentifier.get(stored))) {
-                amount += stored.amount;
-            }
-        }
-        return (int) Math.min(Integer.MAX_VALUE, amount);
     }
 
     private ItemStack emptyContainerIntoInternal(RequestTableFluidStorage storage, ItemStack cursor, FluidStack held) {
@@ -820,9 +800,8 @@ public class RequestTablePipe extends PipeBlockRequestTable implements IRequestF
      *
      * @param player          player using the table
      * @param requestedAmount maximum number of output items to craft
-     * @return number of crafted output items
      */
-    public int craftIntoPlayerInventory(EntityPlayer player, int requestedAmount) {
+    public void craftIntoPlayerInventory(EntityPlayer player, int requestedAmount) {
         int targetAmount = Math.max(1, requestedAmount);
         int craftedAmount = 0;
         while (craftedAmount < targetAmount) {
@@ -847,7 +826,6 @@ public class RequestTablePipe extends PipeBlockRequestTable implements IRequestF
         if (craftedAmount > 0) {
             player.inventory.markDirty();
         }
-        return craftedAmount;
     }
 
     /**
@@ -931,8 +909,8 @@ public class RequestTablePipe extends PipeBlockRequestTable implements IRequestF
             return null;
         }
         ItemStack previewResult = recipe.getCraftingResult(preview);
-        if (previewResult == null || !ItemIdentifier.get(previewResult)
-                .equalsWithoutNBT(ItemIdentifier.get(resultInv.getStackInSlot(0)))) {
+        if (previewResult == null || !Objects.requireNonNull(ItemIdentifier.get(previewResult))
+            .equalsWithoutNBT(Objects.requireNonNull(ItemIdentifier.get(resultInv.getStackInSlot(0))))) {
             return null;
         }
         return new CraftingPreview(recipe, uses, previewResult.copy());
@@ -992,8 +970,11 @@ public class RequestTablePipe extends PipeBlockRequestTable implements IRequestF
                 resultInvForRecipe.setInventorySlotContents(i, matrix.getStackInSlot(i));
             }
             ItemStack result = recipe.getCraftingResult(resultInvForRecipe);
-            if (result != null && resultType.equalsWithoutNBT(ItemIdentifier.get(result))) {
-                return recipe;
+            if (result != null) {
+                assert resultType != null;
+                if (resultType.equalsWithoutNBT(Objects.requireNonNull(ItemIdentifier.get(result)))) {
+                    return recipe;
+                }
             }
         }
         return null;
@@ -1258,11 +1239,11 @@ public class RequestTablePipe extends PipeBlockRequestTable implements IRequestF
                 stored,
                 pattern,
                 (expected, candidate) -> matchesIngredient(
-                        ItemIdentifier.get(expected),
+                    Objects.requireNonNull(ItemIdentifier.get(expected)),
                         ItemIdentifier.get(candidate),
                         true),
                 (expected, candidate) -> matchesIngredient(
-                        ItemIdentifier.get(expected),
+                    Objects.requireNonNull(ItemIdentifier.get(expected)),
                         ItemIdentifier.get(candidate),
                         false),
                 inputs -> {
@@ -1275,7 +1256,7 @@ public class RequestTablePipe extends PipeBlockRequestTable implements IRequestF
                     }
                     ItemStack result = recipe.getCraftingResult(preview);
                     return result != null
-                            && ItemIdentifier.get(expectedResult).equalsWithoutNBT(ItemIdentifier.get(result)) ? result
+                        && Objects.requireNonNull(ItemIdentifier.get(expectedResult)).equalsWithoutNBT(Objects.requireNonNull(ItemIdentifier.get(result))) ? result
                                     : null;
                 });
     }

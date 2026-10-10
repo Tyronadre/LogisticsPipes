@@ -1,17 +1,12 @@
 package logisticspipes.network;
 
-import net.minecraft.entity.player.EntityPlayer;
-import net.minecraft.inventory.IInventory;
-import net.minecraft.tileentity.TileEntity;
-import net.minecraft.world.World;
-
 import cpw.mods.fml.common.network.IGuiHandler;
 import logisticspipes.LogisticsPipes;
 import logisticspipes.crafting.requesttable.RequestTableContainer;
-import logisticspipes.crafting.requesttable.RequestTableGui;
 import logisticspipes.crafting.requesttable.RequestTablePipe;
-import logisticspipes.crafting.requesttable.RequestTableUpgradeContainer;
-import logisticspipes.crafting.requesttable.RequestTableUpgradeGui;
+import logisticspipes.crafting.requesttable.gui.RequestTableGui;
+import logisticspipes.crafting.requesttable.gui.upgrade.RequestTableUpgradeGui;
+import logisticspipes.crafting.requesttable.upgrade.RequestTableUpgradeContainer;
 import logisticspipes.gui.GuiFirewall;
 import logisticspipes.gui.GuiFluidBasic;
 import logisticspipes.gui.GuiFluidSupplierPipe;
@@ -44,6 +39,10 @@ import logisticspipes.pipes.basic.CoreRoutedPipe;
 import logisticspipes.pipes.basic.LogisticsTileGenericPipe;
 import logisticspipes.proxy.MainProxy;
 import logisticspipes.utils.gui.DummyContainer;
+import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.inventory.IInventory;
+import net.minecraft.tileentity.TileEntity;
+import net.minecraft.world.World;
 
 public class GuiHandler implements IGuiHandler {
 

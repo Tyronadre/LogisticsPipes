@@ -1,20 +1,19 @@
 package logisticspipes.network.packets.crafting.requesttable;
 
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
-
-import net.minecraft.entity.player.EntityPlayer;
-import net.minecraft.nbt.NBTTagCompound;
-
 import cpw.mods.fml.client.FMLClientHandler;
-import logisticspipes.crafting.requesttable.RequestTableDisplaySettings;
-import logisticspipes.crafting.requesttable.RequestTableGui;
-import logisticspipes.crafting.requesttable.RequestTableNetworkEntry;
+import logisticspipes.crafting.requesttable.gui.RequestTableGui;
+import logisticspipes.crafting.requesttable.network.RequestTableNetworkEntry;
+import logisticspipes.crafting.requesttable.settings.RequestTableDisplaySettings;
 import logisticspipes.network.LPDataInputStream;
 import logisticspipes.network.LPDataOutputStream;
 import logisticspipes.network.abstractpackets.CoordinatesPacket;
 import logisticspipes.network.abstractpackets.ModernPacket;
+import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.nbt.NBTTagCompound;
+
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Sends the combined item/fluid request list to the new request table GUI.
@@ -63,11 +62,11 @@ public class RequestTableContentPacket extends CoordinatesPacket {
         super.writeData(data);
         data.writeInt(entries.size());
         for (RequestTableNetworkEntry entry : entries) {
-            data.writeBoolean(entry.isFluid());
-            data.writeItemIdentifierStack(entry.getStack());
-            data.writeInt(entry.getNetworkAmount());
-            data.writeInt(entry.getInternalAmount());
-            data.writeBoolean(entry.isCraftable());
+            data.writeBoolean(entry.fluid());
+            data.writeItemIdentifierStack(entry.stack());
+            data.writeInt(entry.networkAmount());
+            data.writeInt(entry.internalAmount());
+            data.writeBoolean(entry.craftable());
         }
         NBTTagCompound tag = new NBTTagCompound();
         displaySettings.writeToNBT(tag);

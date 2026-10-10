@@ -1,13 +1,12 @@
 package logisticspipes.config;
 
-import java.io.File;
-
+import cpw.mods.fml.common.Loader;
+import logisticspipes.LPConstants;
+import logisticspipes.crafting.requesttable.upgrade.RequestTableStorageUpgradeConfig;
 import net.minecraftforge.common.config.Configuration;
 import net.minecraftforge.common.config.Property;
 
-import cpw.mods.fml.common.Loader;
-import logisticspipes.LPConstants;
-import logisticspipes.crafting.requesttable.RequestTableStorageUpgradeConfig;
+import java.io.File;
 
 // @formatter:off
 // CHECKSTYLE:OFF

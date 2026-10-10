@@ -1,18 +1,17 @@
 package logisticspipes.nei;
 
-import net.minecraft.item.ItemStack;
-import net.minecraftforge.oredict.OreDictionary;
-
 import codechicken.nei.api.API;
 import codechicken.nei.api.IConfigureNEI;
 import codechicken.nei.guihook.GuiContainerManager;
 import cpw.mods.fml.common.Mod;
 import logisticspipes.LogisticsPipes;
 import logisticspipes.config.Configs;
-import logisticspipes.crafting.requesttable.RequestTableGui;
+import logisticspipes.crafting.requesttable.gui.RequestTableGui;
 import logisticspipes.gui.GuiLogisticsCraftingTable;
 import logisticspipes.gui.GuiSolderingStation;
 import logisticspipes.gui.orderer.GuiRequestTable;
+import net.minecraft.item.ItemStack;
+import net.minecraftforge.oredict.OreDictionary;
 
 public class NEILogisticsPipesConfig implements IConfigureNEI {
 
@@ -27,6 +26,9 @@ public class NEILogisticsPipesConfig implements IConfigureNEI {
         }
 
         GuiContainerManager.addDrawHandler(new DrawHandler());
+        RequestTableNEIHandler requestTableHandler = new RequestTableNEIHandler();
+        GuiContainerManager.addObjectHandler(requestTableHandler);
+        GuiContainerManager.addTooltipHandler(requestTableHandler);
 
         /*
          * MultiItemRange main = new MultiItemRange(); main.add(LogisticsPipes.LogisticsNetworkMonitior);
@@ -68,7 +70,7 @@ public class NEILogisticsPipesConfig implements IConfigureNEI {
 
         if (LogisticsPipes.isGTNH) {
 
-            for (gregtech.api.recipe.RecipeMap map : gregtech.api.recipe.RecipeMap.ALL_RECIPE_MAPS.values()) {
+            for (gregtech.api.recipe.RecipeMap<?> map : gregtech.api.recipe.RecipeMap.ALL_RECIPE_MAPS.values()) {
                 if (!map.unlocalizedName.isEmpty()) {
                     API.registerGuiOverlay(logisticspipes.gui.GuiCraftingPipe.class, map.unlocalizedName);
                     API.registerGuiOverlayHandler(

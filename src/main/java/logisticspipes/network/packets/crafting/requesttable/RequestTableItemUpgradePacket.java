@@ -1,7 +1,7 @@
 package logisticspipes.network.packets.crafting.requesttable;
 
-import logisticspipes.crafting.requesttable.RequestTableUpgradeBranch;
-import logisticspipes.crafting.requesttable.RequestTableUpgradeContainer;
+import logisticspipes.crafting.requesttable.upgrade.RequestTableUpgradeBranch;
+import logisticspipes.crafting.requesttable.upgrade.RequestTableUpgradeContainer;
 import logisticspipes.network.LPDataInputStream;
 import logisticspipes.network.LPDataOutputStream;
 import logisticspipes.network.PacketGuards;
@@ -21,11 +21,6 @@ public class RequestTableItemUpgradePacket extends ModernPacket {
 
     public RequestTableItemUpgradePacket(int id) {
         super(id);
-    }
-
-    public RequestTableItemUpgradePacket setUpgrade(int windowId, RequestTableUpgradeBranch branch, int tier,
-            boolean start) {
-        return setUpgrade(windowId, branch, tier, start, false);
     }
 
     public RequestTableItemUpgradePacket setUpgrade(int windowId, RequestTableUpgradeBranch branch, int tier,

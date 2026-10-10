@@ -1,15 +1,5 @@
 package logisticspipes.pipes.upgrades;
 
-import java.util.EnumSet;
-import java.util.UUID;
-
-import net.minecraft.entity.player.EntityPlayer;
-import net.minecraft.inventory.IInventory;
-import net.minecraft.item.ItemStack;
-import net.minecraft.nbt.NBTTagCompound;
-import net.minecraft.world.World;
-import net.minecraftforge.common.util.ForgeDirection;
-
 import logisticspipes.LogisticsPipes;
 import logisticspipes.crafting.requesttable.RequestTablePipe;
 import logisticspipes.interfaces.IGuiOpenControler;
@@ -29,6 +19,15 @@ import logisticspipes.utils.PlayerCollectionList;
 import logisticspipes.utils.gui.DummyContainer;
 import logisticspipes.utils.item.SimpleStackInventory;
 import lombok.Getter;
+import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.inventory.IInventory;
+import net.minecraft.item.ItemStack;
+import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.world.World;
+import net.minecraftforge.common.util.ForgeDirection;
+
+import java.util.EnumSet;
+import java.util.UUID;
 
 public class UpgradeManager implements ISimpleInventoryEventHandler, ISlotUpgradeManager, IPipeUpgradeManager {
 
@@ -414,7 +413,7 @@ public class UpgradeManager implements ISimpleInventoryEventHandler, ISlotUpgrad
         }
         IPipeUpgrade upgrade = LogisticsPipes.UpgradeItem.getUpgradeForItem(stack, null);
         return upgrade != null && upgrade.isAllowedForPipe(pipe)
-                && (!(pipe instanceof RequestTablePipe table) || table.isUpgradeAllowed(slot, stack));
+            && (!(pipe instanceof RequestTablePipe table) || table.isUpgradeAllowed());
     }
 
     public UUID getSecurityID() {

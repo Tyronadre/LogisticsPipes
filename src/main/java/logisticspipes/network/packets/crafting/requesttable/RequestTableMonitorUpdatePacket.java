@@ -2,7 +2,7 @@ package logisticspipes.network.packets.crafting.requesttable;
 
 import cpw.mods.fml.client.FMLClientHandler;
 import logisticspipes.crafting.monitor.CraftingMonitorData;
-import logisticspipes.crafting.requesttable.RequestTableGui;
+import logisticspipes.crafting.requesttable.gui.RequestTableGui;
 import logisticspipes.network.LPDataInputStream;
 import logisticspipes.network.LPDataOutputStream;
 import logisticspipes.network.PacketGuards;
