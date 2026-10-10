@@ -1,18 +1,16 @@
 package logisticspipes.crafting.requesttable;
 
-import static logisticspipes.crafting.requesttable.RequestTableRender.inside;
+import cpw.mods.fml.relauncher.Side;
+import cpw.mods.fml.relauncher.SideOnly;
+import logisticspipes.utils.gui.LogisticsBaseGuiScreen;
+import net.minecraft.client.gui.Gui;
+import net.minecraft.item.ItemStack;
+import org.lwjgl.input.Keyboard;
 
 import java.util.ArrayList;
 import java.util.List;
 
-import net.minecraft.client.gui.Gui;
-import net.minecraft.item.ItemStack;
-
-import org.lwjgl.input.Keyboard;
-
-import cpw.mods.fml.relauncher.Side;
-import cpw.mods.fml.relauncher.SideOnly;
-import logisticspipes.utils.gui.LogisticsBaseGuiScreen;
+import static logisticspipes.crafting.requesttable.RequestTableRender.inside;
 
 /**
  * Scrollable icon grid for requestable network items and fluids.
@@ -132,7 +130,7 @@ public class RequestTableNetworkGrid {
             }
             drawInternalAmount(screen, entry, x, y);
             if (entry.isCraftable()) {
-                RequestTableIcons.craftable(x, y);
+                RequestTableIcons.craftable(x - 1, y + 1);
             }
         }
     }

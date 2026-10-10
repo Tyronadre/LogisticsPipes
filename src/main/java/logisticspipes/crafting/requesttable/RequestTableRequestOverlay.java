@@ -1,13 +1,11 @@
 package logisticspipes.crafting.requesttable;
 
-import static logisticspipes.crafting.requesttable.RequestTableRender.inside;
-
-import net.minecraft.client.gui.FontRenderer;
-
-import org.lwjgl.input.Keyboard;
-
 import logisticspipes.utils.gui.GuiGraphics;
 import logisticspipes.utils.gui.LogisticsBaseGuiScreen;
+import net.minecraft.client.gui.FontRenderer;
+import org.lwjgl.input.Keyboard;
+
+import static logisticspipes.crafting.requesttable.RequestTableRender.inside;
 
 /**
  * Small modal request editor opened by clicking a network entry.
@@ -134,7 +132,7 @@ public class RequestTableRequestOverlay {
             drawDeltaButton(screen, i, false);
         }
 
-        RequestTableRender.item(entry.getDisplayStack(), left + 29, top + ITEM_TOP + 5, 250.0F, true);
+        RequestTableRender.item(entry.getDisplayStack(), left + 29, top + ITEM_TOP + 5, 250.0F, false);
         if (entry.isCraftable()) {
             RequestTableIcons.craftable(left + 29, top + ITEM_TOP + 5);
         }

@@ -1,18 +1,5 @@
 package logisticspipes.crafting.requesttable;
 
-import static logisticspipes.crafting.requesttable.RequestTableRender.inside;
-
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-
-import net.minecraft.client.gui.GuiButton;
-import net.minecraft.entity.player.EntityPlayer;
-import net.minecraft.item.ItemStack;
-import net.minecraft.util.EnumChatFormatting;
-
-import org.lwjgl.input.Mouse;
-
 import cpw.mods.fml.relauncher.Side;
 import cpw.mods.fml.relauncher.SideOnly;
 import logisticspipes.crafting.requesttable.RequestTableUpgradeMaterials.Requirement;
@@ -22,6 +9,17 @@ import logisticspipes.network.packets.crafting.requesttable.RequestTableOpenUpgr
 import logisticspipes.proxy.MainProxy;
 import logisticspipes.utils.gui.GuiGraphics;
 import logisticspipes.utils.gui.LogisticsBaseGuiScreen;
+import net.minecraft.client.gui.GuiButton;
+import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.item.ItemStack;
+import net.minecraft.util.EnumChatFormatting;
+import org.lwjgl.input.Mouse;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+
+import static logisticspipes.crafting.requesttable.RequestTableRender.inside;
 
 /** Fixed material controls around a freely draggable motherboard-style upgrade tree. */
 @SideOnly(Side.CLIENT)
@@ -34,9 +32,11 @@ public class RequestTableUpgradeGui extends LogisticsBaseGuiScreen {
     private static final int ZOOM_OUT = 3;
     private static final int ZOOM_IN = 4;
     private static final int SHOW_ALL = 5;
+    private static final int APPLY_CREATIVE = 6;
     private final RequestTableUpgradeContainer upgrades;
     private final RequestTableUpgradeBoard board = new RequestTableUpgradeBoard();
     private GuiButton applyButton;
+    private GuiButton creativeApplyButton;
     private GuiButton centerButton;
 
     public RequestTableUpgradeGui(EntityPlayer player, RequestTablePipe table) {
@@ -68,6 +68,8 @@ public class RequestTableUpgradeGui extends LogisticsBaseGuiScreen {
                 + 4;
         applyButton = new RequestTableButton(APPLY, applyLeft, detailsTop() + 34, 46, 18, "Apply");
         buttonList.add(applyButton);
+        creativeApplyButton = new RequestTableButton(APPLY_CREATIVE, applyLeft, detailsTop() + 54, 46, 16, "Free");
+        buttonList.add(creativeApplyButton);
         updateBoard();
         upgrades.layout(ySize);
     }
@@ -92,6 +94,8 @@ public class RequestTableUpgradeGui extends LogisticsBaseGuiScreen {
         applyButton.displayString = isSelectedUpgradeApplied() ? "Applied"
                 : upgrades.getSelectedBranch().isSpecial() ? "Install" : "Apply";
         applyButton.enabled = upgrades.isReady() && upgrades.canUpgrade();
+        creativeApplyButton.visible = mc.thePlayer.capabilities.isCreativeMode;
+        creativeApplyButton.enabled = upgrades.isReady() && upgrades.canUpgradeCreative();
     }
 
     @Override
@@ -129,7 +133,13 @@ public class RequestTableUpgradeGui extends LogisticsBaseGuiScreen {
                             + " "
                             + branch.getUnit();
             case WAITING -> "Waiting for the server...";
-            case PREVIOUS_REQUIRED -> "Install " + RequestTableStorageUpgradeConfig.getTierName(tier - 1) + " first";
+            case PREVIOUS_REQUIRED -> "Install " + RequestTableStorageUpgradeConfig.getTierName(tier - 1)
+                + " first ("
+                + EnumChatFormatting.DARK_GREEN
+                + "+"
+                + compact(config.getBonus(branch, tier))
+                + EnumChatFormatting.RESET
+                + ")";
             case FLUID_CONTROLLER_REQUIRED -> "Install fluid controller first";
             case AVAILABLE -> {
                 if (branch.isSpecial()) yield "Locked";
@@ -206,17 +216,26 @@ public class RequestTableUpgradeGui extends LogisticsBaseGuiScreen {
                     sendSelection(upgrades.getSelectedBranch(), upgrades.getSelectedTier(), true);
                 }
             }
-            case CENTER -> board.centerOnUpgrade(upgrades.getSelectedBranch(), upgrades.getSelectedTier());
+            case APPLY_CREATIVE -> {
+                if (upgrades.isReady() && upgrades.canUpgradeCreative()) {
+                    sendSelection(upgrades.getSelectedBranch(), upgrades.getSelectedTier(), true, true);
+                }
+            }
+            case CENTER -> board.center();
             case ZOOM_OUT, ZOOM_IN -> board.changeZoom(button.id == ZOOM_IN);
             case SHOW_ALL -> board.showAll();
         }
     }
 
     private void sendSelection(RequestTableUpgradeBranch branch, int tier, boolean start) {
+        sendSelection(branch, tier, start, false);
+    }
+
+    private void sendSelection(RequestTableUpgradeBranch branch, int tier, boolean start, boolean creative) {
         upgrades.awaitState();
         MainProxy.sendPacketToServer(
                 PacketHandler.getPacket(RequestTableItemUpgradePacket.class)
-                        .setUpgrade(upgrades.windowId, branch, tier, start));
+                    .setUpgrade(upgrades.windowId, branch, tier, start, creative));
     }
 
     @Override
@@ -234,14 +253,18 @@ public class RequestTableUpgradeGui extends LogisticsBaseGuiScreen {
             if (!RequestTableRender.hovered(button, mouseX, mouseY)) continue;
             List<String> tooltip = switch (button.id) {
                 case CENTER -> Arrays.asList(
-                        "Center on the selected upgrade.",
+                    "Center on the base chip.",
                         "Drag the board to move in any direction.",
                         "Mouse wheel: move vertically.",
                         "Shift + mouse wheel: move horizontally.");
-                case ZOOM_OUT -> Arrays.asList("Zoom out");
-                case ZOOM_IN -> Arrays.asList("Zoom in");
-                case SHOW_ALL -> Arrays.asList("Show the whole motherboard");
+                case ZOOM_OUT -> List.of("Zoom out");
+                case ZOOM_IN -> List.of("Zoom in");
+                case SHOW_ALL -> List.of("Show the whole motherboard");
                 case APPLY -> applyTooltip();
+                case APPLY_CREATIVE -> Arrays.asList(
+                    "Apply without materials (creative mode)",
+                    selectedStatus() == RequestTableUpgradeStatus.AVAILABLE ? "Prerequisite upgrades still apply."
+                        : selectedStatus().hint(upgrades.getSelectedTier()));
                 default -> null;
             };
             if (tooltip != null) {
@@ -274,6 +297,16 @@ public class RequestTableUpgradeGui extends LogisticsBaseGuiScreen {
                 Arrays.asList(
                         status.hint(upgrades.getSelectedTier()),
                         "Permanent, including after breaking and placing the table."));
+        if (!upgrades.getSelectedBranch().isSpecial() && (status == RequestTableUpgradeStatus.PREVIOUS_REQUIRED
+            || status == RequestTableUpgradeStatus.FLUID_CONTROLLER_REQUIRED)) {
+            tooltip.add(
+                "Provides " + EnumChatFormatting.DARK_GREEN
+                    + "+"
+                    + upgrades.getConfig().getBonus(upgrades.getSelectedBranch(), upgrades.getSelectedTier())
+                    + EnumChatFormatting.RESET
+                    + " "
+                    + upgrades.getSelectedBranch().getUnit());
+        }
         for (Requirement requirement : upgrades.getRequirements()) {
             tooltip.add(requirement.getCount() + "x " + requirement.getLabel());
         }

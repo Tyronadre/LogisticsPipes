@@ -1,16 +1,14 @@
 package logisticspipes.crafting.requesttable;
 
-import static net.minecraft.client.gui.Gui.drawRect;
-
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.Gui;
-import net.minecraft.util.ResourceLocation;
-
-import org.lwjgl.opengl.GL11;
-
 import cpw.mods.fml.relauncher.Side;
 import cpw.mods.fml.relauncher.SideOnly;
 import logisticspipes.crafting.requesttable.RequestTableIconButton.Icon;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.Gui;
+import net.minecraft.util.ResourceLocation;
+import org.lwjgl.opengl.GL11;
+
+import static net.minecraft.client.gui.Gui.drawRect;
 
 /** Pixel artwork shared by buttons, network entries and the request popup. */
 @SideOnly(Side.CLIENT)
@@ -24,6 +22,8 @@ final class RequestTableIcons {
     static void draw(Icon icon, int x, int y, int size, boolean enabled) {
         switch (icon) {
             case MESSAGES_ON, MESSAGES_OFF -> drawRequestMessagesIcon(x, y, icon == Icon.MESSAGES_ON);
+            case MONITOR_GRID, MONITOR_TREE -> drawMonitorViewIcon(x, y, icon == Icon.MONITOR_TREE);
+            case CRAFTABLE, BOTH -> drawCraftingFilterIcon(x, y, size, icon == Icon.BOTH);
             case SEARCH_STANDARD, SEARCH_AUTO, SEARCH_NEI_AUTO, SEARCH_NEI_STANDARD, SAVE_SEARCH_ON, SAVE_SEARCH_OFF, TERMINAL_SMALL, TERMINAL_TALL, ITEMS_ON, ITEMS_OFF, FLUIDS_ON, FLUIDS_OFF, UPGRADES -> drawTerminalControlIcon(
                     icon,
                     x,
@@ -35,14 +35,14 @@ final class RequestTableIcons {
                     case AMOUNT -> 2;
                     case ASCENDING -> 3;
                     case DESCENDING -> 4;
-                    case BOTH -> 5;
                     case STORED -> 6;
-                    case CRAFTABLE -> 7;
                     case SEND -> 8;
                     case REQUEST -> 9;
                     case CLEAR -> 10;
                     default -> throw new IllegalArgumentException("No atlas sprite for " + icon);
                 };
+                // Crafting actions keep their authored colors; their button face indicates availability.
+                boolean dim = !enabled && icon != Icon.CLEAR && icon != Icon.REQUEST;
                 RequestTableRender.textureRegion(
                         ATLAS,
                         x,
@@ -53,7 +53,44 @@ final class RequestTableIcons {
                         0,
                         (tile + 1) / 16.0,
                         1 / 16.0,
-                        enabled ? 1.0F : 0.5F);
+                    dim ? 0.5F : 1.0F);
+            }
+        }
+    }
+
+    private static void drawCraftingFilterIcon(int x, int y, int size, boolean stored) {
+        try (var state = RequestTableRender.guiState()) {
+            GL11.glTranslatef(x, y, 0);
+            GL11.glScalef(size / 16.0F, size / 16.0F, 1);
+            if (stored) {
+                drawRect(1, 6, 11, 15, 0xff373737);
+                drawRect(2, 7, 10, 14, 0xffcf9d53);
+                drawRect(2, 9, 10, 10, 0xff73604a);
+                drawRect(5, 8, 7, 12, 0xffe8c66a);
+                GL11.glTranslatef(6, 1, 0);
+                GL11.glScalef(1.5F, 1.5F, 1);
+            } else {
+                GL11.glTranslatef(2, 1, 0);
+                GL11.glScalef(2, 2, 1);
+            }
+            drawHammer();
+        }
+    }
+
+    private static void drawMonitorViewIcon(int x, int y, boolean tree) {
+        if (tree) {
+            drawRect(x + 7, y + 5, x + 9, y + 9, 0xff555555);
+            drawRect(x + 3, y + 8, x + 13, y + 10, 0xff555555);
+            drawRect(x + 3, y + 9, x + 5, y + 12, 0xff555555);
+            drawRect(x + 11, y + 9, x + 13, y + 12, 0xff555555);
+            RequestTableGuiStyle.inset(x + 5, y, 6, 6);
+            RequestTableGuiStyle.inset(x + 1, y + 11, 6, 5);
+            RequestTableGuiStyle.inset(x + 9, y + 11, 6, 5);
+        } else {
+            for (int row = 0; row < 2; row++) {
+                for (int column = 0; column < 2; column++) {
+                    RequestTableGuiStyle.inset(x + 1 + column * 8, y + 1 + row * 8, 6, 6);
+                }
             }
         }
     }
@@ -109,16 +146,19 @@ final class RequestTableIcons {
                 drawRect(x + 5, y + 7, x + 6, y + 11, 0xffa8d6ef);
             }
             case UPGRADES -> {
-                drawRect(x + 7, y + 3, x + 9, y + 13, 0xff73604a);
-                drawRect(x + 3, y + 8, x + 13, y + 10, 0xff73604a);
-                drawRect(x + 2, y + 8, x + 4, y + 13, 0xff73604a);
-                drawRect(x + 12, y + 8, x + 14, y + 13, 0xff73604a);
-                drawRect(x + 5, y + 1, x + 11, y + 6, 0xff373737);
-                drawRect(x + 6, y + 2, x + 10, y + 5, 0xffe8c66a);
-                drawRect(x + 1, y + 11, x + 6, y + 16, 0xff373737);
-                drawRect(x + 2, y + 12, x + 5, y + 15, 0xff7cac65);
-                drawRect(x + 10, y + 11, x + 15, y + 16, 0xff373737);
-                drawRect(x + 11, y + 12, x + 14, y + 15, 0xff7cac65);
+                // A socketed chip with an upward arrow echoes the motherboard's upgrade chips.
+                for (int pin = 3; pin < 14; pin += 4) {
+                    drawRect(x + pin, y, x + pin + 2, y + 2, 0xffb8a467);
+                    drawRect(x + pin, y + 14, x + pin + 2, y + 16, 0xffb8a467);
+                    drawRect(x, y + pin, x + 2, y + pin + 2, 0xffb8a467);
+                    drawRect(x + 14, y + pin, x + 16, y + pin + 2, 0xffb8a467);
+                }
+                drawRect(x + 2, y + 2, x + 14, y + 14, 0xff373737);
+                drawRect(x + 3, y + 3, x + 13, y + 13, 0xff637452);
+                drawRect(x + 4, y + 4, x + 12, y + 12, 0xff29352b);
+                drawRect(x + 7, y + 5, x + 9, y + 7, 0xffe4d29a);
+                drawRect(x + 5, y + 7, x + 11, y + 9, 0xffe4d29a);
+                drawRect(x + 7, y + 9, x + 9, y + 11, 0xffe4d29a);
             }
             default -> {}
         }
@@ -171,12 +211,16 @@ final class RequestTableIcons {
         try (var state = RequestTableRender.guiState()) {
             GL11.glTranslatef(x + 17 - 6 * CRAFTABLE_ICON_SCALE, y - 1, 150.0F);
             GL11.glScalef(CRAFTABLE_ICON_SCALE, CRAFTABLE_ICON_SCALE, 1.0F);
-            Gui.drawRect(1, 1, 6, 3, 0xff373737);
-            Gui.drawRect(3, 2, 5, 7, 0xff373737);
-            Gui.drawRect(2, 2, 4, 6, 0xff8b6b3e);
-            Gui.drawRect(2, 2, 3, 6, 0xffcf9d53);
-            Gui.drawRect(0, 0, 5, 2, 0xffa8b0b8);
-            Gui.drawRect(0, 0, 4, 1, 0xffe4e4e4);
+            drawHammer();
         }
+    }
+
+    private static void drawHammer() {
+        Gui.drawRect(1, 1, 6, 3, 0xff373737);
+        Gui.drawRect(3, 2, 5, 7, 0xff373737);
+        Gui.drawRect(2, 2, 4, 6, 0xff8b6b3e);
+        Gui.drawRect(2, 2, 3, 6, 0xffcf9d53);
+        Gui.drawRect(0, 0, 5, 2, 0xffa8b0b8);
+        Gui.drawRect(0, 0, 4, 1, 0xffe4e4e4);
     }
 }

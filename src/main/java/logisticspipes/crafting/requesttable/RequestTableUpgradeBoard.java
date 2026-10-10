@@ -1,20 +1,18 @@
 package logisticspipes.crafting.requesttable;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.Gui;
-import net.minecraft.util.EnumChatFormatting;
-import net.minecraft.util.ResourceLocation;
-
-import org.lwjgl.opengl.GL11;
-
 import cpw.mods.fml.relauncher.Side;
 import cpw.mods.fml.relauncher.SideOnly;
 import logisticspipes.crafting.requesttable.RequestTableBoardLayout.Node;
 import logisticspipes.crafting.requesttable.RequestTableUpgradeMaterials.Requirement;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.Gui;
+import net.minecraft.util.EnumChatFormatting;
+import net.minecraft.util.ResourceLocation;
+import org.lwjgl.opengl.GL11;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 
 /** One motherboard with four storage buses fed by a CPU and a separate fluid controller. */
 @SideOnly(Side.CLIENT)
@@ -108,6 +106,10 @@ final class RequestTableUpgradeBoard {
         Node node = findUpgrade(branch, tier);
         panX = width / 2.0F - node.x * zoom;
         panY = height / 2.0F - node.y * zoom;
+    }
+
+    void center() {
+        centerOnUpgrade(null, 0);
     }
 
     void showAll() {
@@ -326,7 +328,15 @@ final class RequestTableUpgradeBoard {
                                 + config.getTotal(node.branch, node.tier)
                                 + " "
                                 + node.branch.getUnit());
-                case WAITING, PREVIOUS_REQUIRED, FLUID_CONTROLLER_REQUIRED -> {}
+                case PREVIOUS_REQUIRED, FLUID_CONTROLLER_REQUIRED -> tooltip.add(
+                    "Provides " + EnumChatFormatting.DARK_GREEN
+                        + "+"
+                        + config.getBonus(node.branch, node.tier)
+                        + EnumChatFormatting.RESET
+                        + " "
+                        + node.branch.getUnit());
+                case WAITING -> {
+                }
             }
         }
         if (status != RequestTableUpgradeStatus.APPLIED) addCosts(tooltip, node, config);

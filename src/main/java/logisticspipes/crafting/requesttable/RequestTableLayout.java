@@ -106,7 +106,7 @@ public class RequestTableLayout {
         visibilityButtonX = guiLeft + 7;
         displayButtonX = visibilityButtonX + displayButtonWidth + SIDEBAR_COLUMN_GAP;
         centralLeft = displayButtonX + displayButtonWidth + SIDEBAR_GUI_GAP;
-        centralWidth = 190;
+        centralWidth = 190 + Math.max(0, xSize - GUI_WIDTH);
         centralTop = guiTop + TAB_HEIGHT - 4;
         networkButtonX = centralLeft + 1;
         itemButtonX = networkButtonX + MAIN_TAB_WIDTH + 2;

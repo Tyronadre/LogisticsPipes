@@ -1,23 +1,22 @@
 package logisticspipes.crafting.requesttable;
 
-import java.nio.IntBuffer;
-
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiButton;
-import net.minecraft.client.gui.ScaledResolution;
-import net.minecraft.client.renderer.Tessellator;
-import net.minecraft.item.ItemStack;
-import net.minecraft.util.ResourceLocation;
-
-import org.lwjgl.BufferUtils;
-import org.lwjgl.opengl.GL11;
-
 import cpw.mods.fml.relauncher.Side;
 import cpw.mods.fml.relauncher.SideOnly;
 import logisticspipes.utils.gui.GuiGraphics;
 import logisticspipes.utils.item.ItemIdentifierStack;
 import logisticspipes.utils.item.ItemStackRenderer;
 import logisticspipes.utils.item.ItemStackRenderer.DisplayAmount;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiButton;
+import net.minecraft.client.gui.ScaledResolution;
+import net.minecraft.client.renderer.Tessellator;
+import net.minecraft.item.ItemStack;
+import net.minecraft.util.ResourceLocation;
+import org.lwjgl.BufferUtils;
+import org.lwjgl.opengl.GL11;
+import org.lwjgl.opengl.GL12;
+
+import java.nio.IntBuffer;
 
 /** Shared drawing primitives for the request table, its popup and the upgrade board. */
 @SideOnly(Side.CLIENT)
@@ -67,6 +66,8 @@ final class RequestTableRender {
     static void item(ItemStack stack, int x, int y, float z, boolean ignoreDepth, boolean colored) {
         if (stack == null) return;
         try (var state = guiState()) {
+            // Match vanilla inventory lighting: block models scale their normals along with the geometry.
+            GL11.glEnable(GL12.GL_RESCALE_NORMAL);
             // Native chest models need writes to the depth buffer for the lid to occlude the base.
             GL11.glDepthMask(true);
             new ItemStackRenderer(x, y, z, true, ignoreDepth, colored)

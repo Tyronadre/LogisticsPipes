@@ -1,21 +1,20 @@
 package logisticspipes.crafting.requesttable;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-
-import net.minecraft.entity.player.EntityPlayer;
-import net.minecraft.inventory.ICrafting;
-import net.minecraft.inventory.InventoryBasic;
-import net.minecraft.inventory.Slot;
-import net.minecraft.item.ItemStack;
-
 import logisticspipes.crafting.requesttable.RequestTableUpgradeMaterials.Requirement;
 import logisticspipes.network.PacketGuards;
 import logisticspipes.network.PacketHandler;
 import logisticspipes.network.packets.crafting.requesttable.RequestTableUpgradeStatePacket;
 import logisticspipes.proxy.MainProxy;
 import logisticspipes.utils.gui.DummyContainer;
+import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.inventory.ICrafting;
+import net.minecraft.inventory.InventoryBasic;
+import net.minecraft.inventory.Slot;
+import net.minecraft.item.ItemStack;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 
 /** Per-viewer material escrow; completed tiers live on the table, never on this container. */
 public class RequestTableUpgradeContainer extends DummyContainer {
@@ -148,6 +147,10 @@ public class RequestTableUpgradeContainer extends DummyContainer {
         return hasPrerequisites() && planConsumption() != null;
     }
 
+    public boolean canUpgradeCreative() {
+        return player.capabilities.isCreativeMode && hasPrerequisites();
+    }
+
     private boolean hasPrerequisites() {
         if (selectedBranch.isSpecial()) return table.getUpgradeTier(selectedBranch) == 0;
         return table.getUpgradeTier(selectedBranch) + 1 == selectedTier
@@ -172,12 +175,17 @@ public class RequestTableUpgradeContainer extends DummyContainer {
     }
 
     public void startUpgrade(RequestTableUpgradeBranch branch, int tier) {
+        startUpgrade(branch, tier, false);
+    }
+
+    public void startUpgrade(RequestTableUpgradeBranch branch, int tier, boolean creative) {
         if (MainProxy.isClient(player.worldObj) || branch != selectedBranch
                 || tier != selectedTier
                 || !canInteractWith(player)
+            || (creative && !player.capabilities.isCreativeMode)
                 || !hasPrerequisites())
             return;
-        int[] consumed = planConsumption();
+        int[] consumed = creative ? new int[MATERIAL_SLOTS] : planConsumption();
         if (consumed == null) return;
         // Both validations run before consumption; another viewer cannot pay twice for the same tier.
         if (branch.isSpecial() ? !table.unlockSpecialUpgrade(branch) : !table.unlockStorageUpgrade(branch, tier))

@@ -36,8 +36,24 @@ pump for fluids, and an LP blank/gold/diamond chip for the small/middle/large ch
 use the specified circuits, pumps or covers and LP chip. Upgrades show prerequisites, current totals and their
 own contribution. Installed chips assemble with a short pixel animation.
 
-The permanent crafting-monitor upgrade enables its top-right terminal button. The monitoring view is a shell;
-live crafting-job display is a follow-up feature.
+The permanent crafting-monitor upgrade enables its top-right terminal button. The monitor uses a wider panel
+without player inventory or crafting slots. Select a request from the scrollable dropdown and switch between
+the resource grid and the draggable dependency tree. The grid combines identical items (including NBT) or
+fluids and shows waiting, active and sent quantities; exact values and unfulfilled remainders appear in tooltips.
+The tree retains individual order branches, supports mouse-wheel zoom and a center button, and shows machine
+or transport progress only when the existing LP orders supply it. The grid scrollbar can be dragged.
+
+Requests containing crafting are observed throughout the connected LP network, including automatic requests,
+even before a monitor opens. Simulations and pure stock deliveries are excluded. Finished requests remain for
+ten seconds. Without the permanent fluid controller, fluid details are redacted on the server and replaced by
+locked placeholders. Monitoring never changes orders, enables tracking, cancels jobs or persists job history.
+Sent quantities indicate dispatch, not confirmed insertion into an inventory; completion uses existing LP data.
+
+The observer is isolated in `crafting.monitor`. Existing LP code only hands off a fulfilled root order tree,
+registers the observer, and clears it at server shutdown. Monitor subscriptions validate the open table, reach,
+security and upgrade. The overview updates at most once per second; selected-job changes at most every five
+ticks. Initial trees are split into bounded chunks, assembled atomically, and subsequently updated by node ID
+and revision. Closing or leaving the monitor stops its subscription.
 
 ## Integration scope
 
@@ -54,4 +70,7 @@ as a fallback. It has no dependency on the separate pattern-crafting implementat
 
 Compile using the upstream Gradle wrapper and Java 25 toolchain. No tests were added or run for this feature;
 manual in-game verification is planned for storage/cursor sync, fluid cells, NEI integration, crafting from both
-inventories, upgrade consumption and persistence, terminal layout and board rendering.
+inventories, upgrade consumption and persistence, terminal layout and board rendering. For the monitor, check
+multi-stage and concurrent jobs, automatic requests, late and simultaneous viewers, separated networks, fluid
+controller gating, partial dispatch, progress and unfulfilled remainders, completion retention, large trees,
+zoom/panning/scrollbars, small windows and restoration of inventory slots after returning to the main view.

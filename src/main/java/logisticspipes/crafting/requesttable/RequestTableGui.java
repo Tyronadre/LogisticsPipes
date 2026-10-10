@@ -1,25 +1,5 @@
 package logisticspipes.crafting.requesttable;
 
-import static logisticspipes.crafting.requesttable.RequestTableRender.inside;
-
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.List;
-
-import net.minecraft.block.Block;
-import net.minecraft.client.gui.Gui;
-import net.minecraft.client.gui.GuiButton;
-import net.minecraft.client.renderer.entity.RenderItem;
-import net.minecraft.entity.player.EntityPlayer;
-import net.minecraft.init.Blocks;
-import net.minecraft.init.Items;
-import net.minecraft.inventory.Slot;
-import net.minecraft.item.ItemStack;
-import net.minecraft.util.EnumChatFormatting;
-
-import org.lwjgl.input.Keyboard;
-import org.lwjgl.input.Mouse;
-
 import codechicken.nei.LayoutManager;
 import cpw.mods.fml.common.registry.GameRegistry;
 import cpw.mods.fml.relauncher.Side;
@@ -43,6 +23,24 @@ import logisticspipes.utils.gui.GuiSearchBar;
 import logisticspipes.utils.gui.ISubGuiControler;
 import logisticspipes.utils.gui.LogisticsBaseGuiScreen;
 import logisticspipes.utils.string.StringUtils;
+import net.minecraft.block.Block;
+import net.minecraft.client.gui.Gui;
+import net.minecraft.client.gui.GuiButton;
+import net.minecraft.client.renderer.entity.RenderItem;
+import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.init.Blocks;
+import net.minecraft.init.Items;
+import net.minecraft.inventory.Slot;
+import net.minecraft.item.ItemStack;
+import net.minecraft.util.EnumChatFormatting;
+import org.lwjgl.input.Keyboard;
+import org.lwjgl.input.Mouse;
+
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.List;
+
+import static logisticspipes.crafting.requesttable.RequestTableRender.inside;
 
 /**
  * Redesigned request table GUI with a combined item/fluid network list, internal storage views and fake crafting grid.
@@ -67,6 +65,8 @@ public class RequestTableGui extends LogisticsBaseGuiScreen {
     private static final int SHOW_FLUIDS_BUTTON = 14;
     private static final int CRAFTING_MONITOR_BUTTON = 15;
     private static final int ITEM_UPGRADES_BUTTON = 16;
+    private static final int MONITOR_GRID_BUTTON = 17;
+    private static final int MONITOR_TREE_BUTTON = 18;
 
     private final RequestTablePipe table;
     private final EntityPlayer player;
@@ -74,6 +74,8 @@ public class RequestTableGui extends LogisticsBaseGuiScreen {
     private final RequestTableNetworkGrid networkGrid = new RequestTableNetworkGrid();
     private final RequestTableRequestOverlay requestOverlay = new RequestTableRequestOverlay();
     private final RequestTableItemRenderer storageItemRenderer = new RequestTableItemRenderer();
+    private final RequestTableMonitorModel monitorModel;
+    private final RequestTableMonitorPanel monitorPanel;
 
     private RequestTableLayout layout;
     private GuiSearchBar search;
@@ -95,7 +97,10 @@ public class RequestTableGui extends LogisticsBaseGuiScreen {
     private RequestTableIconButton fluidButton;
     private RequestTableIconButton clearCraftingButton;
     private RequestTableMonitorButton monitorButton;
+    private RequestTableIconButton monitorGridButton;
+    private RequestTableIconButton monitorTreeButton;
     private RequestTableView view = RequestTableView.NETWORK;
+    private RequestTableView monitorReturnView = RequestTableView.NETWORK;
     private RequestTableDisplaySettings displaySettings = RequestTableDisplaySettings.DEFAULT;
     private int storageScrollRow;
     private boolean scrollbarDragging;
@@ -114,6 +119,8 @@ public class RequestTableGui extends LogisticsBaseGuiScreen {
         super(new RequestTableContainer(player, table), RequestTableLayout.GUI_WIDTH, 300, 0, 0);
         this.player = player;
         this.table = table;
+        monitorModel = new RequestTableMonitorModel(table);
+        monitorPanel = new RequestTableMonitorPanel(monitorModel);
         this.container = (RequestTableContainer) inventorySlots;
         dimension = MainProxy.getDimensionForWorld(table.getWorld());
         refreshNetwork();
@@ -121,7 +128,9 @@ public class RequestTableGui extends LogisticsBaseGuiScreen {
 
     @Override
     public void initGui() {
-        xSize = RequestTableLayout.GUI_WIDTH;
+        xSize = view == RequestTableView.CRAFTING_MONITOR
+            ? Math.min(416, Math.max(RequestTableLayout.GUI_WIDTH, width - 16))
+            : RequestTableLayout.GUI_WIDTH;
         ySize = RequestTableLayout.getGuiHeight(height, displaySettings.getTerminalStyle());
         super.initGui();
         updateLayout();
@@ -180,6 +189,8 @@ public class RequestTableGui extends LogisticsBaseGuiScreen {
         showItemsButton = addSidebarButton(SHOW_ITEMS_BUTTON, Icon.ITEMS_ON);
         showFluidsButton = addSidebarButton(SHOW_FLUIDS_BUTTON, Icon.FLUIDS_ON);
         itemUpgradesButton = addSidebarButton(ITEM_UPGRADES_BUTTON, Icon.UPGRADES);
+        monitorGridButton = addSidebarButton(MONITOR_GRID_BUTTON, Icon.MONITOR_GRID);
+        monitorTreeButton = addSidebarButton(MONITOR_TREE_BUTTON, Icon.MONITOR_TREE);
         networkButton = new RequestTableIconButton(
                 NETWORK_VIEW_BUTTON,
                 layout.networkButtonX,
@@ -362,16 +373,20 @@ public class RequestTableGui extends LogisticsBaseGuiScreen {
             drawMainPanel(mouseX, mouseY);
             if (view != RequestTableView.CRAFTING_MONITOR) {
                 drawCraftingArea();
+                if (!layout.compact) {
+                    mc.fontRenderer.drawString(
+                        "Inventory",
+                        layout.playerLeft,
+                        layout.playerTop - 12,
+                        RequestTableGuiStyle.TEXT);
+                }
+                GuiGraphics.drawPlayerInventoryBackground(mc, layout.playerLeft, layout.playerTop);
             }
-            if (!layout.compact) {
-                mc.fontRenderer
-                        .drawString("Inventory", layout.playerLeft, layout.playerTop - 12, RequestTableGuiStyle.TEXT);
-            }
-            GuiGraphics.drawPlayerInventoryBackground(mc, layout.playerLeft, layout.playerTop);
         }
     }
 
     private void drawHeader() {
+        if (view == RequestTableView.CRAFTING_MONITOR) return;
         if (view == RequestTableView.NETWORK) {
             search.reposition(layout.searchX, layout.searchY, layout.searchWidth, layout.searchHeight);
             search.renderSearchBar();
@@ -396,27 +411,9 @@ public class RequestTableGui extends LogisticsBaseGuiScreen {
                 networkGrid.setSearch(getSearchText());
                 networkGrid.render(this, layout, mouseX, mouseY);
             }
-            case CRAFTING_MONITOR -> drawMonitorView();
+            case CRAFTING_MONITOR -> monitorPanel.render(layout, mouseX, mouseY);
             case ITEM_STORAGE, FLUID_STORAGE -> drawStoragePanel();
         }
-    }
-
-    private void drawMonitorView() {
-        int height = layout.playerTop - layout.panelTop - (layout.compact ? 8 : 18);
-        RequestTableGuiStyle.inset(layout.panelLeft, layout.panelTop, layout.panelWidth, height);
-        Gui.drawRect(
-                layout.panelLeft + 1,
-                layout.panelTop + 1,
-                layout.panelLeft + layout.panelWidth - 1,
-                layout.panelTop + height - 1,
-                0xff555b55);
-        int centerX = layout.panelLeft + layout.panelWidth / 2;
-        int centerY = layout.panelTop + height / 2;
-        RequestTableIcons.monitor(centerX - 8, centerY - 27, true, false);
-        String label = "Crafting activity";
-        mc.fontRenderer.drawString(label, centerX - mc.fontRenderer.getStringWidth(label) / 2, centerY - 6, 0xc8e7ae);
-        String status = "Display not available yet.";
-        mc.fontRenderer.drawString(status, centerX - mc.fontRenderer.getStringWidth(status) / 2, centerY + 7, 0xc6c6c6);
     }
 
     private void drawStoragePanel() {
@@ -533,6 +530,7 @@ public class RequestTableGui extends LogisticsBaseGuiScreen {
             }
         } else if (!hasSubGui()) {
             drawDisplayButtonTooltip(mouseX, mouseY);
+            if (view == RequestTableView.CRAFTING_MONITOR) monitorPanel.drawTooltip(mouseX, mouseY);
         }
     }
 
@@ -557,6 +555,8 @@ public class RequestTableGui extends LogisticsBaseGuiScreen {
             case TERMINAL_STYLE_BUTTON -> applyDisplaySettings(displaySettings.nextTerminalStyle());
             case SHOW_ITEMS_BUTTON -> applyDisplaySettings(displaySettings.toggleItems());
             case SHOW_FLUIDS_BUTTON -> applyDisplaySettings(displaySettings.toggleFluids());
+            case MONITOR_GRID_BUTTON -> monitorPanel.setTree(false);
+            case MONITOR_TREE_BUTTON -> monitorPanel.setTree(true);
             case ITEM_UPGRADES_BUTTON -> MainProxy
                     .sendPacketToServer(PacketHandler.getPacket(RequestTableOpenUpgradesPacket.class).setInteger(0));
             case NETWORK_VIEW_BUTTON -> setView(RequestTableView.NETWORK);
@@ -564,7 +564,9 @@ public class RequestTableGui extends LogisticsBaseGuiScreen {
             case FLUID_VIEW_BUTTON -> setView(RequestTableView.FLUID_STORAGE);
             case CRAFTING_MONITOR_BUTTON -> {
                 if (button.enabled) {
-                    setView(RequestTableView.CRAFTING_MONITOR);
+                    setView(
+                        view == RequestTableView.CRAFTING_MONITOR ? monitorReturnView
+                            : RequestTableView.CRAFTING_MONITOR);
                 }
             }
             case SEND_BUTTON -> MainProxy.sendPacketToServer(
@@ -580,6 +582,7 @@ public class RequestTableGui extends LogisticsBaseGuiScreen {
 
     @Override
     protected void mouseClicked(int mouseX, int mouseY, int button) {
+        if (view == RequestTableView.CRAFTING_MONITOR && monitorPanel.click(mouseX, mouseY, button)) return;
         if (scrollbarDragging) {
             return;
         }
@@ -650,6 +653,10 @@ public class RequestTableGui extends LogisticsBaseGuiScreen {
 
     @Override
     protected void mouseClickMove(int mouseX, int mouseY, int button, long timeSinceLastClick) {
+        if (view == RequestTableView.CRAFTING_MONITOR) {
+            if (button == 0) monitorPanel.move(mouseX, mouseY);
+            return;
+        }
         if (scrollbarDragging) {
             if (button == 0) {
                 dragScrollbar(mouseY);
@@ -661,6 +668,7 @@ public class RequestTableGui extends LogisticsBaseGuiScreen {
 
     @Override
     protected void mouseMovedOrUp(int mouseX, int mouseY, int button) {
+        if (view == RequestTableView.CRAFTING_MONITOR && button == 0) monitorPanel.release();
         if (scrollbarDragging) {
             if (button == 0) {
                 scrollbarDragging = false;
@@ -753,6 +761,11 @@ public class RequestTableGui extends LogisticsBaseGuiScreen {
             return;
         }
         int wheel = Mouse.getEventDWheel();
+        if (view == RequestTableView.CRAFTING_MONITOR && !hasSubGui()) {
+            int mouseX = Mouse.getEventX() * width / mc.displayWidth;
+            int mouseY = height - Mouse.getEventY() * height / mc.displayHeight - 1;
+            monitorPanel.scroll(wheel, mouseX, mouseY);
+        }
         if (wheel != 0 && !scrollbarDragging && view != RequestTableView.CRAFTING_MONITOR) {
             int rows = wheel > 0 ? -1 : 1;
             if (view == RequestTableView.NETWORK) {
@@ -812,6 +825,11 @@ public class RequestTableGui extends LogisticsBaseGuiScreen {
         if (newView == RequestTableView.FLUID_STORAGE && (!container.isInventoryReady() || !table.isFluidEnabled())) {
             return;
         }
+        if (newView == RequestTableView.CRAFTING_MONITOR) monitorReturnView = view;
+        if (view == RequestTableView.CRAFTING_MONITOR) {
+            monitorModel.leave();
+            monitorPanel.release();
+        }
         view = newView;
         scrollbarDragging = false;
         requestOverlay.close();
@@ -823,7 +841,13 @@ public class RequestTableGui extends LogisticsBaseGuiScreen {
         if (view == RequestTableView.NETWORK) {
             refreshNetwork();
         }
-        updateContainerLayout();
+        initGui();
+        if (view == RequestTableView.CRAFTING_MONITOR) monitorModel.enter(container.windowId);
+    }
+
+    /** Receives only snapshots belonging to this GUI's current monitor subscription. */
+    public void handleMonitorChunk(long session, long transfer, int part, int parts, byte[] payload) {
+        monitorModel.chunk(session, transfer, part, parts, payload);
     }
 
     private void refreshNetwork() {
@@ -899,6 +923,8 @@ public class RequestTableGui extends LogisticsBaseGuiScreen {
 
     @Override
     public void onGuiClosed() {
+        monitorModel.leave();
+        monitorPanel.release();
         scrollbarDragging = false;
         if (search != null) {
             search.setFocus(false);
@@ -958,11 +984,17 @@ public class RequestTableGui extends LogisticsBaseGuiScreen {
         showItemsButton.enabled = enabled;
         showFluidsButton.enabled = enabled && table.isFluidEnabled();
         terminalStyleButton.enabled = settingsReceived;
-        requestMessagesButton.enabled = settingsReceived;
+        requestMessagesButton.enabled = enabled;
         sendButton.enabled = isStorageView() && container.isInventoryReady();
         itemUpgradesButton.enabled = container.isInventoryReady();
+        monitorGridButton.enabled = view == RequestTableView.CRAFTING_MONITOR;
+        monitorTreeButton.enabled = monitorGridButton.enabled;
+        monitorGridButton.setSelected(!monitorPanel.isTree());
+        monitorTreeButton.setSelected(monitorPanel.isTree());
         layoutSidebarColumn(
                 layout.displayButtonX,
+            monitorGridButton,
+            monitorTreeButton,
                 sendButton,
                 sortModeButton,
                 sortDirectionButton,
@@ -1049,12 +1081,14 @@ public class RequestTableGui extends LogisticsBaseGuiScreen {
                 yield Arrays.asList(
                         "Terminal size: " + (tall ? "Tall" : "Small"),
                         tall ? "Use the available window height."
-                                : "Up to " + RequestTableLayout.SMALL_ROWS + " content rows.",
-                        "Leave room for NEI's top and bottom controls.");
+                            : "Up to " + RequestTableLayout.SMALL_ROWS + " content rows.");
             }
             case SHOW_ITEMS_BUTTON -> Arrays.asList(
                     "Show items: " + (displaySettings.isShowItems() ? "Yes" : "No"),
                     "Toggle items in the Main list.");
+            case MONITOR_GRID_BUTTON -> Arrays.asList("Grid view", "Combines identical resources across all branches.");
+            case MONITOR_TREE_BUTTON -> Arrays
+                .asList("Tree view", "Show crafting dependencies.", "Drag to move. Mouse wheel changes zoom.");
             case SHOW_FLUIDS_BUTTON -> Arrays.asList(
                     "Show fluids: " + (displaySettings.isShowFluids() ? "Yes" : "No"),
                     "Toggle fluids in the Main list.");
@@ -1067,30 +1101,34 @@ public class RequestTableGui extends LogisticsBaseGuiScreen {
                     "Consume components for permanent improvements.");
             case ITEM_VIEW_BUTTON -> Arrays.asList(
                     "Internal item storage",
-                    table.inv.getSizeInventory() + " slots",
+                "Used slots: " + usedItemSlots() + "/" + table.inv.getSizeInventory(),
                     table.inv.getInventoryStackLimit() + " items per slot");
             case FLUID_VIEW_BUTTON -> Arrays.asList(
                     "Internal fluid storage",
-                    table.getFluidStorage().getSizeInventory() + " tanks",
+                "Used tanks: " + usedFluidTanks() + "/" + table.getFluidStorage().getSizeInventory(),
                     table.getFluidStorage().getSlotCapacity() + " mB per tank");
             case CRAFTING_MONITOR_BUTTON -> table.hasMonitoringUpgrade()
                     ? Arrays.asList(
                             "Crafting monitor",
-                            "Open the crafting monitor view.",
-                            monitorButton.enabled ? "Monitoring unlocked permanently." : "Updating upgrades...")
+                !monitorButton.enabled ? "Updating upgrades..."
+                    : view == RequestTableView.CRAFTING_MONITOR ? "Close the crafting monitor view."
+                    : "Open the crafting monitor view.")
                     : Arrays.asList(
                             "Crafting monitor",
-                            "Requires the permanent monitoring upgrade.",
+                "Requires the monitoring upgrade.",
                             "Unlock it on the upgrade board.");
             case REQUEST_INGREDIENTS_BUTTON -> Arrays.asList(
                     "Request missing ingredients",
                     getIngredientRequestAmount() + " craft sets",
                     "Uses ingredients already in the table first.");
-            case CLEAR_CRAFTING_BUTTON -> Arrays.asList("Clear crafting grid");
+            case CLEAR_CRAFTING_BUTTON -> List.of("Clear crafting grid");
             case SEND_BUTTON -> Arrays.asList(
                     "Send all " + (view == RequestTableView.FLUID_STORAGE ? "fluids" : "items"),
                     "Return stored contents to the network.");
-            default -> Arrays.asList("Network", "Browse stored and craftable items and fluids.");
+            default -> Arrays.asList(
+                "Network",
+                table.isFluidEnabled() ? "Browse stored and craftable items and fluids."
+                    : "Browse stored and craftable items.");
         };
         GuiGraphics.drawToolTip(mouseX, mouseY, tooltip, EnumChatFormatting.WHITE);
     }
@@ -1102,6 +1140,25 @@ public class RequestTableGui extends LogisticsBaseGuiScreen {
             }
         }
         return null;
+    }
+
+    private int usedItemSlots() {
+        int count = 0;
+        for (int slot = 0; slot < table.inv.getSizeInventory(); slot++) {
+            var stack = table.inv.getStackInSlot(slot);
+            if (stack != null && stack.stackSize > 0) count++;
+        }
+        return count;
+    }
+
+    private int usedFluidTanks() {
+        int count = 0;
+        var storage = table.getFluidStorage();
+        for (int tank = 0; tank < storage.getSizeInventory(); tank++) {
+            var fluid = storage.getFluid(tank);
+            if (fluid != null && fluid.amount > 0) count++;
+        }
+        return count;
     }
 
     private void initIngredientAmountField() {

@@ -1,10 +1,9 @@
 package logisticspipes.crafting.requesttable;
 
-import net.minecraft.client.Minecraft;
-import net.minecraft.item.ItemStack;
-
 import cpw.mods.fml.relauncher.Side;
 import cpw.mods.fml.relauncher.SideOnly;
+import net.minecraft.client.Minecraft;
+import net.minecraft.item.ItemStack;
 
 /** Icon buttons and tabs, with native block models and a shared rendering implementation. */
 @SideOnly(Side.CLIENT)
@@ -12,7 +11,7 @@ final class RequestTableIconButton extends RequestTableButton {
 
     private static final int TAB_LABEL_TOP = 4;
     private static final int TAB_LETTER_HEIGHT = 7;
-    private static final int TAB_FILL_GAP = 2;
+    private static final int TAB_FILL_GAP = 1;
     private Icon icon;
     private ItemStack item;
     private boolean selected;
@@ -58,6 +57,9 @@ final class RequestTableIconButton extends RequestTableButton {
 
     @Override
     protected void drawContent(Minecraft mc, boolean hover) {
+        if (!enabled && (icon == Icon.CLEAR || icon == Icon.REQUEST)) {
+            drawRect(xPosition + 2, yPosition + 2, xPosition + width - 2, yPosition + height - 2, 0xffa0a0a0);
+        }
         if (tabLabel != null && !selected) {
             drawRect(
                     xPosition + 2,
@@ -135,6 +137,8 @@ final class RequestTableIconButton extends RequestTableButton {
         ITEMS_OFF,
         FLUIDS_ON,
         FLUIDS_OFF,
-        UPGRADES
+        UPGRADES,
+        MONITOR_GRID,
+        MONITOR_TREE
     }
 }

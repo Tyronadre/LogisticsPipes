@@ -1,15 +1,14 @@
 package logisticspipes.network.packets.crafting.requesttable;
 
-import java.io.IOException;
-
-import net.minecraft.entity.player.EntityPlayer;
-
 import logisticspipes.crafting.requesttable.RequestTableUpgradeBranch;
 import logisticspipes.crafting.requesttable.RequestTableUpgradeContainer;
 import logisticspipes.network.LPDataInputStream;
 import logisticspipes.network.LPDataOutputStream;
 import logisticspipes.network.PacketGuards;
 import logisticspipes.network.abstractpackets.ModernPacket;
+import net.minecraft.entity.player.EntityPlayer;
+
+import java.io.IOException;
 
 /** Carries the selected branch/tier and explicit confirmation; the server owns costs and unlocks. */
 public class RequestTableItemUpgradePacket extends ModernPacket {
@@ -18,6 +17,7 @@ public class RequestTableItemUpgradePacket extends ModernPacket {
     private RequestTableUpgradeBranch branch;
     private int tier;
     private boolean start;
+    private boolean creative;
 
     public RequestTableItemUpgradePacket(int id) {
         super(id);
@@ -25,10 +25,16 @@ public class RequestTableItemUpgradePacket extends ModernPacket {
 
     public RequestTableItemUpgradePacket setUpgrade(int windowId, RequestTableUpgradeBranch branch, int tier,
             boolean start) {
+        return setUpgrade(windowId, branch, tier, start, false);
+    }
+
+    public RequestTableItemUpgradePacket setUpgrade(int windowId, RequestTableUpgradeBranch branch, int tier,
+                                                    boolean start, boolean creative) {
         this.windowId = windowId;
         this.branch = branch;
         this.tier = tier;
         this.start = start;
+        this.creative = creative;
         return this;
     }
 
@@ -46,7 +52,7 @@ public class RequestTableItemUpgradePacket extends ModernPacket {
                 || !upgrades.canInteractWith(player))
             return;
         if (start) {
-            upgrades.startUpgrade(branch, tier);
+            upgrades.startUpgrade(branch, tier, creative);
             // Reconcile rejected, stale and duplicate confirmations too.
             upgrades.select(upgrades.getSelectedBranch(), upgrades.getSelectedTier());
         } else {
@@ -60,6 +66,7 @@ public class RequestTableItemUpgradePacket extends ModernPacket {
         output.writeEnum(branch);
         output.writeInt(tier);
         output.writeBoolean(start);
+        output.writeBoolean(creative);
     }
 
     @Override
@@ -68,5 +75,6 @@ public class RequestTableItemUpgradePacket extends ModernPacket {
         branch = input.readEnum(RequestTableUpgradeBranch.class);
         tier = input.readInt();
         start = input.readBoolean();
+        creative = input.readBoolean();
     }
 }

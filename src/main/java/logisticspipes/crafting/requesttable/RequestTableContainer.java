@@ -1,18 +1,5 @@
 package logisticspipes.crafting.requesttable;
 
-import java.util.ArrayList;
-import java.util.List;
-
-import net.minecraft.entity.player.EntityPlayer;
-import net.minecraft.inventory.ICrafting;
-import net.minecraft.inventory.Slot;
-import net.minecraft.item.ItemStack;
-import net.minecraftforge.fluids.FluidContainerRegistry;
-import net.minecraftforge.fluids.FluidStack;
-import net.minecraftforge.fluids.IFluidContainerItem;
-
-import org.jetbrains.annotations.NotNull;
-
 import logisticspipes.LogisticsPipes;
 import logisticspipes.network.PacketHandler;
 import logisticspipes.network.packets.crafting.requesttable.RequestTableInventoryPacket;
@@ -24,6 +11,17 @@ import logisticspipes.utils.gui.DummySlot;
 import logisticspipes.utils.gui.HandelableSlot;
 import logisticspipes.utils.item.ItemIdentifierStack;
 import lombok.Getter;
+import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.inventory.ICrafting;
+import net.minecraft.inventory.Slot;
+import net.minecraft.item.ItemStack;
+import net.minecraftforge.fluids.FluidContainerRegistry;
+import net.minecraftforge.fluids.FluidStack;
+import net.minecraftforge.fluids.IFluidContainerItem;
+import org.jetbrains.annotations.NotNull;
+
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Container for the new request table.
@@ -461,11 +459,12 @@ public class RequestTableContainer extends DummyContainer {
         }
         if (view == RequestTableView.CRAFTING_MONITOR) {
             hide(craftingSlots);
+            hide(playerSlots);
             move(resultSlot, HIDDEN, HIDDEN);
         } else {
             layoutCrafting(layout);
+            layoutPlayer(layout);
         }
-        layoutPlayer(layout);
     }
 
     @Override
