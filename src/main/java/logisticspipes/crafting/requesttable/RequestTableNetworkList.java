@@ -1,15 +1,16 @@
 package logisticspipes.crafting.requesttable;
 
-import logisticspipes.proxy.SimpleServiceLocator;
-import net.minecraft.item.ItemStack;
-import net.minecraftforge.fluids.FluidStack;
-
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
+
+import net.minecraft.item.ItemStack;
+import net.minecraftforge.fluids.FluidStack;
+
+import logisticspipes.proxy.SimpleServiceLocator;
 
 /**
  * Cached presentation model for the request table's network entries.
@@ -74,7 +75,7 @@ public class RequestTableNetworkList {
             return false;
         }
         rawSearch = nonNullSearch;
-        String normalized = nonNullSearch.trim().toLowerCase(Locale.US);
+        String normalized = nonNullSearch.trim().toLowerCase(Locale.ROOT);
         if (search.equals(normalized)) {
             return false;
         }
@@ -92,11 +93,11 @@ public class RequestTableNetworkList {
         sortedEntries.clear();
         sortedEntries.addAll(sourceEntries);
         Comparator<CachedEntry> nameComparator = Comparator.comparing(entry -> entry.sortName);
-        Comparator<CachedEntry> comparator = nameComparator;
-        if (settings.getSortMode() == RequestTableDisplaySettings.SortMode.AMOUNT) {
-            comparator = Comparator.comparingInt((CachedEntry entry) -> entry.entry.getTotalAmount())
+        Comparator<CachedEntry> comparator = switch (settings.getSortMode()) {
+            case NAME -> nameComparator;
+            case AMOUNT -> Comparator.comparingInt((CachedEntry entry) -> entry.entry.getTotalAmount())
                     .thenComparing(nameComparator);
-        }
+        };
         comparator = comparator.thenComparing(entry -> entry.entry);
         if (settings.getSortDirection() == RequestTableDisplaySettings.SortDirection.DESCENDING) {
             comparator = comparator.reversed();
@@ -117,18 +118,14 @@ public class RequestTableNetworkList {
         if (entry.isFluid() ? !fluidsEnabled || !settings.isShowFluids() : !settings.isShowItems()) {
             return false;
         }
-        switch (settings.getFilterMode()) {
-            case STORED:
-                return entry.isStored();
-            case CRAFTABLE:
-                return entry.isCraftable();
-            case BOTH:
-            default:
-                return true;
-        }
+        return switch (settings.getFilterMode()) {
+            case STORED -> entry.isStored();
+            case CRAFTABLE -> entry.isCraftable();
+            case BOTH -> true;
+        };
     }
 
-    private static class CachedEntry {
+    private static final class CachedEntry {
 
         private final RequestTableNetworkEntry entry;
         private final String sortName;
@@ -137,18 +134,23 @@ public class RequestTableNetworkList {
         private CachedEntry(RequestTableNetworkEntry entry) {
             this.entry = entry;
             ItemStack stack = entry.getStack().unsafeMakeNormalStack();
-            String displayName = stack.getDisplayName();
+            String friendlyName = entry.getStack().getItem().getFriendlyName();
+            String itemName;
+            try {
+                itemName = stack.getDisplayName();
+            } catch (RuntimeException ignored) {
+                // Some modded variants have broken name providers (for example GregTech facades).
+                itemName = friendlyName;
+            }
+            String displayName = itemName;
             if (entry.isFluid()) {
                 FluidStack fluid = SimpleServiceLocator.logisticsFluidManager.getFluidFromContainer(entry.getStack());
                 if (fluid != null) {
                     displayName = fluid.getLocalizedName();
                 }
             }
-            sortName = displayName.toLowerCase(Locale.US);
-            searchableName = (displayName + " "
-                    + stack.getDisplayName()
-                    + " "
-                    + entry.getStack().getItem().getFriendlyName()).toLowerCase(Locale.US);
+            sortName = displayName.toLowerCase(Locale.ROOT);
+            searchableName = (displayName + " " + itemName + " " + friendlyName).toLowerCase(Locale.ROOT);
         }
 
         private boolean matches(String[] tokens) {

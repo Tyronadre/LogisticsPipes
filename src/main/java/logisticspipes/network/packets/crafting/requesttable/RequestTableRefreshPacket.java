@@ -97,7 +97,7 @@ public class RequestTableRefreshPacket extends IntegerCoordinatesPacket {
             int internalAmount = getAmount(internalFluids, fluid);
             entries.add(
                     new RequestTableNetworkEntry(
-                            fluid.makeStack(networkAmount + internalAmount),
+                        fluid.makeStack(saturatedSum(networkAmount, internalAmount)),
                             true,
                             networkAmount,
                             internalAmount,
@@ -135,7 +135,7 @@ public class RequestTableRefreshPacket extends IntegerCoordinatesPacket {
         for (int slot = 0; slot < table.getFluidStorage().getSizeInventory(); slot++) {
             FluidStack stack = table.getFluidStorage().getFluid(slot);
             if (stack != null) {
-                fluids.merge(FluidIdentifier.get(stack).getItemIdentifier(), stack.amount, Integer::sum);
+                fluids.merge(FluidIdentifier.get(stack).getItemIdentifier(), stack.amount, RequestTableRefreshPacket::saturatedSum);
             }
         }
         return fluids;
@@ -144,5 +144,9 @@ public class RequestTableRefreshPacket extends IntegerCoordinatesPacket {
     private static int getAmount(Map<ItemIdentifier, Integer> amounts, ItemIdentifier item) {
         Integer amount = amounts.get(item);
         return amount == null ? 0 : amount;
+    }
+
+    private static int saturatedSum(int first, int second) {
+        return (int) Math.min(Integer.MAX_VALUE, (long) first + second);
     }
 }

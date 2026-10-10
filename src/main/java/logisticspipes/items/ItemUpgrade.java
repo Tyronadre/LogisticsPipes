@@ -3,8 +3,6 @@ package logisticspipes.items;
 import cpw.mods.fml.relauncher.Side;
 import cpw.mods.fml.relauncher.SideOnly;
 import logisticspipes.LPConstants;
-import logisticspipes.crafting.requesttable.upgrades.RequestTableFluidCapacityUpgrade;
-import logisticspipes.crafting.requesttable.upgrades.RequestTableFluidInventoryUpgrade;
 import logisticspipes.pipes.upgrades.AdvancedSatelliteUpgrade;
 import logisticspipes.pipes.upgrades.CCRemoteControlUpgrade;
 import logisticspipes.pipes.upgrades.CombinedSneakyUpgrade;
@@ -98,8 +96,6 @@ public class ItemUpgrade extends LogisticsItem {
     public static final int OPAQUE_UPGRADE = 42;
     public static final int LOGIC_CONTROLLER_UPGRADE = 43;
     public static final int UPGRADE_MODULE_UPGRADE = 44;
-    public static final int REQUEST_TABLE_FLUID_INVENTORY = 47;
-    public static final int REQUEST_TABLE_FLUID_CAPACITY = 48;
 
     // Values
     public static final int MAX_LIQUID_CRAFTER = 3;
@@ -186,8 +182,6 @@ public class ItemUpgrade extends LogisticsItem {
             registerUpgrade(ItemUpgrade.LOGIC_CONTROLLER_UPGRADE, LogicControllerUpgrade.class, 30);
         }
         registerUpgrade(ItemUpgrade.UPGRADE_MODULE_UPGRADE, UpgradeModuleUpgrade.class, 31);
-        registerUpgrade(ItemUpgrade.REQUEST_TABLE_FLUID_INVENTORY, RequestTableFluidInventoryUpgrade.class, 15);
-        registerUpgrade(ItemUpgrade.REQUEST_TABLE_FLUID_CAPACITY, RequestTableFluidCapacityUpgrade.class, 15);
     }
 
     public void registerUpgrade(int id, Class<? extends IPipeUpgrade> moduleClass, int textureId) {

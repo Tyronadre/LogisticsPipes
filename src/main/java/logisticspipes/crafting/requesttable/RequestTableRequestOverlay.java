@@ -1,15 +1,13 @@
 package logisticspipes.crafting.requesttable;
 
-import logisticspipes.utils.Color;
+import static logisticspipes.crafting.requesttable.RequestTableRender.inside;
+
+import net.minecraft.client.gui.FontRenderer;
+
+import org.lwjgl.input.Keyboard;
+
 import logisticspipes.utils.gui.GuiGraphics;
 import logisticspipes.utils.gui.LogisticsBaseGuiScreen;
-import logisticspipes.utils.item.ItemIdentifierStack;
-import logisticspipes.utils.item.ItemStackRenderer;
-import logisticspipes.utils.item.ItemStackRenderer.DisplayAmount;
-import net.minecraft.client.gui.FontRenderer;
-import net.minecraft.client.gui.Gui;
-import net.minecraft.client.gui.GuiTextField;
-import org.lwjgl.input.Keyboard;
 
 /**
  * Small modal request editor opened by clicking a network entry.
@@ -17,11 +15,22 @@ import org.lwjgl.input.Keyboard;
 public class RequestTableRequestOverlay {
 
     private static final int WIDTH = 184;
-    private static final int HEIGHT = 86;
+    private static final int HEIGHT = 102;
+    private static final int DELTA_LEFT = 16;
+    private static final int DELTA_STEP = 38;
+    private static final int DELTA_WIDTH = 34;
+    private static final int DELTA_HEIGHT = 14;
+    private static final int PLUS_TOP = 29;
+    private static final int ITEM_TOP = 47;
+    private static final int MINUS_TOP = 77;
+    private static final int CONFIRM_LEFT = 124;
+    private static final int CONFIRM_TOP = ITEM_TOP + 4;
+    private static final int CONFIRM_WIDTH = 28;
+    private static final int CONFIRM_HEIGHT = 18;
     private static final int[] DELTAS = { 1, 10, 100, 1000 };
 
     private RequestTableNetworkEntry entry;
-    private GuiTextField amountField;
+    private RequestTableNumberField amountField;
     private int left;
     private int top;
 
@@ -32,17 +41,17 @@ public class RequestTableRequestOverlay {
         this.entry = entry;
         left = (screenWidth - WIDTH) / 2;
         top = (screenHeight - HEIGHT) / 2;
-        amountField = new GuiTextField(font, left + 60, top + 36, 55, 14);
-        amountField.setMaxStringLength(9);
-        amountField.setText(amount > 0 ? Integer.toString(amount) : "");
+        amountField = new RequestTableNumberField(font, left + 60, top + ITEM_TOP + 6, 55, 14, 9, 0, 999999999);
+        amountField.setText(Integer.toString(Math.max(0, amount)));
         amountField.setFocused(true);
+        amountField.setSelectionPos(0);
     }
 
     /**
-     * Opens the overlay with an entry-sized initial amount.
+     * Opens the overlay with zero requested initially.
      */
     public void open(RequestTableNetworkEntry entry, FontRenderer font, int screenWidth, int screenHeight) {
-        open(entry, font, screenWidth, screenHeight, Math.max(1, entry.getStack().getStackSize()));
+        open(entry, font, screenWidth, screenHeight, 0);
     }
 
     /**
@@ -87,14 +96,7 @@ public class RequestTableRequestOverlay {
      * Parses the requested amount.
      */
     public int getAmount() {
-        if (amountField == null) {
-            return 0;
-        }
-        try {
-            return Math.max(0, Integer.parseInt(amountField.getText()));
-        } catch (NumberFormatException ignored) {
-            return 0;
-        }
+        return amountField == null ? 0 : amountField.getValue();
     }
 
     /**
@@ -107,49 +109,56 @@ public class RequestTableRequestOverlay {
     /**
      * Renders the overlay.
      */
-    public void render(LogisticsBaseGuiScreen screen, int internalAmount) {
+    public void render(LogisticsBaseGuiScreen screen) {
         if (!isOpen()) {
             return;
         }
         GuiGraphics.drawGuiBackGround(screen.getMC(), left, top, left + WIDTH, top + HEIGHT, 250, true);
-        drawMinecraftButton(screen, left + WIDTH - 13, top + 3, 10, 10, true);
+        RequestTableGuiStyle.requestButton(left + WIDTH - 13, top + 3, 10, 10, true);
         screen.getMC().fontRenderer.drawString("x", left + WIDTH - 10, top + 4, 0x404040);
-        screen.getMC().fontRenderer
-            .drawString("In table: " + internalAmount, left + 8, top + 5, RequestTableGuiStyle.TEXT);
-        GuiGraphics.drawBigSlotBackground(screen.getMC(), left + 24, top + 30);
+        String unit = entry.isFluid() ? " mB" : "";
+        screen.getMC().fontRenderer.drawString(
+            "In table: " + entry.getInternalAmount() + unit,
+            left + 8,
+            top + 5,
+            RequestTableGuiStyle.TEXT);
+        screen.getMC().fontRenderer.drawString(
+            "Network: " + entry.getNetworkAmount() + unit,
+            left + 8,
+            top + 17,
+            RequestTableGuiStyle.TEXT);
+        GuiGraphics.drawBigSlotBackground(screen.getMC(), left + 24, top + ITEM_TOP);
 
         for (int i = 0; i < DELTAS.length; i++) {
             drawDeltaButton(screen, i, true);
             drawDeltaButton(screen, i, false);
         }
 
-        new ItemStackRenderer(left + 29, top + 35, 250.0F, true, true, true)
-            .setItemIdentifierStack(ItemIdentifierStack.getFromStack(entry.getDisplayStack()))
-                .setDisplayAmount(DisplayAmount.NEVER).renderInGui();
+        RequestTableRender.item(entry.getDisplayStack(), left + 29, top + ITEM_TOP + 5, 250.0F, true);
+        if (entry.isCraftable()) {
+            RequestTableIcons.craftable(left + 29, top + ITEM_TOP + 5);
+        }
 
         amountField.drawTextBox();
-        drawMinecraftButton(screen, left + 124, top + 34, 28, 18, hasValidAmount());
-        screen.getMC().fontRenderer.drawString("OK", left + 131, top + 39, hasValidAmount() ? 0x404040 : 0x808080);
+        RequestTableGuiStyle
+            .requestButton(left + CONFIRM_LEFT, top + CONFIRM_TOP, CONFIRM_WIDTH, CONFIRM_HEIGHT, hasValidAmount());
+        screen.getMC().fontRenderer.drawString(
+            "OK",
+            left + CONFIRM_LEFT + 7,
+            top + CONFIRM_TOP + 5,
+            hasValidAmount() ? 0x404040 : 0xc0c0c0);
     }
 
     private void drawDeltaButton(LogisticsBaseGuiScreen screen, int index, boolean plus) {
-        int x = left + 16 + index * 38;
-        int y = plus ? top + 17 : top + 61;
-        drawMinecraftButton(screen, x, y, 34, 14, true);
+        int x = left + DELTA_LEFT + index * DELTA_STEP;
+        int y = top + (plus ? PLUS_TOP : MINUS_TOP);
+        RequestTableGuiStyle.requestButton(x, y, DELTA_WIDTH, DELTA_HEIGHT, true);
         String label = (plus ? "+" : "-") + DELTAS[index];
-        screen.getMC().fontRenderer
-            .drawString(label, x + 17 - screen.getMC().fontRenderer.getStringWidth(label) / 2, y + 3, 0x404040);
-    }
-
-    private void drawMinecraftButton(LogisticsBaseGuiScreen screen, int x, int y, int width, int height,
-            boolean enabled) {
-        int fill = enabled ? 0xffc6c6c6 : 0xff7f7f7f;
-        screen.drawRect(x, y, x + width, y + height, Color.BLACK);
-        Gui.drawRect(x + 1, y + 1, x + width - 1, y + height - 1, fill);
-        Gui.drawRect(x + 1, y + 1, x + width - 2, y + 2, 0xffffffff);
-        Gui.drawRect(x + 1, y + 1, x + 2, y + height - 2, 0xffffffff);
-        Gui.drawRect(x + 1, y + height - 2, x + width - 1, y + height - 1, 0xff555555);
-        Gui.drawRect(x + width - 2, y + 1, x + width - 1, y + height - 1, 0xff555555);
+        screen.getMC().fontRenderer.drawString(
+            label,
+            x + DELTA_WIDTH / 2 - screen.getMC().fontRenderer.getStringWidth(label) / 2,
+            y + 3,
+            0x404040);
     }
 
     /**
@@ -164,11 +173,11 @@ public class RequestTableRequestOverlay {
         if (button != 0) {
             return true;
         }
-        if (mouseX >= left + WIDTH - 13 && mouseX < left + WIDTH - 3 && mouseY >= top + 3 && mouseY < top + 13) {
+        if (inside(mouseX, mouseY, left + WIDTH - 13, top + 3, 10, 10)) {
             close();
             return true;
         }
-        if (mouseX >= left + 124 && mouseX < left + 152 && mouseY >= top + 34 && mouseY < top + 52) {
+        if (inside(mouseX, mouseY, left + CONFIRM_LEFT, top + CONFIRM_TOP, CONFIRM_WIDTH, CONFIRM_HEIGHT)) {
             if (!hasValidAmount()) {
                 return true;
             }
@@ -186,9 +195,9 @@ public class RequestTableRequestOverlay {
     }
 
     private boolean clickDeltaButton(int mouseX, int mouseY, int index, boolean plus) {
-        int x = left + 16 + index * 38;
-        int y = plus ? top + 17 : top + 61;
-        if (mouseX < x || mouseX >= x + 34 || mouseY < y || mouseY >= y + 14) {
+        int x = left + DELTA_LEFT + index * DELTA_STEP;
+        int y = top + (plus ? PLUS_TOP : MINUS_TOP);
+        if (!inside(mouseX, mouseY, x, y, DELTA_WIDTH, DELTA_HEIGHT)) {
             return false;
         }
         changeAmount(plus ? DELTAS[index] : -DELTAS[index]);
@@ -197,7 +206,7 @@ public class RequestTableRequestOverlay {
 
     private void changeAmount(int delta) {
         int amount = Math.max(0, Math.min(999999999, getAmount() + delta));
-        amountField.setText(amount == 0 ? "" : Integer.toString(amount));
+        amountField.setText(Integer.toString(amount));
         amountField.setFocused(true);
     }
 
@@ -210,34 +219,16 @@ public class RequestTableRequestOverlay {
         if (!isOpen()) {
             return false;
         }
-        if (keyCode == Keyboard.KEY_ESCAPE) {
-            close();
-            return true;
-        }
-        if (hasValidAmount() && (keyCode == Keyboard.KEY_RETURN || keyCode == Keyboard.KEY_NUMPADENTER)) {
-            submit.run();
-            return true;
-        }
-        if (Character.isDigit(typed) || keyCode == Keyboard.KEY_BACK
-                || keyCode == Keyboard.KEY_DELETE
-                || keyCode == Keyboard.KEY_LEFT
-                || keyCode == Keyboard.KEY_RIGHT) {
-            amountField.textboxKeyTyped(typed, keyCode);
-            sanitizeAmount();
-        }
-        amountField.setFocused(true);
-        return true;
-    }
-
-    private void sanitizeAmount() {
-        String text = amountField.getText();
-        StringBuilder digits = new StringBuilder(text.length());
-        for (int i = 0; i < text.length(); i++) {
-            char c = text.charAt(i);
-            if (Character.isDigit(c)) {
-                digits.append(c);
+        switch (keyCode) {
+            case Keyboard.KEY_ESCAPE -> close();
+            case Keyboard.KEY_RETURN, Keyboard.KEY_NUMPADENTER -> {
+                if (hasValidAmount()) submit.run();
+            }
+            default -> {
+                amountField.textboxKeyTyped(typed, keyCode);
+                amountField.setFocused(true);
             }
         }
-        amountField.setText(digits.toString());
+        return true;
     }
 }

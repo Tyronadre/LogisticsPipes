@@ -12,7 +12,6 @@ public class RequestTableLayout {
     public static final int TAB_HEIGHT = 22;
     public static final int MAIN_TAB_WIDTH = 56;
     public static final int STORAGE_TAB_WIDTH = 64;
-    public static final int UPGRADE_SLOT_COUNT = 9;
     public static final int SMALL_ROWS = 4;
     public static final int SMALL_HEIGHT = 200 + SMALL_ROWS * SLOT;
     public static final int NEI_TOP_MARGIN = 20;
@@ -59,21 +58,10 @@ public class RequestTableLayout {
     public final int centralLeft;
     public final int centralWidth;
     public final int centralTop;
-    public final int upgradeLeft;
-    public final int upgradeTop;
-    public final int upgradePanelLeft;
-    public final int upgradePanelWidth;
-    public final int upgradePanelTop;
-    public final int upgradePanelHeight;
     public final int monitorButtonX;
     public final int monitorButtonY;
     public final int monitorButtonWidth;
     public final int monitorButtonHeight;
-    public final int monitorSocketTop;
-    public final int monitorSocketHeight;
-    public final int monitorUpgradeTop;
-    public final int fluidUpgradeLeft;
-    public final int fluidUpgradeTop;
     public final boolean compact;
     public final boolean tight;
 
@@ -169,21 +157,10 @@ public class RequestTableLayout {
             .max(PANEL_CELL, (craftingTop - 1 - panelTop - CONTENT_CRAFTING_GAP) / PANEL_CELL * PANEL_CELL);
         scrollbarX = panelLeft + panelWidth + 3;
 
-        upgradePanelLeft = centralLeft + centralWidth + 6;
-        upgradePanelWidth = 28;
-        monitorButtonX = upgradePanelLeft;
+        monitorButtonX = centralLeft + centralWidth + 6;
         monitorButtonY = guiTop;
-        monitorButtonWidth = upgradePanelWidth;
+        monitorButtonWidth = 28;
         monitorButtonHeight = 20;
-        monitorSocketTop = centralTop;
-        monitorSocketHeight = 26;
-        monitorUpgradeTop = monitorSocketTop + 5;
-        upgradePanelTop = monitorSocketTop + monitorSocketHeight + 2;
-        upgradePanelHeight = (UPGRADE_SLOT_COUNT - 1) * SLOT + 8;
-        upgradeLeft = upgradePanelLeft + 6;
-        upgradeTop = upgradePanelTop + 5;
-        fluidUpgradeLeft = visibilityButtonX + 2;
-        fluidUpgradeTop = sortModeButtonY + 3 * (displayButtonHeight + SIDEBAR_ROW_GAP) + 8;
     }
 
     /** Leaves room for NEI's top controls and bottom search bar in both terminal styles. */
@@ -234,8 +211,4 @@ public class RequestTableLayout {
         return centralLeft + 80;
     }
 
-    /** Attaches the monitoring socket to its button, followed by the detached storage-upgrade bar. */
-    public int getUpgradeSlotY(int index) {
-        return index == 0 ? monitorUpgradeTop : upgradeTop + (index - 1) * SLOT;
-    }
 }

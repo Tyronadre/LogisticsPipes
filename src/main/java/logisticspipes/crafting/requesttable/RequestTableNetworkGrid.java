@@ -1,21 +1,23 @@
 package logisticspipes.crafting.requesttable;
 
-import logisticspipes.utils.gui.GuiGraphics;
-import logisticspipes.utils.gui.LogisticsBaseGuiScreen;
-import logisticspipes.utils.item.ItemIdentifierStack;
-import logisticspipes.utils.item.ItemStackRenderer;
-import logisticspipes.utils.item.ItemStackRenderer.DisplayAmount;
-import net.minecraft.client.gui.Gui;
-import net.minecraft.item.ItemStack;
-import org.lwjgl.input.Keyboard;
-import org.lwjgl.opengl.GL11;
+import static logisticspipes.crafting.requesttable.RequestTableRender.inside;
 
 import java.util.ArrayList;
 import java.util.List;
 
+import net.minecraft.client.gui.Gui;
+import net.minecraft.item.ItemStack;
+
+import org.lwjgl.input.Keyboard;
+
+import cpw.mods.fml.relauncher.Side;
+import cpw.mods.fml.relauncher.SideOnly;
+import logisticspipes.utils.gui.LogisticsBaseGuiScreen;
+
 /**
  * Scrollable icon grid for requestable network items and fluids.
  */
+@SideOnly(Side.CLIENT)
 public class RequestTableNetworkGrid {
 
     private final RequestTableNetworkList entries = new RequestTableNetworkList();
@@ -85,14 +87,7 @@ public class RequestTableNetworkGrid {
         int maxScroll = Math.max(0, (filtered.size() + columns - 1) / columns - visibleRows);
         scrollRow = Math.min(scrollRow, maxScroll);
 
-        for (int row = 0; row < visibleRows; row++) {
-            for (int column = 0; column < columns; column++) {
-                GuiGraphics.drawSlotBackground(
-                    screen.getMC(),
-                    layout.panelLeft + column * RequestTableLayout.PANEL_CELL,
-                    layout.panelTop + row * RequestTableLayout.PANEL_CELL);
-            }
-        }
+        RequestTableRender.slotGrid(screen.getMC(), layout.panelLeft, layout.panelTop, columns, visibleRows);
         RequestTableGuiStyle.scrollbar(layout, scrollRow, maxScroll);
 
         tooltip = null;
@@ -103,9 +98,13 @@ public class RequestTableNetworkGrid {
             int localIndex = i - first;
             int x = layout.panelLeft + 1 + (localIndex % columns) * RequestTableLayout.PANEL_CELL;
             int y = layout.panelTop + 1 + (localIndex / columns) * RequestTableLayout.PANEL_CELL;
-            boolean hover = mouseX >= x - 1 && mouseX < x - 1 + RequestTableLayout.PANEL_CELL
-                && mouseY >= y - 1
-                && mouseY < y - 1 + RequestTableLayout.PANEL_CELL;
+            boolean hover = inside(
+                mouseX,
+                mouseY,
+                x - 1,
+                y - 1,
+                RequestTableLayout.PANEL_CELL,
+                RequestTableLayout.PANEL_CELL);
             if (hover) {
                 Gui.drawRect(x, y, x + 16, y + 16, 0x50ffffff);
                 ItemStack tooltipStack = entry.getDisplayStack();
@@ -113,15 +112,15 @@ public class RequestTableNetworkGrid {
                 String unit = entry.isFluid() ? " mB" : "";
                 details.add("\u00a77Network: " + entry.getNetworkAmount() + unit);
                 details.add("\u00a77Internal: " + entry.getInternalAmount() + unit);
+                if (entry.isCraftable()) {
+                    details.add("\u00a77Craftable");
+                }
                 if (Keyboard.isKeyDown(Keyboard.KEY_LSHIFT) || Keyboard.isKeyDown(Keyboard.KEY_RSHIFT)) {
                     details.add("\u00a77Total: " + entry.getTotalAmount() + unit);
                 }
                 tooltip = new Object[] { mouseX, mouseY, tooltipStack, true, details };
             }
-            GL11.glColor4f(1.0F, 1.0F, 1.0F, 1.0F);
-            ItemIdentifierStack display = ItemIdentifierStack.getFromStack(entry.getDisplayStack());
-            new ItemStackRenderer(x, y, 100.0F, true, false, true).setItemIdentifierStack(display)
-                .setDisplayAmount(DisplayAmount.NEVER).renderInGui();
+            RequestTableRender.item(entry.getDisplayStack(), x, y, 100.0F, false);
             if (!entry.isFluid() && entry.getTotalAmount() != 1) {
                 RequestTableGuiStyle.drawCount(
                     screen.getMC().fontRenderer,
@@ -132,6 +131,9 @@ public class RequestTableNetworkGrid {
                     false);
             }
             drawInternalAmount(screen, entry, x, y);
+            if (entry.isCraftable()) {
+                RequestTableIcons.craftable(x, y);
+            }
         }
     }
 
@@ -145,16 +147,21 @@ public class RequestTableNetworkGrid {
             x,
             y,
             0xffdf80,
-            true);
+            true,
+            entry.isCraftable() ? 11 : 0);
     }
 
     /**
      * Finds an entry at the given mouse position.
      */
     public RequestTableNetworkEntry getEntryAt(RequestTableLayout layout, int mouseX, int mouseY) {
-        if (mouseX < layout.panelLeft || mouseX >= layout.panelLeft + layout.panelWidth
-                || mouseY < layout.panelTop
-            || mouseY >= layout.panelTop + layout.getVisiblePanelRows() * RequestTableLayout.PANEL_CELL) {
+        if (!inside(
+            mouseX,
+            mouseY,
+            layout.panelLeft,
+            layout.panelTop,
+            layout.panelWidth,
+            layout.getVisiblePanelRows() * RequestTableLayout.PANEL_CELL)) {
             return null;
         }
         List<RequestTableNetworkEntry> filtered = entries.getVisibleEntries();

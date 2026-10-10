@@ -19,8 +19,7 @@ public class RequestTableDisplaySettingsStore {
     private final Map<UUID, RequestTableDisplaySettings> settingsByPlayer = new HashMap<>();
 
     public RequestTableDisplaySettings get(UUID playerId) {
-        RequestTableDisplaySettings settings = settingsByPlayer.get(playerId);
-        return settings == null ? RequestTableDisplaySettings.DEFAULT : settings;
+        return settingsByPlayer.getOrDefault(playerId, RequestTableDisplaySettings.DEFAULT);
     }
 
     /**

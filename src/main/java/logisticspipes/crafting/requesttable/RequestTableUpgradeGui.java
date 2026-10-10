@@ -1,197 +1,218 @@
 package logisticspipes.crafting.requesttable;
 
+import static logisticspipes.crafting.requesttable.RequestTableRender.inside;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+
+import net.minecraft.client.gui.GuiButton;
+import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.item.ItemStack;
+import net.minecraft.util.EnumChatFormatting;
+
+import org.lwjgl.input.Mouse;
+
 import cpw.mods.fml.relauncher.Side;
 import cpw.mods.fml.relauncher.SideOnly;
+import logisticspipes.crafting.requesttable.RequestTableUpgradeMaterials.Requirement;
 import logisticspipes.network.PacketHandler;
 import logisticspipes.network.packets.crafting.requesttable.RequestTableItemUpgradePacket;
 import logisticspipes.network.packets.crafting.requesttable.RequestTableOpenUpgradesPacket;
 import logisticspipes.proxy.MainProxy;
 import logisticspipes.utils.gui.GuiGraphics;
 import logisticspipes.utils.gui.LogisticsBaseGuiScreen;
-import logisticspipes.utils.item.ItemIdentifierStack;
-import logisticspipes.utils.item.ItemStackRenderer;
-import logisticspipes.utils.item.ItemStackRenderer.DisplayAmount;
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.Gui;
-import net.minecraft.client.gui.GuiButton;
-import net.minecraft.entity.player.EntityPlayer;
-import net.minecraft.item.ItemStack;
-import net.minecraft.util.EnumChatFormatting;
-import org.lwjgl.input.Mouse;
 
-import java.util.Arrays;
-import java.util.List;
-
-/** A scrollable Minecraft-style tree with independent slot-count and slot-size branches. */
+/** Fixed material controls around a freely draggable motherboard-style upgrade tree. */
 @SideOnly(Side.CLIENT)
 public class RequestTableUpgradeGui extends LogisticsBaseGuiScreen {
 
     private static final int WIDTH = 286;
-    private static final int ROW_HEIGHT = 18;
     private static final int BACK = 0;
     private static final int APPLY = 1;
+    private static final int CENTER = 2;
+    private static final int ZOOM_OUT = 3;
+    private static final int ZOOM_IN = 4;
+    private static final int SHOW_ALL = 5;
     private final RequestTableUpgradeContainer upgrades;
-    private final NodeButton[][] nodes = new NodeButton[2][RequestTableItemUpgradeConfig.TIER_COUNT];
+    private final RequestTableUpgradeBoard board = new RequestTableUpgradeBoard();
     private GuiButton applyButton;
-    private int scrollRow;
-    private boolean scrollbarDragging;
-    private int dragOffset;
+    private GuiButton centerButton;
 
     public RequestTableUpgradeGui(EntityPlayer player, RequestTablePipe table) {
         super(new RequestTableUpgradeContainer(player, table), WIDTH, 300, 0, 0);
         upgrades = (RequestTableUpgradeContainer) inventorySlots;
     }
 
-    private static boolean inside(int mouseX, int mouseY, int x, int y, int w, int h) {
-        return mouseX >= x && mouseX < x + w && mouseY >= y && mouseY < y + h;
+    private static String compact(int value) {
+        if (value < 1000) return Integer.toString(value);
+        double scaled = value >= 1_000_000 ? value / 1_000_000.0 : value / 1000.0;
+        return String.format(java.util.Locale.ROOT, "%.1f", scaled).replace(".0", "")
+            + (value >= 1_000_000 ? "M" : "k");
     }
 
     @Override
     public void initGui() {
-        ySize = Math.max(216, Math.min(360, height - 40));
+        ySize = Math.max(220, Math.min(420, height - 40));
         super.initGui();
+        board.cancelDrag();
         buttonList.clear();
-        buttonList.add(new ActionButton(BACK, guiLeft + xSize - 50, guiTop + 5, 42, 14, "Back"));
-        applyButton = new ActionButton(APPLY, guiLeft + 156, detailsTop() + 29, 110, 18, "Apply upgrade");
+        buttonList.add(new RequestTableButton(BACK, guiLeft + xSize - 50, guiTop + 5, 42, 14, "Back"));
+        centerButton = new RequestTableButton(CENTER, guiLeft + xSize - 96, guiTop + 5, 40, 14, "Center");
+        buttonList.add(centerButton);
+        buttonList.add(new RequestTableButton(ZOOM_OUT, guiLeft + 116, guiTop + 5, 14, 14, "-"));
+        buttonList.add(new RequestTableButton(ZOOM_IN, guiLeft + 134, guiTop + 5, 14, 14, "+"));
+        buttonList.add(new RequestTableButton(SHOW_ALL, guiLeft + 152, guiTop + 5, 32, 14, "All"));
+        int applyLeft = guiLeft + RequestTableUpgradeContainer.INVENTORY_LEFT
+            + RequestTableUpgradeContainer.MATERIAL_SLOTS * 18
+            + 4;
+        applyButton = new RequestTableButton(APPLY, applyLeft, detailsTop() + 34, 46, 18, "Apply");
         buttonList.add(applyButton);
-        for (RequestTableItemUpgradeBranch branch : RequestTableItemUpgradeBranch.values()) {
-            for (int tier = 1; tier <= RequestTableItemUpgradeConfig.TIER_COUNT; tier++) {
-                NodeButton node = new NodeButton(10 + branch.ordinal() * 10 + tier - 1, branch, tier);
-                nodes[branch.ordinal()][tier - 1] = node;
-                buttonList.add(node);
-            }
-        }
-        updateNodes();
+        updateBoard();
         upgrades.layout(ySize);
     }
 
-    private int treeTop() {
-        return guiTop + 36;
-    }
-
     private int detailsTop() {
-        return guiTop + ySize - 146;
+        return guiTop + ySize - 150;
     }
 
-    private int visibleRows() {
-        return Math.max(1, (detailsTop() - treeTop() - 4) / ROW_HEIGHT);
+    private RequestTableUpgradeStatus selectedStatus() {
+        return RequestTableUpgradeStatus.of(upgrades, upgrades.getSelectedBranch(), upgrades.getSelectedTier());
     }
 
-    private int maxScroll() {
-        return Math.max(0, RequestTableItemUpgradeConfig.TIER_COUNT - visibleRows());
+    private boolean isSelectedUpgradeApplied() {
+        return selectedStatus() == RequestTableUpgradeStatus.APPLIED;
     }
 
-    private int treeHeight() {
-        return visibleRows() * ROW_HEIGHT;
-    }
-
-    private int thumbHeight() {
-        return Math.max(8, treeHeight() * Math.min(10, visibleRows()) / 10);
-    }
-
-    private int thumbTop() {
-        return treeTop() + (maxScroll() == 0 ? 0 : (treeHeight() - thumbHeight()) * scrollRow / maxScroll());
-    }
-
-    private void updateNodes() {
-        scrollRow = Math.max(0, Math.min(maxScroll(), scrollRow));
-        for (RequestTableItemUpgradeBranch branch : RequestTableItemUpgradeBranch.values()) {
-            int installed = upgrades.getTable().getItemUpgradeTier(branch);
-            for (NodeButton node : nodes[branch.ordinal()]) {
-                if (node == null) continue;
-                int row = node.tier - 1 - scrollRow;
-                node.xPosition = guiLeft + (branch == RequestTableItemUpgradeBranch.SLOT_COUNT ? 13 : 153);
-                node.yPosition = treeTop() + row * ROW_HEIGHT;
-                node.visible = row >= 0 && row < visibleRows();
-                node.completed = node.tier <= installed;
-                node.unlocked = node.tier <= installed + 1;
-                node.selected = branch == upgrades.getSelectedBranch() && node.tier == upgrades.getSelectedTier();
-                node.displayString = RequestTableItemUpgradeConfig.getTierName(node.tier) + "  +"
-                    + upgrades.getConfig().getBonus(branch, node.tier);
-            }
-        }
+    private void updateBoard() {
+        int boardTop = guiTop + 24;
+        board.setArea(guiLeft + 8, boardTop, xSize - 16, detailsTop() - boardTop - 8);
+        if (upgrades.isReady()) board.initializeView(upgrades.getSelectedBranch(), upgrades.getSelectedTier());
+        board.updateProgress(upgrades);
+        applyButton.displayString = isSelectedUpgradeApplied() ? "Applied"
+            : upgrades.getSelectedBranch().isSpecial() ? "Install" : "Apply";
         applyButton.enabled = upgrades.isReady() && upgrades.canUpgrade();
     }
 
     @Override
     protected void drawGuiContainerBackgroundLayer(float partialTicks, int mouseX, int mouseY) {
-        updateNodes();
-        upgrades.layout(ySize);
-        GuiGraphics.drawGuiBackGround(mc, guiLeft, guiTop, right, bottom, zLevel, true);
-        mc.fontRenderer.drawString("Item storage upgrades", guiLeft + 12, guiTop + 8, RequestTableGuiStyle.TEXT);
-        mc.fontRenderer.drawString("Amount of slots", guiLeft + 15, guiTop + 23, RequestTableGuiStyle.TEXT);
-        mc.fontRenderer.drawString("Slot size", guiLeft + 187, guiTop + 23, RequestTableGuiStyle.TEXT);
-        RequestTableGuiStyle.raised(guiLeft + 126, guiTop + 20, 34, 12, false);
-        mc.fontRenderer.drawString("Base", guiLeft + 131, guiTop + 22, RequestTableGuiStyle.TEXT);
-        Gui.drawRect(guiLeft + 69, guiTop + 33, guiLeft + 210, guiTop + 34, 0xff777777);
-        Gui.drawRect(guiLeft + 142, guiTop + 32, guiLeft + 143, guiTop + 34, 0xff777777);
-        for (int x : new int[]{69, 209}) {
-            Gui.drawRect(guiLeft + x, guiTop + 33, guiLeft + x + 1, treeTop() + treeHeight(), 0xff777777);
+        try (var state = RequestTableRender.guiState()) {
+            updateBoard();
+            upgrades.layout(ySize);
+            GuiGraphics.drawGuiBackGround(mc, guiLeft, guiTop, right, bottom, zLevel, true);
+            mc.fontRenderer.drawString("Table upgrades", guiLeft + 12, guiTop + 8, RequestTableGuiStyle.TEXT);
+            board.draw(mc, upgrades, mouseX, mouseY);
+            drawRequirements();
+            int playerTop = guiTop + ySize - 84;
+            mc.fontRenderer.drawString(
+                "Inventory",
+                guiLeft + RequestTableUpgradeContainer.INVENTORY_LEFT,
+                playerTop - 11,
+                RequestTableGuiStyle.TEXT);
+            GuiGraphics.drawPlayerInventoryBackground(
+                mc,
+                guiLeft + RequestTableUpgradeContainer.INVENTORY_LEFT,
+                playerTop);
         }
-        int sx = guiLeft + 272;
-        RequestTableGuiStyle.inset(sx, treeTop(), 7, treeHeight());
-        RequestTableGuiStyle.raised(sx, thumbTop(), 7, thumbHeight(), scrollbarDragging);
-        drawRequirements();
-        int playerTop = guiTop + ySize - 84;
-        mc.fontRenderer.drawString(
-            "Inventory",
-            guiLeft + RequestTableUpgradeContainer.INVENTORY_LEFT,
-            playerTop - 11,
-            RequestTableGuiStyle.TEXT);
-        GuiGraphics.drawPlayerInventoryBackground(mc, guiLeft + RequestTableUpgradeContainer.INVENTORY_LEFT, playerTop);
     }
 
     private void drawRequirements() {
-        RequestTableItemUpgradeBranch branch = upgrades.getSelectedBranch();
+        RequestTableUpgradeBranch branch = upgrades.getSelectedBranch();
         int tier = upgrades.getSelectedTier();
-        RequestTableItemUpgradeConfig config = upgrades.getConfig();
-        int current = config.getTotal(branch, upgrades.getTable().getItemUpgradeTier(branch));
-        int target = config.getTotal(branch, tier);
-        String unit = branch == RequestTableItemUpgradeBranch.SLOT_COUNT ? "slots" : "items/slot";
-        String heading = branch.getLabel() + " " + RequestTableItemUpgradeConfig.getTierName(tier);
+        RequestTableStorageUpgradeConfig config = upgrades.getConfig();
+        boolean applied = isSelectedUpgradeApplied();
+        String heading = branch.getLabel()
+            + (branch.isSpecial() ? "" : " " + RequestTableStorageUpgradeConfig.getTierName(tier));
+        String change = switch (selectedStatus()) {
+            case APPLIED -> branch.isSpecial() ? "Enabled"
+                : "Total: " + compact(config.getTotal(branch, upgrades.getTable().getUpgradeTier(branch)))
+                + " "
+                + branch.getUnit();
+            case WAITING -> "Waiting for the server...";
+            case PREVIOUS_REQUIRED -> "Install " + RequestTableStorageUpgradeConfig.getTierName(tier - 1) + " first";
+            case FLUID_CONTROLLER_REQUIRED -> "Install fluid controller first";
+            case AVAILABLE -> {
+                if (branch.isSpecial()) yield "Locked";
+                int previous = config.getTotal(branch, upgrades.getTable().getUpgradeTier(branch));
+                yield compact(previous) + " + "
+                    + EnumChatFormatting.DARK_GREEN
+                    + compact(config.getBonus(branch, tier))
+                    + EnumChatFormatting.RESET
+                    + " -> "
+                    + compact(config.getTotal(branch, tier))
+                    + " "
+                    + branch.getUnit();
+            }
+        };
+        int changeWidth = mc.fontRenderer.getStringWidth(change);
+        // Long fluid formulas still leave a gap to the left-aligned upgrade name.
+        int headingWidth = xSize - 24 - changeWidth - 6;
+        if (mc.fontRenderer.getStringWidth(heading) > headingWidth) {
+            heading = mc.fontRenderer
+                .trimStringToWidth(heading, Math.max(0, headingWidth - mc.fontRenderer.getStringWidth("...")))
+                + "...";
+        }
         mc.fontRenderer.drawString(heading, guiLeft + 12, detailsTop(), RequestTableGuiStyle.TEXT);
-        String change = current + " -> " + target + " " + unit;
-        mc.fontRenderer.drawString(
-            change,
-            guiLeft + xSize - 12 - mc.fontRenderer.getStringWidth(change),
-            detailsTop(),
-            RequestTableGuiStyle.MUTED);
+        mc.fontRenderer
+            .drawString(change, guiLeft + xSize - 12 - changeWidth, detailsTop(), RequestTableGuiStyle.MUTED);
         int materialsLeft = guiLeft + RequestTableUpgradeContainer.INVENTORY_LEFT;
-        ItemStack example = config.getExampleCircuit(tier);
-        if (example != null) {
-            new ItemStackRenderer(materialsLeft, detailsTop() + 12, 100.0F, true, false, true)
-                .setItemIdentifierStack(ItemIdentifierStack.getFromStack(example))
-                .setDisplayAmount(DisplayAmount.NEVER).renderInGui();
+        // Keep unused inputs accessible, including when an applied upgrade is selected.
+        RequestTableRender
+            .slotGrid(mc, materialsLeft - 1, detailsTop() + 34, RequestTableUpgradeContainer.MATERIAL_SLOTS, 1);
+        if (applied) {
+            String contribution = switch (branch) {
+                case FLUID_CONTROLLER -> "Enables fluid storage, requests and cells.";
+                case CRAFTING_MONITORING -> "Enables crafting monitoring.";
+                default -> "Provides " + EnumChatFormatting.DARK_GREEN
+                    + "+"
+                    + compact(config.getBonus(branch, tier))
+                    + EnumChatFormatting.RESET
+                    + " "
+                    + branch.getUnit();
+            };
+            mc.fontRenderer.drawString(contribution, guiLeft + 12, detailsTop() + 16, RequestTableGuiStyle.TEXT);
+            return;
         }
-        String requirement = "Need " + config.getCost(tier)
-            + "x "
-            + RequestTableItemUpgradeConfig.getTierName(tier)
-            + " circuit";
-        mc.fontRenderer.drawString(requirement, materialsLeft + 21, detailsTop() + 16, RequestTableGuiStyle.TEXT);
-        for (int i = 0; i < RequestTableUpgradeContainer.MATERIAL_SLOTS; i++) {
-            GuiGraphics.drawSlotBackground(mc, materialsLeft - 1 + i * 18, detailsTop() + 28);
+        List<Requirement> requirements = upgrades.getRequirements();
+        for (int i = 0; i < requirements.size(); i++) {
+            Requirement requirement = requirements.get(i);
+            int x = requirementLeft(i);
+            ItemStack example = requirement.getExample();
+            if (example != null) {
+                RequestTableRender.item(example, x, detailsTop() + 12, 100.0F, false);
+            } else {
+                mc.fontRenderer.drawString("?", x + 5, detailsTop() + 16, RequestTableGuiStyle.MUTED);
+            }
+            int inserted = upgrades.getMaterialCount(requirement);
+            mc.fontRenderer.drawString(
+                inserted + "/" + requirement.getCount(),
+                x + 19,
+                detailsTop() + 16,
+                inserted >= requirement.getCount() ? 0x37622e : RequestTableGuiStyle.MUTED);
         }
-        String count = upgrades.getMaterialCount() + "/" + config.getCost(tier);
-        mc.fontRenderer.drawString(
-            count,
-            guiLeft + xSize - 12 - mc.fontRenderer.getStringWidth(count),
-            detailsTop() + 16,
-            upgrades.getMaterialCount() >= config.getCost(tier) ? 0x37622e : RequestTableGuiStyle.MUTED);
+    }
+
+    private int requirementLeft(int index) {
+        return guiLeft + 12 + index * 66;
     }
 
     @Override
     protected void actionPerformed(GuiButton button) {
-        if (button.id == BACK) {
-            MainProxy.sendPacketToServer(PacketHandler.getPacket(RequestTableOpenUpgradesPacket.class).setInteger(1));
-        } else if (button.id == APPLY) {
-            if (!upgrades.isReady() || !upgrades.canUpgrade()) return;
-            sendSelection(upgrades.getSelectedBranch(), upgrades.getSelectedTier(), true);
-        } else if (button instanceof NodeButton node) {
-            sendSelection(node.branch, node.tier, false);
+        switch (button.id) {
+            case BACK -> MainProxy
+                .sendPacketToServer(PacketHandler.getPacket(RequestTableOpenUpgradesPacket.class).setInteger(1));
+            case APPLY -> {
+                if (upgrades.isReady() && upgrades.canUpgrade()) {
+                    sendSelection(upgrades.getSelectedBranch(), upgrades.getSelectedTier(), true);
+                }
+            }
+            case CENTER -> board.centerOnUpgrade(upgrades.getSelectedBranch(), upgrades.getSelectedTier());
+            case ZOOM_OUT, ZOOM_IN -> board.changeZoom(button.id == ZOOM_IN);
+            case SHOW_ALL -> board.showAll();
         }
     }
 
-    private void sendSelection(RequestTableItemUpgradeBranch branch, int tier, boolean start) {
+    private void sendSelection(RequestTableUpgradeBranch branch, int tier, boolean start) {
         upgrades.awaitState();
         MainProxy.sendPacketToServer(
             PacketHandler.getPacket(RequestTableItemUpgradePacket.class)
@@ -200,64 +221,63 @@ public class RequestTableUpgradeGui extends LogisticsBaseGuiScreen {
 
     @Override
     public void drawScreen(int mouseX, int mouseY, float partialTicks) {
-        if (scrollbarDragging && !Mouse.isButtonDown(0)) scrollbarDragging = false;
+        // Queued releases must still reach the board after the physical mouse button goes up.
+        if (hasSubGui()) board.cancelDrag();
         super.drawScreen(mouseX, mouseY, partialTicks);
         if (hasSubGui()) return;
-        for (NodeButton[] branch : nodes) {
-            for (NodeButton node : branch) {
-                if (!node.visible || !inside(mouseX, mouseY, node.xPosition, node.yPosition, node.width, node.height))
-                    continue;
-                String state = node.completed ? "Installed permanently."
-                    : node.unlocked ? "Ready to upgrade."
-                    : "Requires " + RequestTableItemUpgradeConfig.getTierName(node.tier - 1)
-                    + " on this branch.";
-                GuiGraphics.drawToolTip(
-                    mouseX,
-                    mouseY,
-                    Arrays.asList(
-                        node.branch.getLabel() + " " + RequestTableItemUpgradeConfig.getTierName(node.tier),
-                        state,
-                        "Total: " + upgrades.getConfig().getTotal(node.branch, node.tier),
-                        "Consumes " + upgrades.getConfig().getCost(node.tier)
-                            + "x "
-                            + upgrades.getConfig().getCircuitOreName(node.tier)),
-                    EnumChatFormatting.WHITE);
+        List<String> nodeTooltip = board.tooltip(mouseX, mouseY, upgrades);
+        if (nodeTooltip != null) {
+            GuiGraphics.drawToolTip(mouseX, mouseY, nodeTooltip, EnumChatFormatting.WHITE);
+            return;
+        }
+        for (GuiButton button : buttonList) {
+            if (!RequestTableRender.hovered(button, mouseX, mouseY)) continue;
+            List<String> tooltip = switch (button.id) {
+                case CENTER -> Arrays.asList(
+                    "Center on the selected upgrade.",
+                    "Drag the board to move in any direction.",
+                    "Mouse wheel: move vertically.",
+                    "Shift + mouse wheel: move horizontally.");
+                case ZOOM_OUT -> Arrays.asList("Zoom out");
+                case ZOOM_IN -> Arrays.asList("Zoom in");
+                case SHOW_ALL -> Arrays.asList("Show the whole motherboard");
+                case APPLY -> applyTooltip();
+                default -> null;
+            };
+            if (tooltip != null) {
+                GuiGraphics.drawToolTip(mouseX, mouseY, tooltip, EnumChatFormatting.WHITE);
                 return;
             }
         }
-        if (inside(
-            mouseX,
-            mouseY,
-            applyButton.xPosition,
-            applyButton.yPosition,
-            applyButton.width,
-            applyButton.height)) {
-            int installed = upgrades.getTable().getItemUpgradeTier(upgrades.getSelectedBranch());
-            List<String> tooltip = !upgrades.isReady() ? List.of("Waiting for the server...")
-                : installed >= upgrades.getSelectedTier() ? List.of("Already installed.")
-                : installed + 1 != upgrades.getSelectedTier()
-                ? List.of("Install the preceding tier on this branch first.")
-                : Arrays.asList(
-                "Consume the required materials to unlock this tier.",
-                "Permanent, including after breaking and placing the table.");
+        if (isSelectedUpgradeApplied()) return;
+        List<Requirement> requirements = upgrades.getRequirements();
+        for (int i = 0; i < requirements.size(); i++) {
+            if (!inside(mouseX, mouseY, requirementLeft(i), detailsTop() + 12, 64, 16)) continue;
+            Requirement requirement = requirements.get(i);
+            var tooltip = new ArrayList<String>();
+            tooltip.add(requirement.getCount() + "x " + requirement.getLabel());
+            if (requirement.getOreName() != null) tooltip.add("Accepted: " + requirement.getOreName());
+            tooltip.add("Inserted: " + upgrades.getMaterialCount(requirement) + "/" + requirement.getCount());
+            tooltip.add("Insert materials into the slots below.");
+            tooltip.add("Unused materials return when you leave this screen.");
             GuiGraphics.drawToolTip(mouseX, mouseY, tooltip, EnumChatFormatting.WHITE);
-        } else if (inside(
-            mouseX,
-            mouseY,
-            guiLeft + RequestTableUpgradeContainer.INVENTORY_LEFT,
-            detailsTop() + 12,
-            16,
-            16)) {
-            GuiGraphics.drawToolTip(
-                mouseX,
-                mouseY,
-                Arrays.asList(
-                    "Accepted circuit: "
-                        + upgrades.getConfig().getCircuitOreName(upgrades.getSelectedTier()),
-                    "Insert matching circuits into the four slots below.",
-                    "Unused materials return when you leave this screen."),
-                EnumChatFormatting.WHITE);
+            return;
         }
+    }
+
+    private List<String> applyTooltip() {
+        RequestTableUpgradeStatus status = selectedStatus();
+        if (status == RequestTableUpgradeStatus.APPLIED) {
+            return Arrays.asList("Upgrade applied.", "Permanent, including after breaking and placing the table.");
+        }
+        var tooltip = new ArrayList<>(
+                Arrays.asList(
+                    status.hint(upgrades.getSelectedTier()),
+                    "Permanent, including after breaking and placing the table."));
+        for (Requirement requirement : upgrades.getRequirements()) {
+            tooltip.add(requirement.getCount() + "x " + requirement.getLabel());
+        }
+        return tooltip;
     }
 
     @Override
@@ -265,37 +285,22 @@ public class RequestTableUpgradeGui extends LogisticsBaseGuiScreen {
         int wheel = Mouse.getEventDWheel();
         int mouseX = Mouse.getEventX() * width / mc.displayWidth;
         int mouseY = height - Mouse.getEventY() * height / mc.displayHeight - 1;
-        if (wheel != 0 && inside(mouseX, mouseY, guiLeft + 8, treeTop(), 272, treeHeight())) {
-            scrollRow = Math.max(0, Math.min(maxScroll(), scrollRow + (wheel > 0 ? -1 : 1)));
-            updateNodes();
+        if (wheel != 0 && !hasSubGui() && board.contains(mouseX, mouseY)) {
+            board.scroll(wheel, isShiftKeyDown());
         }
         super.handleMouseInputSub();
     }
 
     @Override
     protected void mouseClicked(int mouseX, int mouseY, int button) {
-        if (button == 0 && inside(mouseX, mouseY, guiLeft + 272, treeTop(), 7, treeHeight())) {
-            if (maxScroll() == 0) return;
-            dragOffset = mouseY >= thumbTop() && mouseY < thumbTop() + thumbHeight() ? mouseY - thumbTop()
-                : thumbHeight() / 2;
-            scrollbarDragging = true;
-            dragScrollbar(mouseY);
-            return;
-        }
+        if (!hasSubGui() && board.startDrag(mouseX, mouseY, button)) return;
         super.mouseClicked(mouseX, mouseY, button);
-    }
-
-    private void dragScrollbar(int mouseY) {
-        int travel = treeHeight() - thumbHeight();
-        int position = Math.max(0, Math.min(travel, mouseY - treeTop() - dragOffset));
-        scrollRow = travel <= 0 ? 0 : Math.round((float) position * maxScroll() / travel);
-        updateNodes();
     }
 
     @Override
     protected void mouseClickMove(int mouseX, int mouseY, int button, long elapsed) {
-        if (scrollbarDragging) {
-            dragScrollbar(mouseY);
+        if (board.isDragging()) {
+            if (button == board.getDragButton()) board.drag(mouseX, mouseY);
             return;
         }
         super.mouseClickMove(mouseX, mouseY, button, elapsed);
@@ -303,74 +308,21 @@ public class RequestTableUpgradeGui extends LogisticsBaseGuiScreen {
 
     @Override
     protected void mouseMovedOrUp(int mouseX, int mouseY, int button) {
-        if (scrollbarDragging) {
-            if (button == 0) scrollbarDragging = false;
+        if (board.isDragging()) {
+            RequestTableBoardLayout.Node node = board.release(mouseX, mouseY, button);
+            if (node != null) {
+                centerButton.func_146113_a(mc.getSoundHandler());
+                sendSelection(node.branch, node.tier, false);
+            }
             return;
         }
         super.mouseMovedOrUp(mouseX, mouseY, button);
     }
 
-    /** Draws complete bevels even when the button is shorter than vanilla's 20-pixel texture. */
-    private static final class ActionButton extends GuiButton {
-
-        private ActionButton(int id, int x, int y, int width, int height, String label) {
-            super(id, x, y, width, height, label);
-        }
-
-        @Override
-        public void drawButton(Minecraft mc, int mouseX, int mouseY) {
-            if (!visible) return;
-            boolean hover = enabled && inside(mouseX, mouseY, xPosition, yPosition, width, height);
-            RequestTableGuiStyle.raised(xPosition, yPosition, width, height, hover);
-            mc.fontRenderer.drawString(
-                displayString,
-                xPosition + (width - mc.fontRenderer.getStringWidth(displayString)) / 2,
-                yPosition + (height - 8) / 2,
-                enabled ? RequestTableGuiStyle.TEXT : 0x808080);
-        }
+    @Override
+    public void onGuiClosed() {
+        board.cancelDrag();
+        super.onGuiClosed();
     }
 
-    private static final class NodeButton extends GuiButton {
-
-        private final RequestTableItemUpgradeBranch branch;
-        private final int tier;
-        private boolean completed;
-        private boolean unlocked;
-        private boolean selected;
-
-        private NodeButton(int id, RequestTableItemUpgradeBranch branch, int tier) {
-            super(id, 0, 0, 112, 16, "");
-            this.branch = branch;
-            this.tier = tier;
-        }
-
-        @Override
-        public void drawButton(Minecraft mc, int mouseX, int mouseY) {
-            if (!visible) return;
-            boolean hover = inside(mouseX, mouseY, xPosition, yPosition, width, height);
-            RequestTableGuiStyle.raised(xPosition, yPosition, width, height, hover);
-            Gui.drawRect(
-                xPosition + 2,
-                yPosition + 2,
-                xPosition + width - 2,
-                yPosition + height - 2,
-                completed ? 0xffb0c0a9 : unlocked ? 0xffc6c6c6 : 0xff969696);
-            if (selected) {
-                Gui.drawRect(xPosition + 1, yPosition + 1, xPosition + width - 1, yPosition + 2, 0xffe8c66a);
-                Gui.drawRect(
-                    xPosition + 1,
-                    yPosition + height - 2,
-                    xPosition + width - 1,
-                    yPosition + height - 1,
-                    0xffe8c66a);
-            }
-            Gui.drawRect(
-                xPosition + 4,
-                yPosition + 6,
-                xPosition + 7,
-                yPosition + 9,
-                completed ? 0xff37622e : unlocked ? 0xffcf9d53 : 0xff626262);
-            mc.fontRenderer.drawString(displayString, xPosition + 12, yPosition + 4, RequestTableGuiStyle.TEXT);
-        }
-    }
 }

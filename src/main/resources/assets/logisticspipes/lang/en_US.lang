@@ -334,8 +334,6 @@ item.OpaqueUpgrade=Opaque Upgrade
 item.CraftingCleanupUpgrade=Crafting Cleanup Upgrade
 item.LogicControllerUpgrade=Logic Controller Upgrade
 item.UpgradeModuleUpgrade=Upgrade Module Upgrade
-item.RequestTableFluidInventoryUpgrade=Request Table Fluid Slot Upgrade
-item.RequestTableFluidCapacityUpgrade=Request Table Fluid Capacity Upgrade
 
 #Upgrade info
 

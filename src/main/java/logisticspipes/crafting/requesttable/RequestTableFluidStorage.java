@@ -24,8 +24,6 @@ import java.util.List;
  */
 public class RequestTableFluidStorage implements IInventory {
 
-    static final int BASE_SLOT_CAPACITY = 64_000;
-
     private static final String NBT_FLUIDS = "fluids";
     private static final String NBT_INDEX = "index";
     private static final String NBT_SIZE = "size";
@@ -50,10 +48,12 @@ public class RequestTableFluidStorage implements IInventory {
     }
 
     /**
-     * Creates the default one-row request-table fluid storage.
+     * Creates the base fluid storage from the same configurable progression used by the upgrade board.
      */
     public static RequestTableFluidStorage createDefault() {
-        return new RequestTableFluidStorage(9, "Request Table Fluids", BASE_SLOT_CAPACITY);
+        RequestTableStorageUpgradeConfig config = RequestTableStorageUpgradeConfig.getConfigured(true);
+        return new RequestTableFluidStorage(config.getTotal(RequestTableUpgradeBranch.FLUID_SLOT_COUNT, 0),
+            "Request Table Fluids", config.getTotal(RequestTableUpgradeBranch.FLUID_SLOT_SIZE, 0));
     }
 
     /**
@@ -258,8 +258,8 @@ public class RequestTableFluidStorage implements IInventory {
     /**
      * @return currently stored fluid amount in millibuckets
      */
-    public int getStoredAmount() {
-        int stored = 0;
+    public long getStoredAmount() {
+        long stored = 0;
         for (FluidStack fluid : fluids) {
             if (fluid != null) {
                 stored += fluid.amount;
@@ -281,8 +281,8 @@ public class RequestTableFluidStorage implements IInventory {
     /**
      * @return total fluid capacity in millibuckets
      */
-    public int getTotalCapacity() {
-        return fluids.length * slotCapacity;
+    public long getTotalCapacity() {
+        return (long) fluids.length * slotCapacity;
     }
 
     /**

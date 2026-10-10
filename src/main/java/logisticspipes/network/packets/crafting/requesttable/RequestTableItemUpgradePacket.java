@@ -1,21 +1,21 @@
 package logisticspipes.network.packets.crafting.requesttable;
 
-import logisticspipes.crafting.requesttable.RequestTableItemUpgradeBranch;
-import logisticspipes.crafting.requesttable.RequestTableItemUpgradeConfig;
+import java.io.IOException;
+
+import net.minecraft.entity.player.EntityPlayer;
+
+import logisticspipes.crafting.requesttable.RequestTableUpgradeBranch;
 import logisticspipes.crafting.requesttable.RequestTableUpgradeContainer;
 import logisticspipes.network.LPDataInputStream;
 import logisticspipes.network.LPDataOutputStream;
 import logisticspipes.network.PacketGuards;
 import logisticspipes.network.abstractpackets.ModernPacket;
-import net.minecraft.entity.player.EntityPlayer;
-
-import java.io.IOException;
 
 /** Carries the selected branch/tier and explicit confirmation; the server owns costs and unlocks. */
 public class RequestTableItemUpgradePacket extends ModernPacket {
 
     private int windowId;
-    private RequestTableItemUpgradeBranch branch;
+    private RequestTableUpgradeBranch branch;
     private int tier;
     private boolean start;
 
@@ -23,7 +23,7 @@ public class RequestTableItemUpgradePacket extends ModernPacket {
         super(id);
     }
 
-    public RequestTableItemUpgradePacket setUpgrade(int windowId, RequestTableItemUpgradeBranch branch, int tier,
+    public RequestTableItemUpgradePacket setUpgrade(int windowId, RequestTableUpgradeBranch branch, int tier,
                                                     boolean start) {
         this.windowId = windowId;
         this.branch = branch;
@@ -39,7 +39,8 @@ public class RequestTableItemUpgradePacket extends ModernPacket {
 
     @Override
     public void processPacket(EntityPlayer player) {
-        if (PacketGuards.isOnClient(player) || !RequestTableItemUpgradeConfig.isValidTier(tier)
+        if (PacketGuards.isOnClient(player) || branch == null
+            || !branch.isValidSelection(tier)
             || !(player.openContainer instanceof RequestTableUpgradeContainer upgrades)
             || upgrades.windowId != windowId
             || !upgrades.canInteractWith(player))
@@ -64,7 +65,7 @@ public class RequestTableItemUpgradePacket extends ModernPacket {
     @Override
     public void readData(LPDataInputStream input) throws IOException {
         windowId = input.readInt();
-        branch = input.readEnum(RequestTableItemUpgradeBranch.class);
+        branch = input.readEnum(RequestTableUpgradeBranch.class);
         tier = input.readInt();
         start = input.readBoolean();
     }

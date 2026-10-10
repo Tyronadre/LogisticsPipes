@@ -1,5 +1,17 @@
 package logisticspipes.crafting.requesttable;
 
+import java.util.ArrayList;
+import java.util.List;
+
+import lombok.Getter;
+import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.inventory.ICrafting;
+import net.minecraft.inventory.Slot;
+import net.minecraft.item.ItemStack;
+import net.minecraftforge.fluids.FluidContainerRegistry;
+import net.minecraftforge.fluids.FluidStack;
+import net.minecraftforge.fluids.IFluidContainerItem;
+
 import logisticspipes.LogisticsPipes;
 import logisticspipes.network.PacketHandler;
 import logisticspipes.network.packets.crafting.requesttable.RequestTableInventoryPacket;
@@ -10,16 +22,7 @@ import logisticspipes.utils.gui.DummyContainer;
 import logisticspipes.utils.gui.DummySlot;
 import logisticspipes.utils.gui.HandelableSlot;
 import logisticspipes.utils.item.ItemIdentifierStack;
-import net.minecraft.entity.player.EntityPlayer;
-import net.minecraft.inventory.ICrafting;
-import net.minecraft.inventory.Slot;
-import net.minecraft.item.ItemStack;
-import net.minecraftforge.fluids.FluidContainerRegistry;
-import net.minecraftforge.fluids.FluidStack;
-import net.minecraftforge.fluids.IFluidContainerItem;
-
-import java.util.ArrayList;
-import java.util.List;
+import org.jetbrains.annotations.NotNull;
 
 /**
  * Container for the new request table.
@@ -32,26 +35,31 @@ public class RequestTableContainer extends DummyContainer {
     private static final int HIDDEN = -5000;
     private static final int SHIFT_CRAFT_LIMIT = 64;
 
+    @Getter
     private final RequestTablePipe table;
     private final List<Slot> itemStorageSlots = new ArrayList<>();
     private final List<Slot> fluidStorageSlots = new ArrayList<>();
     private final List<Slot> craftingSlots = new ArrayList<>();
     private final List<Slot> playerSlots = new ArrayList<>();
-    private final List<Slot> upgradeSlots = new ArrayList<>();
     private final List<FluidStack> syncedFluids = new ArrayList<>();
     private final Slot resultSlot;
-    private final Slot fluidUpgradeSlot;
     private final EntityPlayer player;
     private int playerSlotStart;
     private int playerSlotEnd;
+    @Getter
     private int craftableAmount;
     private boolean craftingCountReady;
     private int syncedItemStackLimit;
     private int syncedFluidSlotCapacity;
     private int syncedItemSlotTier = -1;
     private int syncedItemSizeTier = -1;
+    private int syncedFluidSlotTier = -1;
+    private int syncedFluidSizeTier = -1;
+    private boolean syncedFluidController;
+    private boolean syncedMonitoring;
     private ItemStack syncedCursor;
     private boolean syncRequired = true;
+    @Getter
     private boolean inventoryReady;
     private RequestTableView view = RequestTableView.NETWORK;
 
@@ -81,19 +89,6 @@ public class RequestTableContainer extends DummyContainer {
         resultSlot = addSlotToContainer(
                 new HandelableSlot(table.resultInv, 0, HIDDEN, HIDDEN, () -> table.getResultForClick(player)));
 
-        for (int i = 0; i < table.getOriginalUpgradeManager().getInv().getSizeInventory(); i++) {
-            int upgradeSlot = i;
-            upgradeSlots.add(
-                addRestrictedSlot(
-                    i,
-                    table.getOriginalUpgradeManager().getInv(),
-                    HIDDEN,
-                    HIDDEN,
-                    stack -> table.getOriginalUpgradeManager().isUpgradeAllowed(upgradeSlot, stack)));
-        }
-
-        fluidUpgradeSlot = addSlotToContainer(new RequestTableFluidUpgradeSlot(table, HIDDEN, HIDDEN));
-
         playerSlotStart = inventorySlots.size();
         addNormalSlotsForPlayerInventory(0, 0);
         playerSlotEnd = inventorySlots.size();
@@ -102,30 +97,9 @@ public class RequestTableContainer extends DummyContainer {
         }
     }
 
-    public RequestTablePipe getTable() {
-        return table;
-    }
-
-    public boolean isInventoryReady() {
-        return inventoryReady;
-    }
-
     /** Waits for a fresh layout after an interaction that can resize the storage slots. */
     public void awaitInventory() {
         inventoryReady = false;
-    }
-
-    public int getCraftableAmount() {
-        return craftableAmount;
-    }
-
-    private boolean isAllowedUpgrade(ItemStack stack) {
-        for (Slot slot : upgradeSlots) {
-            if (slot.isItemValid(stack)) {
-                return true;
-            }
-        }
-        return false;
     }
 
     @Override
@@ -138,82 +112,15 @@ public class RequestTableContainer extends DummyContainer {
         detectAndSendChanges();
     }
 
-    @Override
-    public void detectAndSendChanges() {
-        if (MainProxy.isClient(player.worldObj)) {
-            return;
+    @NotNull
+    static ItemStack getItemStack(FluidStack held, int accepted) {
+        int remaining = held.amount - accepted;
+        if (remaining <= 0) {
+            return new ItemStack(LogisticsPipes.LogisticsFluidContainer, 1);
         }
-        table.updateStorageUpgrades();
-        if (itemStorageSlots.size() != table.inv.getSizeInventory()
-            || fluidStorageSlots.size() != table.getFluidStorage().getSizeInventory()) {
-            rebuildStorageSlots();
-            syncRequired = true;
-        }
-        boolean storageChanged = syncedItemStackLimit != table.inv.getInventoryStackLimit()
-            || syncedFluidSlotCapacity != table.getFluidStorage().getSlotCapacity()
-            || syncedFluids.size() != fluidStorageSlots.size();
-        if (syncedFluids.size() != fluidStorageSlots.size()) {
-            syncedFluids.clear();
-            for (int i = 0; i < fluidStorageSlots.size(); i++) {
-                syncedFluids.add(null);
-            }
-        }
-        for (int i = 0; i < syncedFluids.size(); i++) {
-            FluidStack current = table.getFluidStorage().getFluid(i);
-            FluidStack previous = syncedFluids.get(i);
-            if (current == null ? previous != null : !current.isFluidStackIdentical(previous)) {
-                syncedFluids.set(i, current);
-                storageChanged = true;
-            }
-        }
-        boolean craftingChanged = !craftingCountReady;
-        for (int i = 0; i < inventorySlots.size(); i++) {
-            Slot slot = inventorySlots.get(i);
-            if (slot.inventory == table.getFluidStorage()) {
-                continue;
-            }
-            ItemStack current = slot.getStack();
-            if (!ItemStack.areItemStacksEqual(inventoryItemStacks.get(i), current)) {
-                inventoryItemStacks.set(i, current == null ? null : current.copy());
-                syncRequired = true;
-                craftingChanged |= slot.inventory == table.inv || slot.inventory == table.matrix
-                    || slot.inventory == table.resultInv
-                    || slot.inventory == player.inventory;
-                storageChanged |= i < itemStorageSlots.size() + fluidStorageSlots.size();
-                if (upgradeSlots.contains(slot) || slot == fluidUpgradeSlot) {
-                    table.container.markDirty();
-                    table.requestNetworkContentUpdate();
-                }
-            }
-        }
-        if (craftingChanged) {
-            craftableAmount = table.getCraftableAmount(player);
-            craftingCountReady = true;
-            syncRequired = true;
-        }
-        ItemStack cursor = player.inventory.getItemStack();
-        syncRequired |= storageChanged || !ItemStack.areItemStacksEqual(syncedCursor, cursor)
-            || syncedItemSlotTier != table.getItemSlotTier() || syncedItemSizeTier != table.getItemSizeTier();
-        if (storageChanged) {
-            table.container.markDirty();
-            table.requestNetworkContentUpdate();
-        }
-        if (!syncRequired || crafters.isEmpty()) {
-            return;
-        }
-        syncedItemStackLimit = table.inv.getInventoryStackLimit();
-        syncedFluidSlotCapacity = table.getFluidStorage().getSlotCapacity();
-        syncedItemSlotTier = table.getItemSlotTier();
-        syncedItemSizeTier = table.getItemSizeTier();
-        syncedCursor = cursor == null ? null : cursor.copy();
-        for (ICrafting crafter : crafters) {
-            if (crafter instanceof EntityPlayer viewer) {
-                MainProxy.sendPacketToPlayer(
-                    PacketHandler.getPacket(RequestTableInventoryPacket.class).setInventory(this, viewer),
-                    viewer);
-            }
-        }
-        syncRequired = false;
+        FluidStack leftover = held.copy();
+        leftover.amount = remaining;
+        return SimpleServiceLocator.logisticsFluidManager.getFluidContainer(leftover).makeNormalStack();
     }
 
     /** Vanilla packets use byte counts and may arrive before the server's slot layout. */
@@ -260,10 +167,6 @@ public class RequestTableContainer extends DummyContainer {
             addSlotToContainer(slot);
         }
         addSlotToContainer(resultSlot);
-        for (Slot slot : upgradeSlots) {
-            addSlotToContainer(slot);
-        }
-        addSlotToContainer(fluidUpgradeSlot);
         playerSlotStart = inventorySlots.size();
         for (Slot slot : playerSlots) {
             addSlotToContainer(slot);
@@ -271,33 +174,19 @@ public class RequestTableContainer extends DummyContainer {
         playerSlotEnd = inventorySlots.size();
     }
 
-    /**
-     * Moves the client-side slots into their current adaptive positions.
-     */
-    public void layout(RequestTableLayout layout, RequestTableView view, int storageScrollRow) {
-        this.view = view;
-        hide(itemStorageSlots);
-        hide(fluidStorageSlots);
-        if (view == RequestTableView.ITEM_STORAGE) {
-            layoutStorageSlots(itemStorageSlots, layout, RequestTableLayout.INVENTORY_COLUMNS, storageScrollRow);
-        } else if (view == RequestTableView.FLUID_STORAGE && table.isFluidEnabled()) {
-            layoutStorageSlots(fluidStorageSlots, layout, RequestTableLayout.INVENTORY_COLUMNS, storageScrollRow);
+    static FluidStack getFluidStack(ItemStack stack) {
+        if (stack == null) {
+            return null;
         }
-        if (view == RequestTableView.CRAFTING_MONITOR) {
-            hide(craftingSlots);
-            move(resultSlot, HIDDEN, HIDDEN);
-        } else {
-            layoutCrafting(layout);
+        if (stack.getItem() instanceof IFluidContainerItem) {
+            return ((IFluidContainerItem) stack.getItem()).drain(stack.copy(), Integer.MAX_VALUE, false);
         }
-        layoutPlayer(layout);
-        for (int i = 0; i < upgradeSlots.size(); i++) {
-            move(upgradeSlots.get(i), layout, layout.upgradeLeft, layout.getUpgradeSlotY(i));
+        FluidStack fluid = FluidContainerRegistry.getFluidForFilledItem(stack);
+        if (fluid != null) {
+            return fluid;
         }
-        if (view == RequestTableView.NETWORK) {
-            move(fluidUpgradeSlot, layout, layout.fluidUpgradeLeft, layout.fluidUpgradeTop);
-        } else {
-            move(fluidUpgradeSlot, HIDDEN, HIDDEN);
-        }
+        return SimpleServiceLocator.logisticsFluidManager
+                .getFluidFromContainer(ItemIdentifierStack.getFromStack(stack));
     }
 
     private void layoutStorageSlots(List<Slot> slots, RequestTableLayout layout, int columns, int scrollRow) {
@@ -374,17 +263,6 @@ public class RequestTableContainer extends DummyContainer {
         }
         if (slotId >= 0 && slotId < inventorySlots.size()) {
             Slot slot = inventorySlots.get(slotId);
-            if (slot == fluidUpgradeSlot && mode == 2 && mouseButton >= 0 && mouseButton < 9) {
-                ItemStack hotbar = player.inventory.getStackInSlot(mouseButton);
-                // DummyContainer's legacy hotbar swap does not respect the destination stack limit.
-                if (hotbar != null && slot.isItemValid(hotbar) && hotbar.stackSize > slot.getSlotStackLimit()) {
-                    if (!slot.getHasStack()) {
-                        slot.putStack(hotbar.splitStack(1));
-                        player.inventory.markDirty();
-                    }
-                    return null;
-                }
-            }
             if (itemStorageSlots.contains(slot) && mode == 0 && (mouseButton == 0 || mouseButton == 1)) {
                 return handleItemStorageClick(slot, mouseButton, player);
             }
@@ -459,21 +337,86 @@ public class RequestTableContainer extends DummyContainer {
     }
 
     @Override
-    public ItemStack transferStackInSlot(EntityPlayer player, int slotIndex) {
-        if (slotIndex < 0 || slotIndex >= inventorySlots.size()) {
-            return null;
+    public void detectAndSendChanges() {
+        if (MainProxy.isClient(player.worldObj)) {
+            return;
         }
-        Slot slot = inventorySlots.get(slotIndex);
-        if (slot == null || !slot.getHasStack() || !slot.canTakeStack(player)) {
-            return null;
+        table.updateStorageUpgrades();
+        if (itemStorageSlots.size() != table.inv.getSizeInventory()
+            || fluidStorageSlots.size() != table.getFluidStorage().getSizeInventory()) {
+            rebuildStorageSlots();
+            syncRequired = true;
         }
-        if (itemStorageSlots.contains(slot) || upgradeSlots.contains(slot) || slot == fluidUpgradeSlot) {
-            return transferStackToRange(player, slot, playerSlotStart, playerSlotEnd, true);
+        boolean storageChanged = syncedItemStackLimit != table.inv.getInventoryStackLimit()
+            || syncedFluidSlotCapacity != table.getFluidStorage().getSlotCapacity()
+            || syncedFluids.size() != fluidStorageSlots.size();
+        if (syncedFluids.size() != fluidStorageSlots.size()) {
+            syncedFluids.clear();
+            for (int i = 0; i < fluidStorageSlots.size(); i++) {
+                syncedFluids.add(null);
+            }
         }
-        if (slotIndex >= playerSlotStart && slotIndex < playerSlotEnd) {
-            return transferPlayerStack(player, slot, view);
+        for (int i = 0; i < syncedFluids.size(); i++) {
+            FluidStack current = table.getFluidStorage().getFluid(i);
+            FluidStack previous = syncedFluids.get(i);
+            if (current == null ? previous != null : !current.isFluidStackIdentical(previous)) {
+                syncedFluids.set(i, current);
+                storageChanged = true;
+            }
         }
-        return null;
+        boolean craftingChanged = !craftingCountReady;
+        for (int i = 0; i < inventorySlots.size(); i++) {
+            Slot slot = inventorySlots.get(i);
+            if (slot.inventory == table.getFluidStorage()) {
+                continue;
+            }
+            ItemStack current = slot.getStack();
+            if (!ItemStack.areItemStacksEqual(inventoryItemStacks.get(i), current)) {
+                inventoryItemStacks.set(i, current == null ? null : current.copy());
+                syncRequired = true;
+                craftingChanged |= slot.inventory == table.inv || slot.inventory == table.matrix
+                    || slot.inventory == table.resultInv
+                    || slot.inventory == player.inventory;
+                storageChanged |= i < itemStorageSlots.size() + fluidStorageSlots.size();
+            }
+        }
+        if (craftingChanged) {
+            craftableAmount = table.getCraftableAmount(player);
+            craftingCountReady = true;
+            syncRequired = true;
+        }
+        ItemStack cursor = player.inventory.getItemStack();
+        syncRequired |= storageChanged || !ItemStack.areItemStacksEqual(syncedCursor, cursor)
+            || syncedItemSlotTier != table.getItemSlotTier()
+            || syncedItemSizeTier != table.getItemSizeTier()
+            || syncedFluidSlotTier != table.getFluidSlotTier()
+            || syncedFluidSizeTier != table.getFluidSizeTier()
+            || syncedFluidController != table.isFluidEnabled()
+            || syncedMonitoring != table.hasMonitoringUpgrade();
+        if (storageChanged) {
+            table.container.markDirty();
+            table.requestNetworkContentUpdate();
+        }
+        if (!syncRequired || crafters.isEmpty()) {
+            return;
+        }
+        syncedItemStackLimit = table.inv.getInventoryStackLimit();
+        syncedFluidSlotCapacity = table.getFluidStorage().getSlotCapacity();
+        syncedItemSlotTier = table.getItemSlotTier();
+        syncedItemSizeTier = table.getItemSizeTier();
+        syncedFluidSlotTier = table.getFluidSlotTier();
+        syncedFluidSizeTier = table.getFluidSizeTier();
+        syncedFluidController = table.isFluidEnabled();
+        syncedMonitoring = table.hasMonitoringUpgrade();
+        syncedCursor = cursor == null ? null : cursor.copy();
+        for (ICrafting crafter : crafters) {
+            if (crafter instanceof EntityPlayer viewer) {
+                MainProxy.sendPacketToPlayer(
+                    PacketHandler.getPacket(RequestTableInventoryPacket.class).setInventory(this, viewer),
+                    viewer);
+            }
+        }
+        syncRequired = false;
     }
 
     /** Applies a player-inventory shift-click with the view sent in the same request. */
@@ -493,52 +436,56 @@ public class RequestTableContainer extends DummyContainer {
         detectAndSendChanges();
     }
 
-    private ItemStack transferPlayerStack(EntityPlayer player, Slot slot, RequestTableView view) {
-        if (view == RequestTableView.NETWORK && table.isFluidUpgrade(slot.getStack())) {
-            return transferPlayerStackToUpgrades(player, slot);
-        }
-        boolean filledCell = table.isFluidEnabled() && view != RequestTableView.ITEM_STORAGE && table.isFilledFluidContainer(slot.getStack());
-        if (view.transfersFluids(filledCell)) {
-            if (MainProxy.isServer(player.worldObj)) {
-                table.emptyFluidContainers(player, slot.getSlotIndex());
+    /**
+     * Moves the client-side slots into their current adaptive positions.
+     */
+    public void layout(RequestTableLayout layout, RequestTableView view, int storageScrollRow) {
+        this.view = view;
+        hide(itemStorageSlots);
+        hide(fluidStorageSlots);
+        switch (view) {
+            case ITEM_STORAGE -> layoutStorageSlots(
+                itemStorageSlots,
+                layout,
+                RequestTableLayout.INVENTORY_COLUMNS,
+                storageScrollRow);
+            case FLUID_STORAGE -> {
+                if (table.isFluidEnabled()) {
+                    layoutStorageSlots(
+                        fluidStorageSlots,
+                        layout,
+                        RequestTableLayout.INVENTORY_COLUMNS,
+                        storageScrollRow);
+                }
             }
-            // Do not let vanilla retry a converted GT cell, whose empty form can use the same Item.
-            return null;
+            case NETWORK, CRAFTING_MONITOR -> {
+            }
         }
-        if (!view.transfersItems(filledCell)) {
-            return null;
+        if (view == RequestTableView.CRAFTING_MONITOR) {
+            hide(craftingSlots);
+            move(resultSlot, HIDDEN, HIDDEN);
+        } else {
+            layoutCrafting(layout);
         }
-        if (isAllowedUpgrade(slot.getStack())) {
-            return transferPlayerStackToUpgrades(player, slot);
-        }
-        return transferPlayerStackToInternalStorage(player, slot);
+        layoutPlayer(layout);
     }
 
-    /** Inserts held items with the same storage/upgrade routing as a Main-view shift-click. */
-    boolean insertCursorItem(EntityPlayer player, int mouseButton) {
-        if (MainProxy.isClient(player.worldObj) || this.player != player || (mouseButton != 0 && mouseButton != 1)) {
-            return false;
+    @Override
+    public ItemStack transferStackInSlot(EntityPlayer player, int slotIndex) {
+        if (slotIndex < 0 || slotIndex >= inventorySlots.size()) {
+            return null;
         }
-        ItemStack cursor = player.inventory.getItemStack();
-        if (cursor == null || cursor.stackSize <= 0) {
-            return false;
+        Slot slot = inventorySlots.get(slotIndex);
+        if (slot == null || !slot.getHasStack() || !slot.canTakeStack(player)) {
+            return null;
         }
-        ItemStack moving = cursor.copy();
-        moving.stackSize = mouseButton == 0 ? cursor.stackSize : 1;
-        int amount = moving.stackSize;
-        if (table.isFluidUpgrade(moving) || isAllowedUpgrade(moving)) {
-            insertIntoUpgradeSlots(moving);
-        } else {
-            moving.stackSize = table.inv.addCompressed(moving, true);
+        if (itemStorageSlots.contains(slot)) {
+            return transferStackToRange(player, slot, playerSlotStart, playerSlotEnd);
         }
-        int moved = amount - moving.stackSize;
-        if (moved <= 0) {
-            return false;
+        if (slotIndex >= playerSlotStart && slotIndex < playerSlotEnd) {
+            return transferPlayerStack(player, slot, view);
         }
-        cursor.stackSize -= moved;
-        player.inventory.setItemStack(cursor.stackSize == 0 ? null : cursor);
-        syncRequired = true;
-        return true;
+        return null;
     }
 
     private void handleFluidStorageClick(int fluidSlot, int mouseButton, EntityPlayer player) {
@@ -611,6 +558,45 @@ public class RequestTableContainer extends DummyContainer {
         return filled;
     }
 
+    private ItemStack transferPlayerStack(EntityPlayer player, Slot slot, RequestTableView view) {
+        boolean filledCell = table.isFluidEnabled() && view != RequestTableView.ITEM_STORAGE
+            && table.isFilledFluidContainer(slot.getStack());
+        if (view.transfersFluids(filledCell)) {
+            if (MainProxy.isServer(player.worldObj)) {
+                table.emptyFluidContainers(player, slot.getSlotIndex());
+            }
+            // Do not let vanilla retry a converted GT cell, whose empty form can use the same Item.
+            return null;
+        }
+        if (!view.transfersItems(filledCell)) {
+            return null;
+        }
+        return transferPlayerStackToInternalStorage(player, slot);
+    }
+
+    /** Inserts held items with the same storage routing as a Main-view shift-click. */
+    boolean insertCursorItem(EntityPlayer player, int mouseButton) {
+        if (MainProxy.isClient(player.worldObj) || this.player != player || (mouseButton != 0 && mouseButton != 1)) {
+            return false;
+        }
+        ItemStack cursor = player.inventory.getItemStack();
+        if (cursor == null || cursor.stackSize <= 0) {
+            return false;
+        }
+        ItemStack moving = cursor.copy();
+        moving.stackSize = mouseButton == 0 ? cursor.stackSize : 1;
+        int amount = moving.stackSize;
+        moving.stackSize = table.inv.addCompressed(moving, true);
+        int moved = amount - moving.stackSize;
+        if (moved <= 0) {
+            return false;
+        }
+        cursor.stackSize -= moved;
+        player.inventory.setItemStack(cursor.stackSize == 0 ? null : cursor);
+        syncRequired = true;
+        return true;
+    }
+
     private ItemStack emptyContainerIntoSlot(RequestTableFluidStorage storage, int fluidSlot, ItemStack cursor,
                                              FluidStack held) {
         if (cursor.getItem() instanceof IFluidContainerItem container) {
@@ -634,13 +620,7 @@ public class RequestTableContainer extends DummyContainer {
             FluidStack inserted = held.copy();
             inserted.amount = accepted;
             storage.fillSlot(fluidSlot, inserted, true);
-            int remaining = held.amount - accepted;
-            if (remaining <= 0) {
-                return new ItemStack(LogisticsPipes.LogisticsFluidContainer, 1);
-            }
-            FluidStack leftover = held.copy();
-            leftover.amount = remaining;
-            return SimpleServiceLocator.logisticsFluidManager.getFluidContainer(leftover).makeNormalStack();
+            return getItemStack(held, accepted);
         }
         int accepted = storage.fillSlot(fluidSlot, held, false);
         if (accepted < held.amount) {
@@ -655,18 +635,7 @@ public class RequestTableContainer extends DummyContainer {
     }
 
     private FluidStack getContainedFluid(ItemStack stack) {
-        if (stack == null) {
-            return null;
-        }
-        if (stack.getItem() instanceof IFluidContainerItem) {
-            return ((IFluidContainerItem) stack.getItem()).drain(stack.copy(), Integer.MAX_VALUE, false);
-        }
-        FluidStack fluid = FluidContainerRegistry.getFluidForFilledItem(stack);
-        if (fluid != null) {
-            return fluid;
-        }
-        return SimpleServiceLocator.logisticsFluidManager
-                .getFluidFromContainer(ItemIdentifierStack.getFromStack(stack));
+        return getFluidStack(stack);
     }
 
     private boolean isContainerFull(ItemStack stack, FluidStack held) {
@@ -704,62 +673,13 @@ public class RequestTableContainer extends DummyContainer {
         return original;
     }
 
-    private ItemStack transferPlayerStackToUpgrades(EntityPlayer player, Slot sourceSlot) {
-        ItemStack source = sourceSlot.getStack();
-        ItemStack original = source.copy();
-        insertIntoUpgradeSlots(source);
-        if (source.stackSize == original.stackSize) {
-            return null;
-        }
-        sourceSlot.putStack(source.stackSize == 0 ? null : source);
-        sourceSlot.onSlotChanged();
-        player.inventory.markDirty();
-        return original;
-    }
-
-    private void insertIntoUpgradeSlots(ItemStack source) {
-        if (table.isFluidUpgrade(source)) {
-            if (!fluidUpgradeSlot.getHasStack() && fluidUpgradeSlot.isItemValid(source)) {
-                fluidUpgradeSlot.putStack(source.splitStack(1));
-            }
-            return;
-        }
-        for (int pass = 0; pass < 2; pass++) {
-            for (Slot target : upgradeSlots) {
-                ItemStack stored = target.getStack();
-                if ((pass == 0 && stored == null) || (pass == 1 && stored != null)
-                    || !target.isItemValid(source)
-                    || (stored != null
-                    && (!stored.isItemEqual(source) || !ItemStack.areItemStackTagsEqual(stored, source)))) {
-                    continue;
-                }
-                int limit = Math.min(target.getSlotStackLimit(), source.getMaxStackSize());
-                int moved = Math.min(source.stackSize, Math.max(0, limit - (stored == null ? 0 : stored.stackSize)));
-                if (moved <= 0) {
-                    continue;
-                }
-                ItemStack inserted = source.splitStack(moved);
-                if (stored != null) {
-                    inserted.stackSize += stored.stackSize;
-                }
-                target.putStack(inserted);
-                if (source.stackSize == 0) {
-                    break;
-                }
-            }
-            if (source.stackSize == 0) {
-                break;
-            }
-        }
-    }
-
-    private ItemStack transferStackToRange(EntityPlayer player, Slot sourceSlot, int start, int end, boolean reverse) {
+    private ItemStack transferStackToRange(EntityPlayer player, Slot sourceSlot, int start, int end) {
         ItemStack source = sourceSlot.getStack();
         ItemStack original = source.copy();
         ItemStack moving = source.copy();
         moving.stackSize = Math.min(source.stackSize, source.getMaxStackSize());
         int amount = moving.stackSize;
-        if (!mergeItemStack(moving, start, end, reverse)) {
+        if (!mergeItemStack(moving, start, end, true)) {
             return null;
         }
         int moved = amount - moving.stackSize;

@@ -1,17 +1,18 @@
 package logisticspipes.crafting.requesttable;
 
-import net.minecraft.item.ItemStack;
-import net.minecraftforge.common.config.Configuration;
-import net.minecraftforge.oredict.OreDictionary;
-
 import java.io.DataInput;
 import java.io.DataOutput;
 import java.io.IOException;
 
+import net.minecraft.item.ItemStack;
+import net.minecraftforge.common.config.Configuration;
+import net.minecraftforge.oredict.OreDictionary;
+
 /** Editable cumulative tier bonuses and ore-dictionary circuit costs, also sent to the upgrade GUI. */
-public final class RequestTableItemUpgradeConfig {
+public final class RequestTableStorageUpgradeConfig {
 
     public static final String CATEGORY = "requesttable.itemupgrades";
+    public static final String FLUID_CATEGORY = "requesttable.fluidupgrades";
     public static final String[] TIERS = {"LV", "MV", "HV", "EV", "IV", "LuV", "ZPM", "UV", "UHV", "UEV"};
     public static final int TIER_COUNT = TIERS.length;
     private static final int[] DEFAULT_SLOTS = {9, 18, 27, 36, 45, 54, 63, 72, 81, 90};
@@ -19,7 +20,8 @@ public final class RequestTableItemUpgradeConfig {
     private static final String[] DEFAULT_CIRCUITS = {"circuitBasic", "circuitGood", "circuitAdvanced", "circuitData",
         "circuitElite", "circuitMaster", "circuitUltimate", "circuitSuperconductor", "circuitInfinite",
         "circuitBio"};
-    private static RequestTableItemUpgradeConfig configured = new RequestTableItemUpgradeConfig();
+    private static RequestTableStorageUpgradeConfig configured = new RequestTableStorageUpgradeConfig(false);
+    private static RequestTableStorageUpgradeConfig configuredFluids = new RequestTableStorageUpgradeConfig(true);
     private final int[] slots = DEFAULT_SLOTS.clone();
     private final int[] sizes = DEFAULT_SIZES.clone();
     private final String[] circuits = DEFAULT_CIRCUITS.clone();
@@ -27,21 +29,40 @@ public final class RequestTableItemUpgradeConfig {
     private int baseSlots = 27;
     private int baseSlotSize = 64;
 
-    private RequestTableItemUpgradeConfig() {
+    private RequestTableStorageUpgradeConfig(boolean fluid) {
         java.util.Arrays.fill(costs, 1);
+        if (fluid) {
+            baseSlotSize *= 1000;
+            for (int i = 0; i < sizes.length; i++) sizes[i] *= 1000;
+        }
     }
 
-    public static RequestTableItemUpgradeConfig getConfigured() {
+    public static RequestTableStorageUpgradeConfig getConfigured() {
         return configured;
     }
 
+    public static RequestTableStorageUpgradeConfig getConfigured(boolean fluid) {
+        return fluid ? configuredFluids : configured;
+    }
+
     public static void load(Configuration config) {
-        RequestTableItemUpgradeConfig values = new RequestTableItemUpgradeConfig();
-        values.baseSlots = Math.max(1, config.get(CATEGORY, "baseSlots", 27, "Base item-storage slot count.").getInt());
-        values.baseSlotSize = Math
-            .max(1, config.get(CATEGORY, "baseSlotSize", 64, "Base items per storage slot.").getInt());
+        configured = load(config, false);
+        configuredFluids = load(config, true);
+    }
+
+    private static RequestTableStorageUpgradeConfig load(Configuration config, boolean fluid) {
+        RequestTableStorageUpgradeConfig values = new RequestTableStorageUpgradeConfig(fluid);
+        String rootCategory = fluid ? FLUID_CATEGORY : CATEGORY;
+        values.baseSlots = Math.max(1, config.get(rootCategory, "baseSlots", 27, "Base storage slot count.").getInt());
+        values.baseSlotSize = Math.max(
+            1,
+            config.get(
+                rootCategory,
+                "baseSlotSize",
+                values.baseSlotSize,
+                fluid ? "Base millibuckets per tank." : "Base items per storage slot.").getInt());
         for (int i = 0; i < TIER_COUNT; i++) {
-            String category = CATEGORY + "." + TIERS[i].toLowerCase(java.util.Locale.ROOT);
+            String category = rootCategory + "." + TIERS[i].toLowerCase(java.util.Locale.ROOT);
             values.slots[i] = Math.max(
                 0,
                 config.get(
@@ -54,7 +75,7 @@ public final class RequestTableItemUpgradeConfig {
                 config.get(
                     category,
                     "additionalSlotSize",
-                    DEFAULT_SIZES[i],
+                    values.sizes[i],
                     "Added once when this slot-size tier is consumed.").getInt());
             values.circuits[i] = config
                 .get(
@@ -73,7 +94,7 @@ public final class RequestTableItemUpgradeConfig {
                         1,
                         "Circuits consumed by either branch at this tier (1-256).").getInt()));
         }
-        configured = values;
+        return values;
     }
 
     public static boolean isValidTier(int tier) {
@@ -84,8 +105,8 @@ public final class RequestTableItemUpgradeConfig {
         return tier == 0 ? "Base" : TIERS[Math.max(1, Math.min(TIER_COUNT, tier)) - 1];
     }
 
-    public static RequestTableItemUpgradeConfig readData(DataInput input) throws IOException {
-        RequestTableItemUpgradeConfig values = new RequestTableItemUpgradeConfig();
+    public static RequestTableStorageUpgradeConfig readData(DataInput input) throws IOException {
+        RequestTableStorageUpgradeConfig values = new RequestTableStorageUpgradeConfig(false);
         values.baseSlots = Math.max(1, input.readInt());
         values.baseSlotSize = Math.max(1, input.readInt());
         for (int i = 0; i < TIER_COUNT; i++) {
@@ -97,12 +118,12 @@ public final class RequestTableItemUpgradeConfig {
         return values;
     }
 
-    public int getBonus(RequestTableItemUpgradeBranch branch, int tier) {
-        return (branch == RequestTableItemUpgradeBranch.SLOT_COUNT ? slots : sizes)[tier - 1];
+    public int getBonus(RequestTableUpgradeBranch branch, int tier) {
+        return (branch.isSlotCount() ? slots : sizes)[tier - 1];
     }
 
-    public int getTotal(RequestTableItemUpgradeBranch branch, int tier) {
-        long total = branch == RequestTableItemUpgradeBranch.SLOT_COUNT ? baseSlots : baseSlotSize;
+    public int getTotal(RequestTableUpgradeBranch branch, int tier) {
+        long total = branch.isSlotCount() ? baseSlots : baseSlotSize;
         for (int i = 1; i <= Math.min(TIER_COUNT, Math.max(0, tier)); i++) {
             total += getBonus(branch, i);
         }

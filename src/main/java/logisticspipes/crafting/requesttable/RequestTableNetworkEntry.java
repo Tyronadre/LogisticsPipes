@@ -1,11 +1,12 @@
 package logisticspipes.crafting.requesttable;
 
+import net.minecraft.item.ItemStack;
+import net.minecraftforge.fluids.FluidStack;
+
 import logisticspipes.crafting.patternStack.PatternFluidStack;
 import logisticspipes.proxy.SimpleServiceLocator;
 import logisticspipes.utils.FluidIdentifier;
 import logisticspipes.utils.item.ItemIdentifierStack;
-import net.minecraft.item.ItemStack;
-import net.minecraftforge.fluids.FluidStack;
 
 /**
  * A requestable stack in the new request table list.
@@ -104,7 +105,7 @@ public class RequestTableNetworkEntry implements Comparable<RequestTableNetworkE
      * @return combined request-table and network amount
      */
     public int getTotalAmount() {
-        return networkAmount + internalAmount;
+        return (int) Math.min(Integer.MAX_VALUE, (long) networkAmount + internalAmount);
     }
 
     /**

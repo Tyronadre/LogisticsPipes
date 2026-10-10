@@ -774,7 +774,7 @@ public class LogisticsBlockGenericPipe extends BlockContainer {
         CoreUnroutedPipe pipe = LogisticsBlockGenericPipe.getPipe(world, x, y, z);
 
         if (LogisticsBlockGenericPipe.isValid(pipe)) {
-            if (pipe instanceof RequestTablePipe table) table.restoreItemUpgrades(stack);
+            if (pipe instanceof RequestTablePipe table) table.restoreStorageUpgrades(stack);
             pipe.onBlockPlacedBy(placer);
             if (pipe instanceof IRotationProvider) {
                 double xPos = pipe.getX() + 0.5 - placer.posX;

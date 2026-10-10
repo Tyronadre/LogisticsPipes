@@ -1,10 +1,12 @@
 package logisticspipes.crafting.requesttable;
 
-import cpw.mods.fml.relauncher.Side;
-import cpw.mods.fml.relauncher.SideOnly;
 import net.minecraft.client.gui.FontRenderer;
 import net.minecraft.client.gui.Gui;
+
 import org.lwjgl.opengl.GL11;
+
+import cpw.mods.fml.relauncher.Side;
+import cpw.mods.fml.relauncher.SideOnly;
 
 /** Shared Minecraft bevels for the table, scrollbars, and request popup. */
 @SideOnly(Side.CLIENT)
@@ -12,6 +14,8 @@ final class RequestTableGuiStyle {
 
     static final int TEXT = 0x404040;
     static final int MUTED = 0x686868;
+    static final int MONITOR_POWER_ON = 0xff86be65;
+    static final int MONITOR_POWER_OFF = 0xff777777;
 
     private RequestTableGuiStyle() {
     }
@@ -30,20 +34,24 @@ final class RequestTableGuiStyle {
     }
 
     /** Matches NEI's fluid display text scale, shadow and bottom-left placement. */
-    static void drawCount(FontRenderer font, String amount, int x, int y, int color, boolean topRight) {
+    static void drawCount(FontRenderer font, String amount, int x, int y, int color, boolean topLeft) {
+        drawCount(font, amount, x, y, color, topLeft, 0);
+    }
+
+    /** Limits a corner count when a status icon shares the top edge. */
+    static void drawCount(FontRenderer font, String amount, int x, int y, int color, boolean topLeft,
+                          int availableWidth) {
         float scale = font.getUnicodeFlag() ? 3.0F / 4.0F : 1.0F / 2.0F;
-        GL11.glPushAttrib(GL11.GL_ALL_ATTRIB_BITS);
-        GL11.glPushMatrix();
-        GL11.glDisable(GL11.GL_LIGHTING);
-        GL11.glDisable(GL11.GL_DEPTH_TEST);
-        GL11.glDisable(GL11.GL_BLEND);
-        GL11.glTranslatef(x, y, 150.0F);
-        GL11.glScalef(scale, scale, 1.0F);
-        int drawX = topRight ? (int) (16 / scale) - font.getStringWidth(amount) : 0;
-        int drawY = topRight ? Math.round(-1 / scale) : (int) (16 / scale) - font.FONT_HEIGHT + 1;
-        font.drawString(amount, drawX, drawY, color, true);
-        GL11.glPopMatrix();
-        GL11.glPopAttrib();
+        if (availableWidth > 0) {
+            scale = Math.min(scale, availableWidth / (float) (font.getStringWidth(amount) + 1));
+        }
+        try (var state = RequestTableRender.guiState()) {
+            GL11.glTranslatef(x, y, 150.0F);
+            GL11.glScalef(scale, scale, 1.0F);
+            int drawX = topLeft ? Math.round(-1 / scale) : 0;
+            int drawY = topLeft ? Math.round(-1 / scale) : (int) (16 / scale) - font.FONT_HEIGHT + 1;
+            font.drawString(amount, drawX, drawY, color, true);
+        }
     }
 
     static void inset(int x, int y, int width, int height) {
@@ -54,12 +62,27 @@ final class RequestTableGuiStyle {
     }
 
     static void raised(int x, int y, int width, int height, boolean hover) {
-        Gui.drawRect(x, y, x + width, y + height, 0xff373737);
-        Gui.drawRect(x + 1, y + 1, x + width - 1, y + height - 1, hover ? 0xffa8b4c2 : 0xffc6c6c6);
+        bevel(x, y, width, height, hover ? 0xffa8b4c2 : 0xffc6c6c6, 0xff373737);
+    }
+
+    static void bevel(int x, int y, int width, int height, int fill, int outline) {
+        Gui.drawRect(x, y, x + width, y + height, outline);
+        Gui.drawRect(x + 1, y + 1, x + width - 1, y + height - 1, fill);
         Gui.drawRect(x + 1, y + 1, x + width - 2, y + 2, 0xffffffff);
         Gui.drawRect(x + 1, y + 1, x + 2, y + height - 2, 0xffffffff);
         Gui.drawRect(x + 1, y + height - 2, x + width - 1, y + height - 1, 0xff555555);
         Gui.drawRect(x + width - 2, y + 1, x + width - 1, y + height - 1, 0xff555555);
+    }
+
+    static void requestButton(int x, int y, int width, int height, boolean enabled) {
+        bevel(x, y, width, height, enabled ? 0xffc6c6c6 : 0xff7f7f7f, 0xff000000);
+    }
+
+    static void border(int x, int y, int width, int height, int color) {
+        Gui.drawRect(x, y, x + width, y + 1, color);
+        Gui.drawRect(x, y + height - 1, x + width, y + height, color);
+        Gui.drawRect(x, y, x + 1, y + height, color);
+        Gui.drawRect(x + width - 1, y, x + width, y + height, color);
     }
 
     static void scrollbar(RequestTableLayout layout, int scrollRow, int maxScroll) {

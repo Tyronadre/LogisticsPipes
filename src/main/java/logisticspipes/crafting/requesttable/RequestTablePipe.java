@@ -1,5 +1,23 @@
 package logisticspipes.crafting.requesttable;
 
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
+
+import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.inventory.IInventory;
+import net.minecraft.inventory.SlotCrafting;
+import net.minecraft.item.Item;
+import net.minecraft.item.ItemStack;
+import net.minecraft.item.crafting.IRecipe;
+import net.minecraft.nbt.NBTTagCompound;
+import net.minecraftforge.common.util.ForgeDirection;
+import net.minecraftforge.fluids.FluidContainerRegistry;
+import net.minecraftforge.fluids.FluidStack;
+import net.minecraftforge.fluids.IFluidContainerItem;
+
 import logisticspipes.LogisticsPipes;
 import logisticspipes.blocks.crafting.AutoCraftingInventory;
 import logisticspipes.interfaces.routing.IRequestFluid;
@@ -24,23 +42,9 @@ import logisticspipes.utils.item.ItemIdentifierStack;
 import logisticspipes.utils.item.SimpleStackInventory;
 import logisticspipes.utils.tuples.Pair;
 import lombok.Getter;
-import net.minecraft.entity.player.EntityPlayer;
-import net.minecraft.inventory.IInventory;
-import net.minecraft.inventory.SlotCrafting;
-import net.minecraft.item.Item;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.crafting.IRecipe;
-import net.minecraft.nbt.NBTTagCompound;
-import net.minecraftforge.common.util.ForgeDirection;
-import net.minecraftforge.fluids.FluidContainerRegistry;
-import net.minecraftforge.fluids.FluidStack;
-import net.minecraftforge.fluids.IFluidContainerItem;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Map.Entry;
+import static logisticspipes.crafting.requesttable.RequestTableContainer.getFluidStack;
+import static logisticspipes.crafting.requesttable.RequestTableContainer.getItemStack;
 
 /**
  * New request table implementation with separate item and fluid storage.
@@ -52,20 +56,23 @@ import java.util.Map.Entry;
 @Getter
 public class RequestTablePipe extends PipeBlockRequestTable implements IRequestFluid {
 
-    private static final int BASE_FLUID_SLOTS = 9;
-    private static final int FLUID_SLOT_UPGRADE_SIZE = 9;
     private static final int FLUID_SEND_CHUNK = 5000;
     private static final String NBT_FLUID_STORAGE = "newRequestTableFluidStorage";
     private static final String NBT_DISPLAY_SETTINGS = "newRequestTableDisplaySettings";
     private static final String NBT_FLUID_UPGRADE = "newRequestTableFluidUpgrade";
     private static final String NBT_ITEM_UPGRADES = "requestTableItemUpgrades";
+    private static final String NBT_FLUID_TIERS = "requestTableFluidUpgrades";
+    private static final String NBT_SPECIAL_UPGRADES = "requestTableSpecialUpgrades";
     private final RequestTableFluidStorage fluidStorage = RequestTableFluidStorage.createDefault();
-    private final SimpleStackInventory fluidUpgradeInventory = new SimpleStackInventory(1, "Request Table Fluid Upgrade", 1);
     private final RequestTableDisplaySettingsStore displaySettingsStore = new RequestTableDisplaySettingsStore();
     private final PlayerCollectionList requestTableGuiWatchers = new PlayerCollectionList();
     private boolean networkContentDirty;
     private int itemSlotTier;
     private int itemSizeTier;
+    private int fluidSlotTier;
+    private int fluidSizeTier;
+    private boolean fluidControllerUnlocked;
+    private boolean monitoringUnlocked;
 
     /**
      * Creates the new request table pipe item.
@@ -76,15 +83,23 @@ public class RequestTablePipe extends PipeBlockRequestTable implements IRequestF
         super(item);
         inv.addListener(this);
         fluidStorage.addListener(this);
-        fluidUpgradeInventory.addListener(this);
         updateStorageUpgrades();
     }
 
-    public static void addItemUpgradeTooltip(ItemStack stack, List<String> tooltip) {
-        if (!stack.hasTagCompound() || !stack.getTagCompound().hasKey(NBT_ITEM_UPGRADES)) return;
+    public static void addStorageUpgradeTooltip(ItemStack stack, List<String> tooltip) {
+        if (!stack.hasTagCompound()) return;
+        if (!stack.getTagCompound().hasKey(NBT_ITEM_UPGRADES) && !stack.getTagCompound().hasKey(NBT_FLUID_TIERS)
+            && !stack.getTagCompound().hasKey(NBT_SPECIAL_UPGRADES))
+            return;
         NBTTagCompound upgrades = stack.getTagCompound().getCompoundTag(NBT_ITEM_UPGRADES);
-        tooltip.add("Item slots: " + RequestTableItemUpgradeConfig.getTierName(upgrades.getInteger("slotTier")));
-        tooltip.add("Slot size: " + RequestTableItemUpgradeConfig.getTierName(upgrades.getInteger("sizeTier")));
+        tooltip.add("Item slots: " + RequestTableStorageUpgradeConfig.getTierName(upgrades.getInteger("slotTier")));
+        tooltip.add("Slot size: " + RequestTableStorageUpgradeConfig.getTierName(upgrades.getInteger("sizeTier")));
+        NBTTagCompound fluids = stack.getTagCompound().getCompoundTag(NBT_FLUID_TIERS);
+        tooltip.add("Fluid tanks: " + RequestTableStorageUpgradeConfig.getTierName(fluids.getInteger("slotTier")));
+        tooltip.add("Tank capacity: " + RequestTableStorageUpgradeConfig.getTierName(fluids.getInteger("sizeTier")));
+        NBTTagCompound special = stack.getTagCompound().getCompoundTag(NBT_SPECIAL_UPGRADES);
+        if (special.getBoolean("fluidController")) tooltip.add("Fluid controller: unlocked");
+        if (special.getBoolean("monitoring")) tooltip.add("Crafting monitor: unlocked");
     }
 
     /** Coalesces storage changes into one network-list refresh per server tick. */
@@ -168,10 +183,16 @@ public class RequestTablePipe extends PipeBlockRequestTable implements IRequestF
         }
     }
 
+    private static boolean isControllerCard(ItemStack stack, int damage) {
+        return stack != null && stack.stackSize > 0
+            && stack.getItem() == LogisticsPipes.UpgradeItem
+            && stack.getItemDamage() == damage;
+    }
+
     @Override
     public void InventoryChanged(IInventory inventory) {
         super.InventoryChanged(inventory);
-        if ((inventory == inv || inventory == fluidStorage || inventory == fluidUpgradeInventory) && container != null
+        if ((inventory == inv || inventory == fluidStorage) && container != null
             && getWorld() != null
             && MainProxy.isServer(getWorld())) {
             container.markDirty();
@@ -179,52 +200,77 @@ public class RequestTablePipe extends PipeBlockRequestTable implements IRequestF
         }
     }
 
-    /** Reserves the first upgrade slot for crafting monitoring and the remaining slots for storage upgrades. */
+    /** Request-table upgrades are purchased permanently through the motherboard. */
     public boolean isUpgradeAllowed(int slot, ItemStack stack) {
-        if (slot < 0 || slot >= getOriginalUpgradeManager().getInv().getSizeInventory()
-            || stack == null
-            || stack.getItem() != LogisticsPipes.UpgradeItem) {
-            return false;
-        }
-        if (slot == 0) {
-            return stack.getItemDamage() == ItemUpgrade.CRAFTING_MONITORING;
-        }
-        return switch (stack.getItemDamage()) {
-            case ItemUpgrade.REQUEST_TABLE_FLUID_INVENTORY, ItemUpgrade.REQUEST_TABLE_FLUID_CAPACITY -> true;
-            default -> false;
-        };
-    }
-
-    /** The dedicated Main-view socket accepts the existing general fluid crafting upgrade. */
-    public boolean isFluidUpgrade(ItemStack stack) {
-        return stack != null && stack.getItem() == LogisticsPipes.UpgradeItem
-            && stack.getItemDamage() == ItemUpgrade.LIQUID_CRAFTING;
+        return false;
     }
 
     public boolean isFluidEnabled() {
-        ItemStack upgrade = fluidUpgradeInventory.getStackInSlot(0);
-        return isFluidUpgrade(upgrade) && upgrade.stackSize > 0;
+        return fluidControllerUnlocked;
     }
 
-    public boolean canRemoveFluidUpgrade() {
-        return fluidStorage.isEmpty();
+    public int getUpgradeTier(RequestTableUpgradeBranch branch) {
+        return switch (branch) {
+            case SLOT_COUNT -> itemSlotTier;
+            case SLOT_SIZE -> itemSizeTier;
+            case FLUID_SLOT_COUNT -> fluidSlotTier;
+            case FLUID_SLOT_SIZE -> fluidSizeTier;
+            case FLUID_CONTROLLER -> isFluidEnabled() ? 1 : 0;
+            case CRAFTING_MONITORING -> hasMonitoringUpgrade() ? 1 : 0;
+        };
     }
 
-    public int getItemUpgradeTier(RequestTableItemUpgradeBranch branch) {
-        return branch == RequestTableItemUpgradeBranch.SLOT_COUNT ? itemSlotTier : itemSizeTier;
+    public boolean hasMonitoringUpgrade() {
+        return monitoringUnlocked;
+    }
+
+    public void applySpecialUpgrades(boolean fluidController, boolean monitoring) {
+        fluidControllerUnlocked = fluidController;
+        monitoringUnlocked = monitoring;
+    }
+
+    /** The server validates a one-time controller purchase before its card is consumed. */
+    public boolean unlockSpecialUpgrade(RequestTableUpgradeBranch branch) {
+        if (branch == null || !branch.isSpecial()
+            || getWorld() == null
+            || MainProxy.isClient(getWorld())
+            || getUpgradeTier(branch) > 0)
+            return false;
+        if (branch == RequestTableUpgradeBranch.FLUID_CONTROLLER) fluidControllerUnlocked = true;
+        else monitoringUnlocked = true;
+        container.markDirty();
+        requestNetworkContentUpdate();
+        return true;
     }
 
     public void applyItemUpgradeTiers(int slots, int size) {
-        itemSlotTier = Math.max(0, Math.min(RequestTableItemUpgradeConfig.TIER_COUNT, slots));
-        itemSizeTier = Math.max(0, Math.min(RequestTableItemUpgradeConfig.TIER_COUNT, size));
+        itemSlotTier = Math.max(0, Math.min(RequestTableStorageUpgradeConfig.TIER_COUNT, slots));
+        itemSizeTier = Math.max(0, Math.min(RequestTableStorageUpgradeConfig.TIER_COUNT, size));
+    }
+
+    public void applyFluidUpgradeTiers(int slots, int size) {
+        fluidSlotTier = Math.max(0, Math.min(RequestTableStorageUpgradeConfig.TIER_COUNT, slots));
+        fluidSizeTier = Math.max(0, Math.min(RequestTableStorageUpgradeConfig.TIER_COUNT, size));
     }
 
     /** Called only after the upgrade container has validated and reserved the required materials. */
-    public boolean unlockItemUpgrade(RequestTableItemUpgradeBranch branch, int tier) {
-        if (branch == null || !RequestTableItemUpgradeConfig.isValidTier(tier) || getWorld() == null
-            || MainProxy.isClient(getWorld()) || getItemUpgradeTier(branch) + 1 != tier) return false;
-        if (branch == RequestTableItemUpgradeBranch.SLOT_COUNT) itemSlotTier = tier;
-        else itemSizeTier = tier;
+    public boolean unlockStorageUpgrade(RequestTableUpgradeBranch branch, int tier) {
+        if (branch == null || branch.isSpecial()
+            || !RequestTableStorageUpgradeConfig.isValidTier(tier)
+            || getWorld() == null
+            || MainProxy.isClient(getWorld())
+            || getUpgradeTier(branch) + 1 != tier
+            || (branch.isFluid() && !isFluidEnabled()))
+            return false;
+        switch (branch) {
+            case SLOT_COUNT -> itemSlotTier = tier;
+            case SLOT_SIZE -> itemSizeTier = tier;
+            case FLUID_SLOT_COUNT -> fluidSlotTier = tier;
+            case FLUID_SLOT_SIZE -> fluidSizeTier = tier;
+            default -> {
+                return false;
+            }
+        }
         updateStorageUpgrades();
         container.markDirty();
         requestNetworkContentUpdate();
@@ -233,63 +279,45 @@ public class RequestTablePipe extends PipeBlockRequestTable implements IRequestF
 
     public ItemStack makeTableDrop(int damage) {
         ItemStack stack = new ItemStack(item, 1, damage);
-        if (itemSlotTier > 0 || itemSizeTier > 0) {
+        if (itemSlotTier > 0 || itemSizeTier > 0
+            || fluidSlotTier > 0
+            || fluidSizeTier > 0
+            || fluidControllerUnlocked
+            || monitoringUnlocked) {
             NBTTagCompound data = new NBTTagCompound();
-            writeItemUpgradeData(data);
+            writeStorageUpgradeData(data);
             stack.setTagCompound(data);
         }
         return stack;
     }
 
-    public void restoreItemUpgrades(ItemStack stack) {
-        if (stack != null && stack.hasTagCompound()) readItemUpgradeData(stack.getTagCompound());
+    public void restoreStorageUpgrades(ItemStack stack) {
+        if (stack != null && stack.hasTagCompound()) readStorageUpgradeData(stack.getTagCompound());
         updateStorageUpgrades();
     }
 
-    private void writeItemUpgradeData(NBTTagCompound tag) {
+    private void writeStorageUpgradeData(NBTTagCompound tag) {
         NBTTagCompound upgrades = new NBTTagCompound();
         upgrades.setInteger("slotTier", itemSlotTier);
         upgrades.setInteger("sizeTier", itemSizeTier);
         tag.setTag(NBT_ITEM_UPGRADES, upgrades);
+        NBTTagCompound fluids = new NBTTagCompound();
+        fluids.setInteger("slotTier", fluidSlotTier);
+        fluids.setInteger("sizeTier", fluidSizeTier);
+        tag.setTag(NBT_FLUID_TIERS, fluids);
+        NBTTagCompound special = new NBTTagCompound();
+        special.setBoolean("fluidController", fluidControllerUnlocked);
+        special.setBoolean("monitoring", monitoringUnlocked);
+        tag.setTag(NBT_SPECIAL_UPGRADES, special);
     }
 
-    private void readItemUpgradeData(NBTTagCompound tag) {
+    private void readStorageUpgradeData(NBTTagCompound tag) {
         NBTTagCompound upgrades = tag.getCompoundTag(NBT_ITEM_UPGRADES);
         applyItemUpgradeTiers(upgrades.getInteger("slotTier"), upgrades.getInteger("sizeTier"));
-    }
-
-    /** Applies installed request-table storage upgrades to the item and fluid backing stores. */
-    public void updateStorageUpgrades() {
-        if (container == null || getWorld() == null || MainProxy.isClient(getWorld())) return;
-
-        RequestTableItemUpgradeConfig itemUpgrades = RequestTableItemUpgradeConfig.getConfigured();
-        int itemSlotCount = itemUpgrades.getTotal(RequestTableItemUpgradeBranch.SLOT_COUNT, itemSlotTier);
-        int itemStackLimit = itemUpgrades.getTotal(RequestTableItemUpgradeBranch.SLOT_SIZE, itemSizeTier);
-        adjustItemStorageForUpgrades(itemSlotCount, itemStackLimit);
-
-        int fluidSlotCount = BASE_FLUID_SLOTS
-                + countUpgrade(ItemUpgrade.REQUEST_TABLE_FLUID_INVENTORY) * FLUID_SLOT_UPGRADE_SIZE;
-        int fluidSlotCapacity = RequestTableFluidStorage.BASE_SLOT_CAPACITY
-                * (1 + countUpgrade(ItemUpgrade.REQUEST_TABLE_FLUID_CAPACITY));
-        boolean fluidStorageChanged = fluidStorage.getSizeInventory() != fluidSlotCount
-                || fluidStorage.getSlotCapacity() != fluidSlotCapacity;
-        if (getWorld() != null)
-            fluidStorage.resize(fluidSlotCount, fluidSlotCapacity, getWorld(), getX(), getY(), getZ());
-        if (fluidStorageChanged) {
-            requestNetworkContentUpdate();
-        }
-    }
-
-    private int countUpgrade(int itemDamage) {
-        int count = 0;
-        IInventory upgrades = getOriginalUpgradeManager().getInv();
-        for (int slot = 0; slot < upgrades.getSizeInventory(); slot++) {
-            ItemStack stack = upgrades.getStackInSlot(slot);
-            if (stack != null && stack.getItem() == LogisticsPipes.UpgradeItem && stack.getItemDamage() == itemDamage) {
-                count += stack.stackSize;
-            }
-        }
-        return count;
+        NBTTagCompound fluids = tag.getCompoundTag(NBT_FLUID_TIERS);
+        applyFluidUpgradeTiers(fluids.getInteger("slotTier"), fluids.getInteger("sizeTier"));
+        NBTTagCompound special = tag.getCompoundTag(NBT_SPECIAL_UPGRADES);
+        applySpecialUpgrades(special.getBoolean("fluidController"), special.getBoolean("monitoring"));
     }
 
     private void adjustItemStorageForUpgrades(int slotCount, int stackLimit) {
@@ -385,31 +413,25 @@ public class RequestTablePipe extends PipeBlockRequestTable implements IRequestF
         return amount;
     }
 
-    /**
-     * Counts matching fluid in the internal fluid storage.
-     *
-     * @param fluidContainer logistics fluid-container identifier
-     * @return amount currently held internally in millibuckets
-     */
-    public int getStoredFluidAmount(ItemIdentifier fluidContainer) {
-        if (!isFluidEnabled()) {
-            return 0;
+    /** Applies installed request-table storage upgrades to the item and fluid backing stores. */
+    public void updateStorageUpgrades() {
+        if (container == null || getWorld() == null || MainProxy.isClient(getWorld())) return;
+
+        RequestTableStorageUpgradeConfig itemUpgrades = RequestTableStorageUpgradeConfig.getConfigured();
+        int itemSlotCount = itemUpgrades.getTotal(RequestTableUpgradeBranch.SLOT_COUNT, itemSlotTier);
+        int itemStackLimit = itemUpgrades.getTotal(RequestTableUpgradeBranch.SLOT_SIZE, itemSizeTier);
+        adjustItemStorageForUpgrades(itemSlotCount, itemStackLimit);
+
+        RequestTableStorageUpgradeConfig fluidUpgrades = RequestTableStorageUpgradeConfig.getConfigured(true);
+        int fluidSlotCount = fluidUpgrades.getTotal(RequestTableUpgradeBranch.FLUID_SLOT_COUNT, fluidSlotTier);
+        int fluidSlotCapacity = fluidUpgrades.getTotal(RequestTableUpgradeBranch.FLUID_SLOT_SIZE, fluidSizeTier);
+        boolean fluidStorageChanged = fluidStorage.getSizeInventory() != fluidSlotCount
+                || fluidStorage.getSlotCapacity() != fluidSlotCapacity;
+        if (getWorld() != null)
+            fluidStorage.resize(fluidSlotCount, fluidSlotCapacity, getWorld(), getX(), getY(), getZ());
+        if (fluidStorageChanged) {
+            requestNetworkContentUpdate();
         }
-        updateStorageUpgrades();
-        FluidStack requested = SimpleServiceLocator.logisticsFluidManager
-                .getFluidFromContainer(new ItemIdentifierStack(fluidContainer, 1));
-        if (requested == null) {
-            return 0;
-        }
-        FluidIdentifier requestedFluid = FluidIdentifier.get(requested);
-        int amount = 0;
-        for (int slot = 0; slot < fluidStorage.getSizeInventory(); slot++) {
-            FluidStack stored = fluidStorage.getFluid(slot);
-            if (stored != null && requestedFluid.equals(FluidIdentifier.get(stored))) {
-                amount += stored.amount;
-            }
-        }
-        return amount;
     }
 
     /**
@@ -673,6 +695,33 @@ public class RequestTablePipe extends PipeBlockRequestTable implements IRequestF
         return cursor;
     }
 
+    /**
+     * Counts matching fluid in the internal fluid storage.
+     *
+     * @param fluidContainer logistics fluid-container identifier
+     * @return amount currently held internally in millibuckets
+     */
+    public int getStoredFluidAmount(ItemIdentifier fluidContainer) {
+        if (!isFluidEnabled()) {
+            return 0;
+        }
+        updateStorageUpgrades();
+        FluidStack requested = SimpleServiceLocator.logisticsFluidManager
+                .getFluidFromContainer(new ItemIdentifierStack(fluidContainer, 1));
+        if (requested == null) {
+            return 0;
+        }
+        FluidIdentifier requestedFluid = FluidIdentifier.get(requested);
+        long amount = 0;
+        for (int slot = 0; slot < fluidStorage.getSizeInventory(); slot++) {
+            FluidStack stored = fluidStorage.getFluid(slot);
+            if (stored != null && requestedFluid.equals(FluidIdentifier.get(stored))) {
+                amount += stored.amount;
+            }
+        }
+        return (int) Math.min(Integer.MAX_VALUE, amount);
+    }
+
     private ItemStack emptyContainerIntoInternal(RequestTableFluidStorage storage, ItemStack cursor, FluidStack held) {
         if (cursor.getItem() instanceof IFluidContainerItem container) {
             ItemStack drainedContainer = cursor.copy();
@@ -695,13 +744,7 @@ public class RequestTablePipe extends PipeBlockRequestTable implements IRequestF
             FluidStack inserted = held.copy();
             inserted.amount = accepted;
             storage.fill(inserted, true);
-            int remaining = held.amount - accepted;
-            if (remaining <= 0) {
-                return new ItemStack(LogisticsPipes.LogisticsFluidContainer, 1);
-            }
-            FluidStack leftover = held.copy();
-            leftover.amount = remaining;
-            return SimpleServiceLocator.logisticsFluidManager.getFluidContainer(leftover).makeNormalStack();
+            return getItemStack(held, accepted);
         }
         int accepted = storage.fill(held, false);
         if (accepted < held.amount) {
@@ -713,21 +756,6 @@ public class RequestTablePipe extends PipeBlockRequestTable implements IRequestF
         }
         storage.fill(held, true);
         return empty;
-    }
-
-    private FluidStack getContainedFluid(ItemStack stack) {
-        if (stack == null) {
-            return null;
-        }
-        if (stack.getItem() instanceof IFluidContainerItem) {
-            return ((IFluidContainerItem) stack.getItem()).drain(stack.copy(), Integer.MAX_VALUE, false);
-        }
-        FluidStack fluid = FluidContainerRegistry.getFluidForFilledItem(stack);
-        if (fluid != null) {
-            return fluid;
-        }
-        return SimpleServiceLocator.logisticsFluidManager
-                .getFluidFromContainer(ItemIdentifierStack.getFromStack(stack));
     }
 
     @Override
@@ -877,47 +905,8 @@ public class RequestTablePipe extends PipeBlockRequestTable implements IRequestF
         return result;
     }
 
-    /** Counts output items from table storage followed by this player's main inventory, including the hotbar. */
-    public int getCraftableAmount(EntityPlayer player) {
-        IRecipe recipe = getCurrentRecipe();
-        ItemStack expectedResult = resultInv.getStackInSlot(0);
-        if (recipe == null || expectedResult == null) {
-            return 0;
-        }
-        int internalSlots = inv.getSizeInventory();
-        ItemStack[] stored = new ItemStack[internalSlots + player.inventory.mainInventory.length];
-        ItemStack[] pattern = new ItemStack[matrix.getSizeInventory()];
-        for (int i = 0; i < internalSlots; i++) {
-            stored[i] = inv.getStackInSlot(i);
-        }
-        System.arraycopy(player.inventory.mainInventory, 0, stored, internalSlots, player.inventory.mainInventory.length);
-        for (int i = 0; i < pattern.length; i++) {
-            pattern[i] = matrix.getStackInSlot(i);
-        }
-        return RequestTableCraftingCounter.count(
-            stored,
-            pattern,
-            (expected, candidate) -> matchesIngredient(
-                ItemIdentifier.get(expected),
-                ItemIdentifier.get(candidate),
-                true),
-            (expected, candidate) -> matchesIngredient(
-                ItemIdentifier.get(expected),
-                ItemIdentifier.get(candidate),
-                false),
-            inputs -> {
-                AutoCraftingInventory preview = new AutoCraftingInventory(null);
-                for (int i = 0; i < inputs.length; i++) {
-                    preview.setInventorySlotContents(i, inputs[i]);
-                }
-                if (!recipe.matches(preview, getWorld())) {
-                    return null;
-                }
-                ItemStack result = recipe.getCraftingResult(preview);
-                return result != null
-                    && ItemIdentifier.get(expectedResult).equalsWithoutNBT(ItemIdentifier.get(result)) ? result
-                    : null;
-            });
+    private FluidStack getContainedFluid(ItemStack stack) {
+        return getFluidStack(stack);
     }
 
     private CraftingPreview getCraftingPreview(EntityPlayer player) {
@@ -1240,16 +1229,63 @@ public class RequestTablePipe extends PipeBlockRequestTable implements IRequestF
         super.onAllowedRemoval();
         if (MainProxy.isServer(getWorld())) {
             fluidStorage.dropContents(getWorld(), getX(), getY(), getZ());
-            fluidUpgradeInventory.dropContents(getWorld(), getX(), getY(), getZ());
         }
+    }
+
+    /** Counts output items from table storage followed by this player's main inventory, including the hotbar. */
+    public int getCraftableAmount(EntityPlayer player) {
+        IRecipe recipe = getCurrentRecipe();
+        ItemStack expectedResult = resultInv.getStackInSlot(0);
+        if (recipe == null || expectedResult == null) {
+            return 0;
+        }
+        int internalSlots = inv.getSizeInventory();
+        ItemStack[] stored = new ItemStack[internalSlots + player.inventory.mainInventory.length];
+        ItemStack[] pattern = new ItemStack[matrix.getSizeInventory()];
+        for (int i = 0; i < internalSlots; i++) {
+            stored[i] = inv.getStackInSlot(i);
+        }
+        System.arraycopy(
+            player.inventory.mainInventory,
+            0,
+            stored,
+            internalSlots,
+            player.inventory.mainInventory.length);
+        for (int i = 0; i < pattern.length; i++) {
+            pattern[i] = matrix.getStackInSlot(i);
+        }
+        return RequestTableCraftingCounter.count(
+            stored,
+            pattern,
+            (expected, candidate) -> matchesIngredient(
+                ItemIdentifier.get(expected),
+                ItemIdentifier.get(candidate),
+                true),
+            (expected, candidate) -> matchesIngredient(
+                ItemIdentifier.get(expected),
+                ItemIdentifier.get(candidate),
+                false),
+            inputs -> {
+                AutoCraftingInventory preview = new AutoCraftingInventory(null);
+                for (int i = 0; i < inputs.length; i++) {
+                    preview.setInventorySlotContents(i, inputs[i]);
+                }
+                if (!recipe.matches(preview, getWorld())) {
+                    return null;
+                }
+                ItemStack result = recipe.getCraftingResult(preview);
+                return result != null
+                    && ItemIdentifier.get(expectedResult).equalsWithoutNBT(ItemIdentifier.get(result)) ? result
+                    : null;
+            });
     }
 
     @Override
     public void readFromNBT(NBTTagCompound tag) {
         super.readFromNBT(tag);
-        readItemUpgradeData(tag);
+        readStorageUpgradeData(tag);
         fluidStorage.readFromNBT(tag, NBT_FLUID_STORAGE);
-        fluidUpgradeInventory.readFromNBT(tag, NBT_FLUID_UPGRADE);
+        migrateControllerCards(tag);
         displaySettingsStore.readFromNBT(tag, NBT_DISPLAY_SETTINGS);
         updateStorageUpgrades();
     }
@@ -1258,10 +1294,28 @@ public class RequestTablePipe extends PipeBlockRequestTable implements IRequestF
     public void writeToNBT(NBTTagCompound tag) {
         updateStorageUpgrades();
         super.writeToNBT(tag);
-        writeItemUpgradeData(tag);
+        writeStorageUpgradeData(tag);
         fluidStorage.writeToNBT(tag, NBT_FLUID_STORAGE);
-        fluidUpgradeInventory.writeToNBT(tag, NBT_FLUID_UPGRADE);
+        tag.removeTag(NBT_FLUID_UPGRADE + "items");
+        tag.removeTag(NBT_FLUID_UPGRADE + "itemsCount");
         displaySettingsStore.writeToNBT(tag, NBT_DISPLAY_SETTINGS);
+    }
+
+    /** Convert cards from older table saves into unlocks so stored fluids remain accessible. */
+    private void migrateControllerCards(NBTTagCompound tag) {
+        SimpleStackInventory legacyFluid = new SimpleStackInventory(1, "Legacy fluid upgrade", 1);
+        legacyFluid.readFromNBT(tag, NBT_FLUID_UPGRADE);
+        ItemStack fluidCard = legacyFluid.getStackInSlot(0);
+        if (isControllerCard(fluidCard, ItemUpgrade.LIQUID_CRAFTING)) fluidControllerUnlocked = true;
+        SimpleStackInventory legacyUpgrades = getOriginalUpgradeManager().getInv();
+        for (int slot = 0; !monitoringUnlocked && slot < legacyUpgrades.getSizeInventory(); slot++) {
+            if (isControllerCard(legacyUpgrades.getStackInSlot(slot), ItemUpgrade.CRAFTING_MONITORING)) {
+                monitoringUnlocked = true;
+                // Older monitor slots could contain a stack: consume one and retain any extra cards for normal drops.
+                legacyUpgrades.decrStackSize(slot, 1);
+                legacyUpgrades.markDirty();
+            }
+        }
     }
 
     private static class IngredientUse {

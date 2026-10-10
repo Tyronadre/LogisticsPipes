@@ -53,7 +53,7 @@ public class ItemLogisticsPipe extends LogisticsItem {
     @Override
     public void addInformation(ItemStack stack, EntityPlayer player, List<String> list, boolean flags) {
         StringUtils.addShiftAddition(stack, list);
-        RequestTablePipe.addItemUpgradeTooltip(stack, list);
+        RequestTablePipe.addStorageUpgradeTooltip(stack, list);
     }
 
     @Override

@@ -1,5 +1,14 @@
 package logisticspipes.network.packets.crafting.requesttable;
 
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+
+import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.inventory.Slot;
+import net.minecraft.item.ItemStack;
+import net.minecraftforge.fluids.FluidStack;
+
 import logisticspipes.crafting.requesttable.RequestTableContainer;
 import logisticspipes.crafting.requesttable.RequestTablePipe;
 import logisticspipes.network.LPDataInputStream;
@@ -7,14 +16,6 @@ import logisticspipes.network.LPDataOutputStream;
 import logisticspipes.network.PacketGuards;
 import logisticspipes.network.abstractpackets.CoordinatesPacket;
 import logisticspipes.network.abstractpackets.ModernPacket;
-import net.minecraft.entity.player.EntityPlayer;
-import net.minecraft.inventory.Slot;
-import net.minecraft.item.ItemStack;
-import net.minecraftforge.fluids.FluidStack;
-
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
 
 /** Synchronizes the open table's layout, items, actual fluids, and cursor using integer amounts. */
 public class RequestTableInventoryPacket extends CoordinatesPacket {
@@ -27,6 +28,10 @@ public class RequestTableInventoryPacket extends CoordinatesPacket {
     private int craftableAmount;
     private int itemSlotTier;
     private int itemSizeTier;
+    private int fluidSlotTier;
+    private int fluidSizeTier;
+    private boolean fluidController;
+    private boolean monitoring;
     private List<ItemStack> contents = new ArrayList<>();
     private List<FluidStack> fluids = new ArrayList<>();
     private ItemStack cursor;
@@ -45,6 +50,10 @@ public class RequestTableInventoryPacket extends CoordinatesPacket {
         craftableAmount = container.getCraftableAmount();
         itemSlotTier = table.getItemSlotTier();
         itemSizeTier = table.getItemSizeTier();
+        fluidSlotTier = table.getFluidSlotTier();
+        fluidSizeTier = table.getFluidSizeTier();
+        fluidController = table.isFluidEnabled();
+        monitoring = table.hasMonitoringUpgrade();
         contents = new ArrayList<>();
         for (Object entry : container.inventorySlots) {
             Slot slot = (Slot) entry;
@@ -80,6 +89,8 @@ public class RequestTableInventoryPacket extends CoordinatesPacket {
             return;
         }
         table.applyItemUpgradeTiers(itemSlotTier, itemSizeTier);
+        table.applyFluidUpgradeTiers(fluidSlotTier, fluidSizeTier);
+        table.applySpecialUpgrades(fluidController, monitoring);
         container.applyInventory(itemSlots, itemStackLimit, fluidSlotCapacity, craftableAmount, contents, fluids);
         player.inventory.setItemStack(cursor);
     }
@@ -95,6 +106,10 @@ public class RequestTableInventoryPacket extends CoordinatesPacket {
         data.writeInt(craftableAmount);
         data.writeInt(itemSlotTier);
         data.writeInt(itemSizeTier);
+        data.writeInt(fluidSlotTier);
+        data.writeInt(fluidSizeTier);
+        data.writeBoolean(fluidController);
+        data.writeBoolean(monitoring);
         data.writeList(contents, LPDataOutputStream::writeItemStack);
         data.writeList(fluids, LPDataOutputStream::writeFluidStack);
         data.writeItemStack(cursor);
@@ -111,6 +126,10 @@ public class RequestTableInventoryPacket extends CoordinatesPacket {
         craftableAmount = data.readInt();
         itemSlotTier = data.readInt();
         itemSizeTier = data.readInt();
+        fluidSlotTier = data.readInt();
+        fluidSizeTier = data.readInt();
+        fluidController = data.readBoolean();
+        monitoring = data.readBoolean();
         contents = data.readList(LPDataInputStream::readItemStack);
         fluids = data.readList(LPDataInputStream::readFluidStack);
         cursor = data.readItemStack();
